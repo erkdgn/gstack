@@ -3,15 +3,15 @@ name: qa
 preamble-tier: 4
 version: 2.0.0
 description: |
-  Systematically QA test a web application and fix bugs found. Runs QA testing,
-  then iteratively fixes bugs in source code, committing each fix atomically and
-  re-verifying. Use when asked to "qa", "QA", "test this site", "find bugs",
-  "test and fix", or "fix what's broken".
-  Proactively suggest when the user says a feature is ready for testing
-  or asks "does this work?". Three tiers: Quick (critical/high only),
-  Standard (+ medium), Exhaustive (+ cosmetic). Produces before/after health scores,
-  fix evidence, and a ship-readiness summary. For report-only mode, use /qa-only. (gstack)
-  Voice triggers (speech-to-text aliases): "quality check", "test the app", "run QA".
+  Bir web uygulamasını sistematik olarak QA test eder ve bulunan hataları düzeltir. QA testi
+  çalıştırır, ardından kaynak koddaki hataları yinelemeli olarak düzeltir, her düzeltmeyi atomik
+  olarak commit eder ve yeniden doğrular. "qa", "QA", "bu siteyi test et", "hata bul",
+  "test et ve düzelt" veya "bozuk olanı düzelt" istendiğinde kullanın.
+  Kullanıcı bir özelliğin test edilmeye hazır olduğunu söylediğinde veya "bu çalışıyor mu?"
+  diye sorduğunda proaktif olarak önerin. Üç kademe: Hızlı (yalnızca kritik/yüksek),
+  Standart (+ orta), Kapsamlı (+ kozmetik). Önce/sonra sağlık skorları, düzeltme
+  kanıtları ve gönderime hazırlık özeti üretir. Yalnızca rapor modu için /qa-only kullanın. (gstack)
+  Ses tetikleyicileri (konuşmadan metne takma adlar): "kalite kontrolü", "uygulamayı test et", "QA çalıştır".
 allowed-tools:
   - Bash
   - Read
@@ -808,31 +808,31 @@ branch name wherever the instructions say "the base branch" or `<default>`.
 
 
 
-# /qa: Test → Fix → Verify
+# /qa: Test Et → Düzelt → Doğrula
 
-You are a QA engineer AND a bug-fix engineer. Test web applications like a real user — click everything, fill every form, check every state. When you find bugs, fix them in source code with atomic commits, then re-verify. Produce a structured report with before/after evidence.
+Bir QA mühendisi VE hata düzeltme mühendisisiniz. Web uygulamalarını gerçek bir kullanıcı gibi test edin — her şeye tıklayın, her formu doldurun, her durumu kontrol edin. Hata bulduğunuzda, kaynak kodda atomik commit'lerle düzeltin, ardından yeniden doğrulayın. Önce/sonra kanıtlarla yapılandırılmış bir rapor üretin.
 
-## Setup
+## Kurulum
 
-**Parse the user's request for these parameters:**
+**Kullanıcının isteğinden şu parametreleri ayrıştırın:**
 
-| Parameter | Default | Override example |
+| Parametre | Varsayılan | Geçersiz kılma örneği |
 |-----------|---------|-----------------:|
-| Target URL | (auto-detect or required) | `https://myapp.com`, `http://localhost:3000` |
-| Tier | Standard | `--quick`, `--exhaustive` |
-| Mode | full | `--regression .gstack/qa-reports/baseline.json` |
-| Output dir | `.gstack/qa-reports/` | `Output to /tmp/qa` |
-| Scope | Full app (or diff-scoped) | `Focus on the billing page` |
-| Auth | None | `Sign in to user@example.com`, `Import cookies from cookies.json` |
+| Hedef URL | (otomatik algıla veya gerekli) | `https://myapp.com`, `http://localhost:3000` |
+| Kademe | Standart | `--quick`, `--exhaustive` |
+| Mod | tam | `--regression .gstack/qa-reports/baseline.json` |
+| Çıktı dizini | `.gstack/qa-reports/` | `Çıktıyı /tmp/qa dizinine al` |
+| Kapsam | Tam uygulama (veya diff kapsamlı) | `Faturalandırma sayfasına odaklan` |
+| Kimlik doğrulama | Yok | `user@example.com olarak giriş yap`, `cookies.json'dan çerezleri içe aktar` |
 
-**Tiers determine which issues get fixed:**
-- **Quick:** Fix critical + high severity only
-- **Standard:** + medium severity (default)
-- **Exhaustive:** + low/cosmetic severity
+**Kademeler hangi sorunların düzeltileceğini belirler:**
+- **Hızlı:** Yalnızca kritik + yüksek şiddetli sorunları düzelt
+- **Standart:** + orta şiddet (varsayılan)
+- **Kapsamlı:** + düşek/kozmetik şiddet
 
-**If no URL is given and you're on a feature branch:** Automatically enter **diff-aware mode** (see Modes below). This is the most common case — the user just shipped code on a branch and wants to verify it works.
+**URL verilmemişse ve bir özellik dalındaysanız:** Otomatik olarak **diff-farkında moda** geçin (aşağıdaki Modlar bölümüne bakın). Bu en yaygın durumdur — kullanıcı bir dalda kod gönderdi ve çalıştığını doğrulamak istiyor.
 
-**CDP mode detection:** Before starting, check if the browse server is connected to the user's real browser:
+**CDP mod algılama:** Başlamadan önce, tarama sunucusunun kullanıcının gerçek tarayıcısına bağlı olup olmadığını kontrol edin:
 ```bash
 $B status 2>/dev/null | grep -q "Mode: cdp" && echo "CDP_MODE=true" || echo "CDP_MODE=false"
 ```
@@ -894,11 +894,11 @@ If `NEEDS_SETUP`:
    fi
    ```
 
-**Check test framework (bootstrap if needed):**
+**Test çerçevesini kontrol et (gerekiyorsa önyükle):**
 
-## Test Framework Bootstrap
+## Test Çerçevesi Önyüklemesi
 
-**Detect existing test framework and project runtime:**
+**Mevcut test çerçevesini ve proje çalışma zamanını algıla:**
 
 ```bash
 setopt +o nomatch 2>/dev/null || true  # zsh compat
@@ -920,27 +920,27 @@ ls -d test/ tests/ spec/ __tests__/ cypress/ e2e/ 2>/dev/null
 [ -f .gstack/no-test-bootstrap ] && echo "BOOTSTRAP_DECLINED"
 ```
 
-**If test framework detected** (config files or test directories found):
-Print "Test framework detected: {name} ({N} existing tests). Skipping bootstrap."
-Read 2-3 existing test files to learn conventions (naming, imports, assertion style, setup patterns).
-Store conventions as prose context for use in Phase 8e.5 or Step 7. **Skip the rest of bootstrap.**
+**Test çerçevesi algılandıysa** (yapılandırma dosyaları veya test dizinleri bulundu):
+"Test çerçevesi algılandı: {ad} ({N} mevcut test). Önyükleme atlanıyor." yazdırın.
+Kuralları öğrenmek için 2-3 mevcut test dosyasını okuyun (adlandırma, içe aktarmalar, iddia tarzı, kurulum örüntüleri).
+Kuralları Aşama 8e.5 veya Adım 7'de kullanmak üzere düzyazı bağlamı olarak saklayın. **Önyüklemenin geri kalanını atlayın.**
 
-**If BOOTSTRAP_DECLINED** appears: Print "Test bootstrap previously declined — skipping." **Skip the rest of bootstrap.**
+**BOOTSTRAP_DECLINED** görünürse: "Test önyüklemesi daha önce reddedildi — atlanıyor." yazdırın. **Önyüklemenin geri kalanını atlayın.**
 
-**If NO runtime detected** (no config files found): Use AskUserQuestion:
-"I couldn't detect your project's language. What runtime are you using?"
-Options: A) Node.js/TypeScript B) Ruby/Rails C) Python D) Go E) Rust F) PHP G) Elixir H) This project doesn't need tests.
-If user picks H → write `.gstack/no-test-bootstrap` and continue without tests.
+**Çalışma zamanı algılanamazsa** (yapılandırma dosyası bulunamazsa): AskUserQuestion kullanın:
+"Projenizin dilini algılayamadım. Hangi çalışma zamanını kullanıyorsunuz?"
+Seçenekler: A) Node.js/TypeScript B) Ruby/Rails C) Python D) Go E) Rust F) PHP G) Elixir H) Bu projenin teste ihtiyacı yok.
+Kullanıcı H'yi seçerse → `.gstack/no-test-bootstrap` yazın ve test olmadan devam edin.
 
-**If runtime detected but no test framework — bootstrap:**
+**Çalışma zamanı algılandıysa ancak test çerçevesi yoksa — önyükle:**
 
-### B2. Research best practices
+### B2. En iyi uygulamaları araştırın
 
-Use WebSearch to find current best practices for the detected runtime:
-- `"[runtime] best test framework 2025 2026"`
-- `"[framework A] vs [framework B] comparison"`
+Algılanan çalışma zamanı için güncel en iyi uygulamaları bulmak üzere WebSearch kullanın:
+- `"[çalışma zamanı] en iyi test çerçevesi 2025 2026"`
+- `"[çerçeve A] vs [çerçeve B] karşılaştırması"`
 
-If WebSearch is unavailable, use this built-in knowledge table:
+WebSearch kullanılamıyorsa, bu yerleşik bilgi tablosunu kullanın:
 
 | Runtime | Primary recommendation | Alternative |
 |---------|----------------------|-------------|
@@ -953,50 +953,50 @@ If WebSearch is unavailable, use this built-in knowledge table:
 | PHP | phpunit + mockery | pest |
 | Elixir | ExUnit (built-in) + ex_machina | — |
 
-### B3. Framework selection
+### B3. Çerçeve seçimi
 
-Use AskUserQuestion:
-"I detected this is a [Runtime/Framework] project with no test framework. I researched current best practices. Here are the options:
-A) [Primary] — [rationale]. Includes: [packages]. Supports: unit, integration, smoke, e2e
-B) [Alternative] — [rationale]. Includes: [packages]
-C) Skip — don't set up testing right now
-RECOMMENDATION: Choose A because [reason based on project context]"
+AskUserQuestion kullanın:
+"Bu projenin [Çalışma Zamanı/Çerçeve] projesi olduğunu ve test çerçevesi olmadığını algıladım. Güncel en iyi uygulamaları araştırdım. Seçenekler:
+A) [Birincil] — [gerekçe]. İçerir: [paketler]. Destekler: birim, entegrasyon, duman, uçtan uca
+B) [Alternatif] — [gerekçe]. İçerir: [paketler]
+C) Atla — şu an test kurulumu yapma
+ÖNERİ: Proje bağlamına dayalı olarak [neden] nedeniyle A'yı seçin"
 
-If user picks C → write `.gstack/no-test-bootstrap`. Tell user: "If you change your mind later, delete `.gstack/no-test-bootstrap` and re-run." Continue without tests.
+Kullanıcı C'yi seçerse → `.gstack/no-test-bootstrap` yazın. Kullanıcıya söyleyin: "Fikrinizi değiştirirseniz, `.gstack/no-test-bootstrap` dosyasını silin ve yeniden çalıştırın." Test olmadan devam edin.
 
-If multiple runtimes detected (monorepo) → ask which runtime to set up first, with option to do both sequentially.
+Birden fazla çalışma zamanı algılandıysa (monorepo) → önce hangi çalışma zamanını kurmak istediğini sorun, sıralı olarak ikisini de yapma seçeneği sunun.
 
-### B4. Install and configure
+### B4. Kur ve yapılandır
 
-1. Install the chosen packages (npm/bun/gem/pip/etc.)
-2. Create minimal config file
-3. Create directory structure (test/, spec/, etc.)
-4. Create one example test matching the project's code to verify setup works
+1. Seçilen paketleri kurun (npm/bun/gem/pip/vb.)
+2. Minimum yapılandırma dosyası oluşturun
+3. Dizin yapısını oluşturun (test/, spec/, vb.)
+4. Kurulumun çalıştığını doğrulamak için projenin koduyla eşleşen bir örnek test oluşturun
 
-If package installation fails → debug once. If still failing → revert with `git checkout -- package.json package-lock.json` (or equivalent for the runtime). Warn user and continue without tests.
+Paket kurulumu başarısız olursa → bir kez hata ayıklayın. Hala başarısız olursa → `git checkout -- package.json package-lock.json` (veya çalışma zamanı için eşdeğeri) ile geri alın. Kullanıcıyı uyarın ve test olmadan devam edin.
 
-### B4.5. First real tests
+### B4.5. İlk gerçek testler
 
-Generate 3-5 real tests for existing code:
+Mevcut kod için 3-5 gerçek test oluşturun:
 
-1. **Find recently changed files:** `git log --since=30.days --name-only --format="" | sort | uniq -c | sort -rn | head -10`
-2. **Prioritize by risk:** Error handlers > business logic with conditionals > API endpoints > pure functions
-3. **For each file:** Write one test that tests real behavior with meaningful assertions. Never `expect(x).toBeDefined()` — test what the code DOES.
-4. Run each test. Passes → keep. Fails → fix once. Still fails → delete silently.
-5. Generate at least 1 test, cap at 5.
+1. **Son değiştirilen dosyaları bulun:** `git log --since=30.days --name-only --format="" | sort | uniq -c | sort -rn | head -10`
+2. **Riske göre önceliklendirin:** Hata işleyiciler > koşullu iş mantığı > API uç noktaları > saf fonksiyonlar
+3. **Her dosya için:** Anlamlı iddialarla gerçek davranışı test eden bir test yazın. Asla `expect(x).toBeDefined()` kullanmayın — kodun NE YAPTIĞINI test edin.
+4. Her testi çalıştırın. Geçen → tutun. Başarısız → bir kez düzeltin. Hala başarısız → sessizce silin.
+5. En az 1 test oluşturun, en fazla 5 ile sınırlayın.
 
-Never import secrets, API keys, or credentials in test files. Use environment variables or test fixtures.
+Test dosyalarında asla gizli bilgiler, API anahtarları veya kimlik bilgileri içe aktarmayın. Ortam değişkenleri veya test bağlantı nesneleri kullanın.
 
-### B5. Verify
+### B5. Doğrula
 
 ```bash
 # Run the full test suite to confirm everything works
 {detected test command}
 ```
 
-If tests fail → debug once. If still failing → revert all bootstrap changes and warn user.
+Testler başarısız olursa → bir kez hata ayıklayın. Hala başarısız olursa → tüm önyükleme değişikliklerini geri alın ve kullanıcıyı uyarın.
 
-### B5.5. CI/CD pipeline
+### B5.5. CI/CD boru hattı
 
 ```bash
 # Check CI provider
@@ -1004,53 +1004,53 @@ ls -d .github/ 2>/dev/null && echo "CI:github"
 ls .gitlab-ci.yml .circleci/ bitrise.yml 2>/dev/null
 ```
 
-If `.github/` exists (or no CI detected — default to GitHub Actions):
-Create `.github/workflows/test.yml` with:
+`.github/` mevcutsa (veya CI algılanamazsa — GitHub Actions varsayılan):
+Şunlarla `.github/workflows/test.yml` oluşturun:
 - `runs-on: ubuntu-latest`
-- Appropriate setup action for the runtime (setup-node, setup-ruby, setup-python, etc.)
-- The same test command verified in B5
-- Trigger: push + pull_request
+- Çalışma zamanı için uygun kurulum eylemi (setup-node, setup-ruby, setup-python, vb.)
+- B5'te doğrulanan aynı test komutu
+- Tetikleyici: push + pull_request
 
-If non-GitHub CI detected → skip CI generation with note: "Detected {provider} — CI pipeline generation supports GitHub Actions only. Add test step to your existing pipeline manually."
+GitHub dışı CI algılanırsa → CI oluşturmayı "{sağlayıcı} algılandı — CI boru hattı oluşturma yalnızca GitHub Actions'ı destekler. Mevcut boru hattınıza test adımını manuel olarak ekleyin." notuyla atlayın.
 
-### B6. Create TESTING.md
+### B6. TESTING.md Oluştur
 
-First check: If TESTING.md already exists → read it and update/append rather than overwriting. Never destroy existing content.
+Önce kontrol edin: TESTING.md zaten mevcutsa → okuyun ve üzerine yazmak yerine güncelleyin/ekleyin. Mevcut içeriği asla yok etmeyin.
 
-Write TESTING.md with:
-- Philosophy: "100% test coverage is the key to great vibe coding. Tests let you move fast, trust your instincts, and ship with confidence — without them, vibe coding is just yolo coding. With tests, it's a superpower."
-- Framework name and version
-- How to run tests (the verified command from B5)
-- Test layers: Unit tests (what, where, when), Integration tests, Smoke tests, E2E tests
-- Conventions: file naming, assertion style, setup/teardown patterns
+TESTING.md'yi şunlarla yazın:
+- Felsefe: "%100 test kapsamı harika vibe kodlamanın anahtarıdır. Testler hızlı hareket etmenizi, içgüdülerinize güvenmenizi ve güvenle göndermenizi sağlar — onlarsız, vibe kodlama sadece yolo kodlamadır. Testlerle, bir süper güçtür."
+- Çerçeve adı ve sürümü
+- Testler nasıl çalıştırılır (B5'ten doğrulanan komut)
+- Test katmanları: Birim testleri (ne, nerede, ne zaman), Entegrasyon testleri, Duman testleri, Uçtan uca testler
+- Kurallar: dosya adlandırma, iddia tarzı, kurulum/söküm örüntüleri
 
-### B7. Update CLAUDE.md
+### B7. CLAUDE.md'yi Güncelle
 
-First check: If CLAUDE.md already has a `## Testing` section → skip. Don't duplicate.
+Önce kontrol edin: CLAUDE.md'de zaten bir `## Testing` bölümü varsa → atlayın. Çoğaltmayın.
 
-Append a `## Testing` section:
-- Run command and test directory
-- Reference to TESTING.md
-- Test expectations:
-  - 100% test coverage is the goal — tests make vibe coding safe
-  - When writing new functions, write a corresponding test
-  - When fixing a bug, write a regression test
-  - When adding error handling, write a test that triggers the error
-  - When adding a conditional (if/else, switch), write tests for BOTH paths
-  - Never commit code that makes existing tests fail
+Bir `## Testing` bölümü ekleyin:
+- Çalıştırma komutu ve test dizini
+- TESTING.md referansı
+- Test beklentileri:
+  - %100 test kapsamı hedeftir — testler vibe kodlamayı güvenli kılar
+  - Yeni fonksiyonlar yazarken, karşılık gelen bir test yazın
+  - Bir hatayı düzeltirken, bir regresyon testi yazın
+  - Hata işleme eklerken, hatayı tetikleyen bir test yazın
+  - Koşullu (if/else, switch) eklerken, HER İKİ yol için test yazın
+  - Mevcut testleri başarısız kılan kodu asla commit etmeyin
 
-### B8. Commit
+### B8. Commit (İşle)
 
 ```bash
 git status --porcelain
 ```
 
-Only commit if there are changes. Stage all bootstrap files (config, test directory, TESTING.md, CLAUDE.md, .github/workflows/test.yml if created):
+Yalnızca değişiklik varsa commit edin. Tüm önyükleme dosyalarını sahneye koyun (yapılandırma, test dizini, TESTING.md, CLAUDE.md, oluşturulduysa .github/workflows/test.yml):
 `git commit -m "chore: bootstrap test framework ({framework name})"`
 
 ---
 
-**Create output directories:**
+**Çıktı dizinlerini oluştur:**
 
 ```bash
 mkdir -p .gstack/qa-reports/screenshots
@@ -1058,9 +1058,9 @@ mkdir -p .gstack/qa-reports/screenshots
 
 ---
 
-## Prior Learnings
+## Önceki Öğrenmeler
 
-Search for relevant learnings from previous sessions:
+Önceki oturumlardan ilgili öğrenmeleri arayın:
 
 ```bash
 _CROSS_PROJ=$(~/.claude/skills/gstack/bin/gstack-config get cross_project_learnings 2>/dev/null || echo "unset")
@@ -1072,118 +1072,118 @@ else
 fi
 ```
 
-If `CROSS_PROJECT` is `unset` (first time): Use AskUserQuestion:
+`CROSS_PROJECT` `unset` ise (ilk kez): AskUserQuestion kullanın:
 
-> gstack can search learnings from your other projects on this machine to find
-> patterns that might apply here. This stays local (no data leaves your machine).
-> Recommended for solo developers. Skip if you work on multiple client codebases
-> where cross-contamination would be a concern.
+> gstack bu makinedeki diğer projelerinizden öğrenmeleri arayarak burada
+> uygulanabilecek örüntüleri bulabilir. Bu yerel kalır (veriler makinenizi terk etmez).
+> Bağımsız geliştiriciler için önerilir. Çapraz bulaşma endişesi olabilecek
+> birden fazla müşteri kod tabanında çalışıyorsanız atlayın.
 
-Options:
-- A) Enable cross-project learnings (recommended)
-- B) Keep learnings project-scoped only
+Seçenekler:
+- A) Çapraz proje öğrenmelerini etkinleştir (önerilen)
+- B) Öğrenmeleri yalnızca proje kapsamında tut
 
-If A: run `~/.claude/skills/gstack/bin/gstack-config set cross_project_learnings true`
-If B: run `~/.claude/skills/gstack/bin/gstack-config set cross_project_learnings false`
+A ise: `~/.claude/skills/gstack/bin/gstack-config set cross_project_learnings true` çalıştırın
+B ise: `~/.claude/skills/gstack/bin/gstack-config set cross_project_learnings false` çalıştırın
 
-Then re-run the search with the appropriate flag.
+Ardından uygun bayrakla aramayı yeniden çalıştırın.
 
-If learnings are found, incorporate them into your analysis. When a review finding
-matches a past learning, display:
+Öğrenmeler bulunduysa, bunları analizine dahil edin. Bir inceleme bulgusu
+geçmiş bir öğrenmeyle eşleştiğinde, görüntüleyin:
 
-**"Prior learning applied: [key] (confidence N/10, from [date])"**
+**"Önceki öğrenme uygulandı: [anahtar] (güven N/10, [tarih] tarihinden)"**
 
-This makes the compounding visible. The user should see that gstack is getting
-smarter on their codebase over time.
+Bu bileşik etkiyi görünür kılar. Kullanıcı gstack'in kod tabanında zamanla
+daha akıllı hale geldiğini görmelidir.
 
-## Test Plan Context
+## Test Planı Bağlamı
 
-Before falling back to git diff heuristics, check for richer test plan sources:
+Git diff bulgularına geri dönmeden önce, daha zengin test planı kaynaklarını kontrol edin:
 
-1. **Project-scoped test plans:** Check `~/.gstack/projects/` for recent `*-test-plan-*.md` files for this repo
+1. **Proje kapsamlı test planları:** Bu depo için `~/.gstack/projects/` dizinindeki son `*-test-plan-*.md` dosyalarını kontrol edin
    ```bash
    setopt +o nomatch 2>/dev/null || true  # zsh compat
    eval "$(~/.claude/skills/gstack/bin/gstack-slug 2>/dev/null)"
    ls -t ~/.gstack/projects/$SLUG/*-test-plan-*.md 2>/dev/null | head -1
    ```
-2. **Conversation context:** Check if a prior `/plan-eng-review` or `/plan-ceo-review` produced test plan output in this conversation
-3. **Use whichever source is richer.** Fall back to git diff analysis only if neither is available.
+2. **Konuşma bağlamı:** Bu konuşmada önceki bir `/plan-eng-review` veya `/plan-ceo-review`'un test planı çıktısı üretip üretmediğini kontrol edin
+3. **Hangi kaynak daha zenginse onu kullanın.** İkisi de mevcut değilse git diff analizine geri dönün.
 
 ---
 
 ## Phases 1-6: QA Baseline
 
-## Modes
+## Modlar
 
-### Diff-aware (automatic when on a feature branch with no URL)
+### Diff-farkında (özellik dalında URL olmadığında otomatik)
 
-This is the **primary mode** for developers verifying their work. When the user says `/qa` without a URL and the repo is on a feature branch, automatically:
+Bu, geliştiricilerin çalışmalarını doğrulaması için **birincil moddur**. Kullanıcı URL olmadan `/qa` yazdığında ve depo bir özellik dalındaysa, otomatik olarak:
 
-1. **Analyze the branch diff** to understand what changed:
+1. **Dal farkını analiz edin** ve neyin değiştiğini anlayın:
    ```bash
    git diff main...HEAD --name-only
    git log main..HEAD --oneline
    ```
 
-2. **Identify affected pages/routes** from the changed files:
-   - Controller/route files → which URL paths they serve
-   - View/template/component files → which pages render them
-   - Model/service files → which pages use those models (check controllers that reference them)
-   - CSS/style files → which pages include those stylesheets
-   - API endpoints → test them directly with `$B js "await fetch('/api/...')"`
-   - Static pages (markdown, HTML) → navigate to them directly
+2. **Etkilenen sayfaları/yolları belirleyin** değiştirilen dosyalardan:
+   - Denetleyici/yol dosyaları → hangi URL yollarını sunar
+   - Görünüm/şablon/bileşen dosyaları → hangi sayfalar onları oluşturur
+   - Model/servis dosyaları → hangi sayfalar bu modelleri kullanır (onlara referans veren denetleyicileri kontrol edin)
+   - CSS/stil dosyaları → hangi sayfalar bu stil sayfalarını içerir
+   - API uç noktaları → doğrudan `$B js "await fetch('/api/...')"` ile test edin
+   - Statik sayfalar (markdown, HTML) → doğrudan gezinin
 
-   **If no obvious pages/routes are identified from the diff:** Do not skip browser testing. The user invoked /qa because they want browser-based verification. Fall back to Quick mode — navigate to the homepage, follow the top 5 navigation targets, check console for errors, and test any interactive elements found. Backend, config, and infrastructure changes affect app behavior — always verify the app still works.
+   **Difften açık bir sayfa/yol tanımlanamazsa:** Tarayıcı testini atlamayın. Kullanıcı /qa çağırdı çünkü tarayıcı tabanlı doğrulama istiyor. Hızlı moda geri dönün — ana sayfaya gidin, en iyi 5 gezinti hedefini izleyin, konsolu hatalar için kontrol edin ve bulunan etkileşimli öğeleri test edin. Arka uç, yapılandırma ve altyapı değişiklikleri uygulama davranışını etkiler — uygulamanın hala çalıştığını her zaman doğrulayın.
 
-3. **Detect the running app** — check common local dev ports:
+3. **Çalışan uygulamayı algıla** — yaygın yerel geliştirme bağlantı noktalarını kontrol edin:
    ```bash
    $B goto http://localhost:3000 2>/dev/null && echo "Found app on :3000" || \
    $B goto http://localhost:4000 2>/dev/null && echo "Found app on :4000" || \
    $B goto http://localhost:8080 2>/dev/null && echo "Found app on :8080"
    ```
-   If no local app is found, check for a staging/preview URL in the PR or environment. If nothing works, ask the user for the URL.
+   Yerel uygulama bulunamazsa, PR veya ortamda bir hazırlık/önizleme URL'si olup olmadığını kontrol edin. Hiçbir şey çalışmazsa, kullanıcıdan URL'yi isteyin.
 
-4. **Test each affected page/route:**
-   - Navigate to the page
-   - Take a screenshot
-   - Check console for errors
-   - If the change was interactive (forms, buttons, flows), test the interaction end-to-end
-   - Use `snapshot -D` before and after actions to verify the change had the expected effect
+4. **Her etkilenen sayfayı/yolu test edin:**
+   - Sayfaya gidin
+   - Ekran görüntüsü alın
+   - Konsolu hatalar için kontrol edin
+   - Değişiklik etkileşimliyse (formlar, düğmeler, akışlar), etkileşimi uçtan uca test edin
+   - Değişikliğin beklenen etkiyi yaptığını doğrulamak için eylemlerden önce ve sonra `snapshot -D` kullanın
 
-5. **Cross-reference with commit messages and PR description** to understand *intent* — what should the change do? Verify it actually does that.
+5. **Commit mesajları ve PR açıklamasıyla çapraz referans** yapın — niyeti anlamak için: değişiklik ne yapmalı? Gerçekte bunu yaptığını doğrulayın.
 
-6. **Check TODOS.md** (if it exists) for known bugs or issues related to the changed files. If a TODO describes a bug that this branch should fix, add it to your test plan. If you find a new bug during QA that isn't in TODOS.md, note it in the report.
+6. **TODOS.md'yi kontrol edin** (varsa) değiştirilen dosyalarla ilgili bilinen hatalar veya sorunlar için. Bir TODO bu dalın düzeltmesi gereken bir hatayı açıklıyorsa, test planınıza ekleyin. QA sırasında TODOS.md'de olmayan yeni bir hata bulursanız, raporda not edin.
 
-7. **Report findings** scoped to the branch changes:
-   - "Changes tested: N pages/routes affected by this branch"
-   - For each: does it work? Screenshot evidence.
-   - Any regressions on adjacent pages?
+7. **Bulguları raporlayın** dal değişiklikleri kapsamında:
+   - "Test edilen değişiklikler: bu dalı etkileyen N sayfa/yol"
+   - Her biri için: çalışıyor mu? Ekran görüntüsü kanıtı.
+   - Bitişik sayfalarda herhangi bir regresyon var mı?
 
-**If the user provides a URL with diff-aware mode:** Use that URL as the base but still scope testing to the changed files.
+**Kullanıcı diff-farkında modda bir URL sağlarsa:** Bu URL'yi temel olarak kullanın ancak test kapsamını yine de değiştirilen dosyalara sınırlandırın.
 
-### Full (default when URL is provided)
-Systematic exploration. Visit every reachable page. Document 5-10 well-evidenced issues. Produce health score. Takes 5-15 minutes depending on app size.
+### Tam (URL sağlandığında varsayılan)
+Sistematik keşif. Ulaşılabilir her sayfayı ziyaret edin. 5-10 iyi kanıtlanmış sorunu belgelendirin. Sağlık skoru üretin. Uygulama boyutuna bağlı olarak 5-15 dakika sürer.
 
-### Quick (`--quick`)
-30-second smoke test. Visit homepage + top 5 navigation targets. Check: page loads? Console errors? Broken links? Produce health score. No detailed issue documentation.
+### Hızlı (`--quick`)
+30 saniyelik duman testi. Ana sayfa + en iyi 5 gezinti hedefini ziyaret edin. Kontrol edin: sayfa yükleniyor mu? Konsol hataları var mı? Bozuk bağlantılar var mı? Sağlık skoru üretin. Ayrıntılı sorun belgelendirmesi yok.
 
-### Regression (`--regression <baseline>`)
-Run full mode, then load `baseline.json` from a previous run. Diff: which issues are fixed? Which are new? What's the score delta? Append regression section to report.
+### Regresyon (`--regression <baseline>`)
+Tam modu çalıştırın, ardından önceki bir çalıştırmadan `baseline.json` dosyasını yükleyin. Fark: hangi sorunlar düzeltildi? Hangileri yeni? Skor farkı ne? Rapora regresyon bölümünü ekleyin.
 
 ---
 
-## Workflow
+## İş Akışı
 
-### Phase 1: Initialize
+### Aşama 1: Başlat
 
-1. Find browse binary (see Setup above)
-2. Create output directories
-3. Copy report template from `qa/templates/qa-report-template.md` to output dir
-4. Start timer for duration tracking
+1. Tarama ikilisini bulun (yukarıdaki Kurulum'a bakın)
+2. Çıktı dizinlerini oluşturun
+3. Rapor şablonunu `qa/templates/qa-report-template.md`'den çıktı dizinine kopyalayın
+4. Süre takibi için zamanlayıcıyı başlatın
 
-### Phase 2: Authenticate (if needed)
+### Aşama 2: Kimlik Doğrulama (gerekirse)
 
-**If the user specified auth credentials:**
+**Kullanıcı kimlik doğrulama bilgileri belirttiyse:**
 
 ```bash
 $B goto <login-url>
@@ -1194,20 +1194,20 @@ $B click @e5                      # submit
 $B snapshot -D                    # verify login succeeded
 ```
 
-**If the user provided a cookie file:**
+**Kullanıcı bir çerez dosyası sağladıysa:**
 
 ```bash
 $B cookie-import cookies.json
 $B goto <target-url>
 ```
 
-**If 2FA/OTP is required:** Ask the user for the code and wait.
+**2FA/OTP gerekiyorsa:** Kullanıcıdan kodu isteyin ve bekleyin.
 
-**If CAPTCHA blocks you:** Tell the user: "Please complete the CAPTCHA in the browser, then tell me to continue."
+**CAPTCHA sizi engellerse:** Kullanıcıya söyleyin: "Lütfen tarayıcıda CAPTCHA'yı tamamlayın, ardından devam etmemi söyleyin."
 
-### Phase 3: Orient
+### Aşama 3: Yönlendir
 
-Get a map of the application:
+Uygulamanın haritasını çıkarın:
 
 ```bash
 $B goto <target-url>
@@ -1216,17 +1216,17 @@ $B links                          # map navigation structure
 $B console --errors               # any errors on landing?
 ```
 
-**Detect framework** (note in report metadata):
+**Çerçeveyi algıla** (rapor meta verilerinde not et):
 - `__next` in HTML or `_next/data` requests → Next.js
 - `csrf-token` meta tag → Rails
 - `wp-content` in URLs → WordPress
 - Client-side routing with no page reloads → SPA
 
-**For SPAs:** The `links` command may return few results because navigation is client-side. Use `snapshot -i` to find nav elements (buttons, menu items) instead.
+**SPA'lar için:** `links` komutu az sonuç döndürebilir çünkü gezinti istemci tarafındadır. Bunun yerine gezinti öğelerini (düğmeler, menü öğeleri) bulmak için `snapshot -i` kullanın.
 
-### Phase 4: Explore
+### Aşama 4: Keşfet
 
-Visit pages systematically. At each page:
+Sayfaları sistematik olarak ziyaret edin. Her sayfada:
 
 ```bash
 $B goto <page-url>
@@ -1234,37 +1234,37 @@ $B snapshot -i -a -o "$REPORT_DIR/screenshots/page-name.png"
 $B console --errors
 ```
 
-Then follow the **per-page exploration checklist** (see `qa/references/issue-taxonomy.md`):
+Ardından **sayfa başına keşif kontrol listesini** izleyin (`qa/references/issue-taxonomy.md`'ye bakın):
 
-1. **Visual scan** — Look at the annotated screenshot for layout issues
-2. **Interactive elements** — Click buttons, links, controls. Do they work?
-3. **Forms** — Fill and submit. Test empty, invalid, edge cases
-4. **Navigation** — Check all paths in and out
-5. **States** — Empty state, loading, error, overflow
-6. **Console** — Any new JS errors after interactions?
-7. **Responsiveness** — Check mobile viewport if relevant:
+1. **Görsel tarama** — Açıklamalı ekran görüntüsünde düzen sorunlarını arayın
+2. **Etkileşimli öğeler** — Düğmelere, bağlantılara, kontrollere tıklayın. Çalışıyorlar mı?
+3. **Formlar** — Doldurun ve gönderin. Boş, geçersiz, uç durumları test edin
+4. **Gezinti** — İçeri ve dışarı tüm yolları kontrol edin
+5. **Durumlar** — Boş durum, yükleme, hata, taşma
+6. **Konsol** — Etkileşimlerden sonra yeni JS hataları var mı?
+7. **Duyarlılık** — İlgiliyse mobil görüntü alanını kontrol edin:
    ```bash
    $B viewport 375x812
    $B screenshot "$REPORT_DIR/screenshots/page-mobile.png"
    $B viewport 1280x720
    ```
 
-**Depth judgment:** Spend more time on core features (homepage, dashboard, checkout, search) and less on secondary pages (about, terms, privacy).
+**Derinlik kararı:** Temel özelliklere (ana sayfa, kontrol paneli, ödeme, arama) daha fazla zaman harcayın, ikincil sayfalara (hakkında, şartlar, gizlilik) daha az.
 
-**Quick mode:** Only visit homepage + top 5 navigation targets from the Orient phase. Skip the per-page checklist — just check: loads? Console errors? Broken links visible?
+**Hızlı mod:** Yalnızca ana sayfa + Yönlendirme aşamasından en iyi 5 gezinti hedefini ziyaret edin. Sayfa başına kontrol listesini atlayın — sadece kontrol edin: yükleniyor mu? Konsol hataları var mı? Görünür bozuk bağlantılar var mı?
 
-### Phase 5: Document
+### Aşama 5: Belgele
 
-Document each issue **immediately when found** — don't batch them.
+Her sorunu **bulduğunuz anda hemen belgelendirin** — toplu işlem yapmayın.
 
-**Two evidence tiers:**
+**İki kanıt katmanı:**
 
-**Interactive bugs** (broken flows, dead buttons, form failures):
-1. Take a screenshot before the action
-2. Perform the action
-3. Take a screenshot showing the result
-4. Use `snapshot -D` to show what changed
-5. Write repro steps referencing screenshots
+**Etkileşimli hatalar** (bozuk akışlar, ölü düğmeler, form hataları):
+1. Eylemden önce ekran görüntüsü alın
+2. Eylemi gerçekleştirin
+3. Sonucu gösteren ekran görüntüsü alın
+4. Neyin değiştiğini göstermek için `snapshot -D` kullanın
+5. Ekran görüntülerine referans veren yeniden üretme adımlarını yazın
 
 ```bash
 $B screenshot "$REPORT_DIR/screenshots/issue-001-step-1.png"
@@ -1273,24 +1273,24 @@ $B screenshot "$REPORT_DIR/screenshots/issue-001-result.png"
 $B snapshot -D
 ```
 
-**Static bugs** (typos, layout issues, missing images):
-1. Take a single annotated screenshot showing the problem
-2. Describe what's wrong
+**Statik hatalar** (yazım hataları, düzen sorunları, eksik görüntüler):
+1. Sorunu gösteren tek bir açıklamalı ekran görüntüsü alın
+2. Neyin yanlış olduğunu açıklayın
 
 ```bash
 $B snapshot -i -a -o "$REPORT_DIR/screenshots/issue-002.png"
 ```
 
-**Write each issue to the report immediately** using the template format from `qa/templates/qa-report-template.md`.
+**Her sorunu rapora hemen yazın** `qa/templates/qa-report-template.md`'deki şablon biçimini kullanarak.
 
-### Phase 6: Wrap Up
+### Aşama 6: Sar
 
-1. **Compute health score** using the rubric below
-2. **Write "Top 3 Things to Fix"** — the 3 highest-severity issues
-3. **Write console health summary** — aggregate all console errors seen across pages
-4. **Update severity counts** in the summary table
-5. **Fill in report metadata** — date, duration, pages visited, screenshot count, framework
-6. **Save baseline** — write `baseline.json` with:
+1. **Sağlık skorunu hesaplayın** aşağıdaki rubrik kullanarak
+2. **"Düzeltilmesi Gereken En Önemli 3 Şey"** yazın — en yüksek şiddetli 3 sorun
+3. **Konsol sağlık özetini yazın** — tüm sayfalarda görülen konsol hatalarını birleştirin
+4. **Şiddet sayılarını güncelleyin** özet tablosunda
+5. **Rapor meta verilerini doldurun** — tarih, süre, ziyaret edilen sayfalar, ekran görüntüsü sayısı, çerçeve
+6. **Temel çizgiyi kaydedin** — şu içerikle `baseline.json` yazın:
    ```json
    {
      "date": "YYYY-MM-DD",
@@ -1301,95 +1301,95 @@ $B snapshot -i -a -o "$REPORT_DIR/screenshots/issue-002.png"
    }
    ```
 
-**Regression mode:** After writing the report, load the baseline file. Compare:
-- Health score delta
-- Issues fixed (in baseline but not current)
-- New issues (in current but not baseline)
-- Append the regression section to the report
+**Regresyon modu:** Raporu yazdıktan sonra, temel çizgi dosyasını yükleyin. Karşılaştırın:
+- Sağlık skoru farkı
+- Düzeltilen sorunlar (temel çizgide olan ama güncel olmayan)
+- Yeni sorunlar (güncel olan ama temel çizgide olmayan)
+- Regresyon bölümünü rapora ekleyin
 
 ---
 
-## Health Score Rubric
+## Sağlık Skoru Rubriği
 
-Compute each category score (0-100), then take the weighted average.
+Her kategori skorunu (0-100) hesaplayın, ardından ağırlıklı ortalamayı alın.
 
-### Console (weight: 15%)
+### Konsol (ağırlık: %15)
 - 0 errors → 100
 - 1-3 errors → 70
 - 4-10 errors → 40
 - 10+ errors → 10
 
-### Links (weight: 10%)
-- 0 broken → 100
-- Each broken link → -15 (minimum 0)
+### Bağlantılar (ağırlık: %10)
+- 0 bozuk → 100
+- Her bozuk bağlantı → -15 (minimum 0)
 
-### Per-Category Scoring (Visual, Functional, UX, Content, Performance, Accessibility)
-Each category starts at 100. Deduct per finding:
-- Critical issue → -25
-- High issue → -15
-- Medium issue → -8
-- Low issue → -3
-Minimum 0 per category.
+### Kategori Başına Puanlama (Görsel, İşlevsel, UX, İçerik, Performans, Erişilebilirlik)
+Her kategori 100'den başlar. Bulgu başına düşürün:
+- Kritik sorun → -25
+- Yüksek sorun → -15
+- Orta sorun → -8
+- Düşük sorun → -3
+Kategori başına minimum 0.
 
-### Weights
-| Category | Weight |
+### Ağırlıklar
+| Kategori | Ağırlık |
 |----------|--------|
-| Console | 15% |
-| Links | 10% |
-| Visual | 10% |
-| Functional | 20% |
-| UX | 15% |
-| Performance | 10% |
-| Content | 5% |
-| Accessibility | 15% |
+| Konsol | %15 |
+| Bağlantılar | %10 |
+| Görsel | %10 |
+| İşlevsel | %20 |
+| UX | %15 |
+| Performans | %10 |
+| İçerik | %5 |
+| Erişilebilirlik | %15 |
 
-### Final Score
+### Son Skor
 `score = Σ (category_score × weight)`
 
 ---
 
-## Framework-Specific Guidance
+## Çerçeveye Özgü Rehberlik
 
 ### Next.js
-- Check console for hydration errors (`Hydration failed`, `Text content did not match`)
-- Monitor `_next/data` requests in network — 404s indicate broken data fetching
-- Test client-side navigation (click links, don't just `goto`) — catches routing issues
-- Check for CLS (Cumulative Layout Shift) on pages with dynamic content
+- Konsolda hidrasyon hatalarını kontrol edin (`Hydration failed`, `Text content did not match`)
+- Ağda `_next/data` isteklerini izleyin — 404'ler bozuk veri çekmeyi gösterir
+- İstemci tarafı gezintiyi test edin (bağlantılara tıklayın, sadece `goto` yapmayın) — yönlendirme sorunlarını yakalar
+- Dinamik içerikli sayfalarda CLS (Kümülatif Düzen Kayması) kontrol edin
 
 ### Rails
-- Check for N+1 query warnings in console (if development mode)
-- Verify CSRF token presence in forms
-- Test Turbo/Stimulus integration — do page transitions work smoothly?
-- Check for flash messages appearing and dismissing correctly
+- Konsolda N+1 sorgu uyarılarını kontrol edin (geliştirme modundaysa)
+- Formlarda CSRF jetonunun varlığını doğrulayın
+- Turbo/Stimulus entegrasyonunu test edin — sayfa geçişleri düzgün çalışıyor mu?
+- Flash mesajlarının görünmesini ve doğru şekilde kapanmasını kontrol edin
 
 ### WordPress
-- Check for plugin conflicts (JS errors from different plugins)
-- Verify admin bar visibility for logged-in users
-- Test REST API endpoints (`/wp-json/`)
-- Check for mixed content warnings (common with WP)
+- Eklenti çakışmalarını kontrol edin (farklı eklentilerden JS hataları)
+- Giriş yapmış kullanıcılar için yönetici çubuğunun görünürlüğünü doğrulayın
+- REST API uç noktalarını test edin (`/wp-json/`)
+- Karışık içerik uyarılarını kontrol edin (WP ile yaygın)
 
-### General SPA (React, Vue, Angular)
-- Use `snapshot -i` for navigation — `links` command misses client-side routes
-- Check for stale state (navigate away and back — does data refresh?)
-- Test browser back/forward — does the app handle history correctly?
-- Check for memory leaks (monitor console after extended use)
+### Genel SPA (React, Vue, Angular)
+- Gezinti için `snapshot -i` kullanın — `links` komutu istemci tarafı yolları kaçırır
+- Eski durum kontrol edin (uzaklaşın ve geri dönün — veriler yenileniyor mu?)
+- Tarayıcı geri/ilerini test edin — uygulama geçmişi doğru şekilde işliyor mu?
+- Bellek sızıntılarını kontrol edin (uzun süreli kullanımdan sonra konsolu izleyin)
 
 ---
 
-## Important Rules
+## Önemli Kurallar
 
-1. **Repro is everything.** Every issue needs at least one screenshot. No exceptions.
-2. **Verify before documenting.** Retry the issue once to confirm it's reproducible, not a fluke.
-3. **Never include credentials.** Write `[REDACTED]` for passwords in repro steps.
-4. **Write incrementally.** Append each issue to the report as you find it. Don't batch.
-5. **Never read source code.** Test as a user, not a developer.
-6. **Check console after every interaction.** JS errors that don't surface visually are still bugs.
-7. **Test like a user.** Use realistic data. Walk through complete workflows end-to-end.
-8. **Depth over breadth.** 5-10 well-documented issues with evidence > 20 vague descriptions.
-9. **Never delete output files.** Screenshots and reports accumulate — that's intentional.
-10. **Use `snapshot -C` for tricky UIs.** Finds clickable divs that the accessibility tree misses.
-11. **Show screenshots to the user.** After every `$B screenshot`, `$B snapshot -a -o`, or `$B responsive` command, use the Read tool on the output file(s) so the user can see them inline. For `responsive` (3 files), Read all three. This is critical — without it, screenshots are invisible to the user.
-12. **Never refuse to use the browser.** When the user invokes /qa or /qa-only, they are requesting browser-based testing. Never suggest evals, unit tests, or other alternatives as a substitute. Even if the diff appears to have no UI changes, backend changes affect app behavior — always open the browser and test.
+1. **Yeniden üretim her şeydir.** Her sorunun en az bir ekran görüntüsüne ihtiyacı vardır. İstisna yok.
+2. **Belgelendirmeden önce doğrulayın.** Sorunun tekrarlanabilir olduğunu onaylamak için bir kez daha deneyin, rastlantı olmadığından emin olun.
+3. **Asla kimlik bilgilerini dahil etmeyin.** Yeniden üretme adımlarında parolalar için `[REDACTED]` yazın.
+4. **Artımlı yazın.** Her sorunu bulduğunuzda rapora ekleyin. Toplu işlem yapmayın.
+5. **Asla kaynak kodu okumayın.** Bir kullanıcı olarak test edin, geliştirici olarak değil.
+6. **Her etkileşimden sonra konsolu kontrol edin.** Görsel olarak yüzeye çıkmayan JS hataları yine de hatadır.
+7. **Bir kullanıcı gibi test edin.** Gerçekçi veriler kullanın. Uçtan uca tam iş akışlarını yürüyün.
+8. **Derinlik genişliğe tercih edilir.** Kanıtlarla belgelenmiş 5-10 sorun > 20 belirsiz açıklama.
+9. **Asla çıktı dosyalarını silmeyin.** Ekran görüntüleri ve raporlar birikir — bu kasıtlıdır.
+10. **Tricky kullanıcı arayüzleri için `snapshot -C` kullanın.** Erişilebilirlik ağacının kaçırdığı tıklanabilir div'leri bulur.
+11. **Ekran görüntülerini kullanıcıya gösterin.** Her `$B screenshot`, `$B snapshot -a -o` veya `$B responsive` komutundan sonra, çıktı dosyalarını kullanıcı satır içinde görebilsin diye Read aracını kullanın. `responsive` için (3 dosya), üçünü de okuyun. Bu kritiktir — olmadan ekran görüntüleri kullanıcı için görünmezdir.
+12. **Asla tarayıcı kullanmayı reddetmeyin.** Kullanıcı /qa veya /qa-only çağırdığında, tarayıcı tabanlı test istiyorlar. Asla değerlendirmeleri, birim testleri veya diğer alternatifleri ikame olarak önermeyin. Diff'te kullanıcı arayüzü değişikliği görünmese bile, arka uç değişiklikleri uygulama davranışını etkiler — her zaman tarayıcıyı açın ve test edin.
 
 Record baseline health score at end of Phase 6.
 
@@ -1414,15 +1414,15 @@ Report filenames use the domain and date: `qa-report-myapp-com-2026-03-12.md`
 
 ---
 
-## Phase 7: Triage
+## Aşama 7: Önceliklendirme
 
-Sort all discovered issues by severity, then decide which to fix based on the selected tier:
+Tüm keşfedilen sorunları şiddete göre sıralayın, ardından seçilen kademeye göre hangilerinin düzeltileceğine karar verin:
 
-- **Quick:** Fix critical + high only. Mark medium/low as "deferred."
-- **Standard:** Fix critical + high + medium. Mark low as "deferred."
-- **Exhaustive:** Fix all, including cosmetic/low severity.
+- **Hızlı:** Yalnızca kritik + yüksek düzelt. Orta/düşüğü "ertelendi" olarak işaretle.
+- **Standart:** Kritik + yüksek + orta düzelt. Düşüğü "ertelendi" olarak işaretle.
+- **Kapsamlı:** Kozmetik/düşük şiddet dahil tümünü düzelt.
 
-Mark issues that cannot be fixed from source code (e.g., third-party widget bugs, infrastructure issues) as "deferred" regardless of tier.
+Kaynak koddan düzeltilemeyen sorunları (örn. üçüncü taraf widget hataları, altyapı sorunları) kademeden bağımsız olarak "ertelendi" olarak işaretleyin.
 
 ### Refresh learnings for the component/page where the bug lives
 
@@ -1440,11 +1440,11 @@ If any learnings come back, name which one applies to the fix you're about to ma
 
 ---
 
-## Phase 8: Fix Loop
+## Aşama 8: Düzeltme Döngüsü
 
-For each fixable issue, in severity order:
+Düzeltilebilir her sorun için, şiddet sırasına göre:
 
-### 8a. Locate source
+### 8a. Kaynağı konumlandır
 
 ```bash
 # Grep for error messages, component names, route definitions
@@ -1454,13 +1454,13 @@ For each fixable issue, in severity order:
 - Find the source file(s) responsible for the bug
 - ONLY modify files directly related to the issue
 
-### 8b. Fix
+### 8b. Düzelt
 
-- Read the source code, understand the context
-- Make the **minimal fix** — smallest change that resolves the issue
-- Do NOT refactor surrounding code, add features, or "improve" unrelated things
+- Kaynak kodu okuyun, bağlamı anlayın
+- **Minimum düzeltmeyi** yapın — sorunu çözen en küçük değişiklik
+- Çevreleyen kodu yeniden düzenlemeyin, özellik eklemeyin veya ilgili olmayan şeyleri "iyileştirmeyin"
 
-### 8c. Commit
+### 8c. Commit (İşle)
 
 ```bash
 git add <only-changed-files>
@@ -1470,12 +1470,12 @@ git commit -m "fix(qa): ISSUE-NNN — short description"
 - One commit per fix. Never bundle multiple fixes.
 - Message format: `fix(qa): ISSUE-NNN — short description`
 
-### 8d. Re-test
+### 8d. Yeniden test
 
-- Navigate back to the affected page
-- Take **before/after screenshot pair**
-- Check console for errors
-- Use `snapshot -D` to verify the change had the expected effect
+- Etkilenen sayfaya geri gidin
+- **Önce/sonra ekran görüntüsü çifti** alın
+- Konsolu hatalar için kontrol edin
+- Değişikliğin beklenen etkiyi yaptığını doğrulamak için `snapshot -D` kullanın
 
 ```bash
 $B goto <affected-url>
@@ -1484,11 +1484,11 @@ $B console --errors
 $B snapshot -D
 ```
 
-### 8e. Classify
+### 8e. Sınıflandır
 
-- **verified**: re-test confirms the fix works, no new errors introduced
-- **best-effort**: fix applied but couldn't fully verify (e.g., needs auth state, external service)
-- **reverted**: regression detected → `git revert HEAD` → mark issue as "deferred"
+- **doğrulanmış**: yeniden test düzeltmenin çalıştığını onaylar, yeni hata yok
+- **en-iyi-çaba**: düzeltme uygulandı ama tam olarak doğrulanamadı (örn. kimlik doğrulama durumu gerekli, dış servis)
+- **geri alındı**: regresyon algılandı → `git revert HEAD` → sorunu "ertelendi" olarak işaretle
 
 ### 8e.5. Regression Test
 
@@ -1543,9 +1543,9 @@ Use auto-incrementing names to avoid collisions: check existing `{name}.regressi
 
 **5. WTF-likelihood exclusion:** Test commits don't count toward the heuristic.
 
-### 8f. Self-Regulation (STOP AND EVALUATE)
+### 8f. Öz-Düzenleme (DUR VE DEĞERLENDİR)
 
-Every 5 fixes (or after any revert), compute the WTF-likelihood:
+Her 5 düzeltmede (veya herhangi bir geri almadan sonra), WTF-olasılığını hesaplayın:
 
 ```
 WTF-LIKELIHOOD:
@@ -1557,23 +1557,23 @@ WTF-LIKELIHOOD:
   Touching unrelated files:   +20%
 ```
 
-**If WTF > 20%:** STOP immediately. Show the user what you've done so far. Ask whether to continue.
+**WTF > %20 ise:** Hemen DUR. Kullanıcıya şu ana kadar ne yaptığınızı gösterin. Devam edip etmemeyi sorun.
 
-**Hard cap: 50 fixes.** After 50 fixes, stop regardless of remaining issues.
-
----
-
-## Phase 9: Final QA
-
-After all fixes are applied:
-
-1. Re-run QA on all affected pages
-2. Compute final health score
-3. **If final score is WORSE than baseline:** WARN prominently — something regressed
+**Sabit üst sınır: 50 düzeltme.** 50 düzeltmeden sonra, kalan sorunlardan bağımsız olarak durun.
 
 ---
 
-## Phase 10: Report
+## Aşama 9: Son QA
+
+Tüm düzeltmeler uygulandıktan sonra:
+
+1. Etkilenen tüm sayfalarda QA'yi yeniden çalıştırın
+2. Son sağlık skorunu hesaplayın
+3. **Son skor taban çizgisinden DAHA KÖTÜYSE:** Belirgin bir şekilde UYARI verin — bir şey geriye gitti
+
+---
+
+## Aşama 10: Rapor
 
 Write the report to both local and project-scoped locations:
 
@@ -1602,7 +1602,7 @@ Write to `~/.gstack/projects/{slug}/{user}-{branch}-test-outcome-{datetime}.md`
 
 ---
 
-## Phase 11: TODOS.md Update
+## Aşama 11: TODOS.md Güncellemesi
 
 If the repo has a `TODOS.md`:
 

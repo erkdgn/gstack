@@ -1,84 +1,99 @@
-# Chrome vs Chromium: Why We Use Playwright's Bundled Chromium
+# Chrome vs Chromium: Playwright'ın Paketlenmiş Chromium'unu Neden Kullanıyoruz
 
-## The Original Vision
+## Orijinal Vizyon
 
-When we built `$B connect`, the plan was to connect to the user's **real Chrome browser** — the one with their cookies, sessions, extensions, and open tabs. No more cookie import. The design called for:
+`$B connect`'i inşa ettiğimizde, plan kullanıcının **gerçek Chrome tarayıcısına**
+bağlanmaktı — çerezleri, oturumları, uzantıları ve açık sekmeleri olan tarayıcıya.
+Daha fazla çerez içe aktarma yok. Tasarım şunları öngörüyordu:
 
-1. `chromium.connectOverCDP(wsUrl)` connecting to a running Chrome via CDP
-2. Quit Chrome gracefully, relaunch with `--remote-debugging-port=9222`
-3. Access the user's real browsing context
+1. `chromium.connectOverCDP(wsUrl)` çalışan bir Chrome'a CDP üzerinden bağlanma
+2. Chrome'u zarifçe kapatma, `--remote-debugging-port=9222` ile yeniden başlatma
+3. Kullanıcının gerçek tarama bağlamına erişim
 
-This is why `chrome-launcher.ts` existed (361 LOC of browser binary discovery, CDP port probing, and runtime detection) and why the method was called `connectCDP()`.
+Bu nedenle `chrome-launcher.ts` mevcuttu (361 SATIR tarayıcı ikili keşfi, CDP port
+araştırması ve çalışma zamanı algılama) ve yöntem `connectCDP()` olarak adlandırılmıştı.
 
-## What Actually Happened
+## Gerçekte Ne Oldu
 
-Real Chrome silently blocks `--load-extension` when launched via Playwright's `channel: 'chrome'`. The extension wouldn't load. We needed the extension for the side panel (activity feed, refs, chat).
+Gerçek Chrome, Playwright'ın `channel: 'chrome'` üzerinden başlatıldığında sessizce
+`--load-extension`'ı engeller. Uzantı yüklenmezdi. Yan panel (aktivite akışı,
+referanslar, sohbet) için uzantıya ihtiyacımız vardı.
 
-The implementation fell back to `chromium.launchPersistentContext()` with Playwright's bundled Chromium — which reliably loads extensions via `--load-extension` and `--disable-extensions-except`. But the naming stayed: `connectCDP()`, `connectionMode: 'cdp'`, `BROWSE_CDP_URL`, `chrome-launcher.ts`.
+Uygulama, Playwright'ın paketlenmiş Chromium'u ile `chromium.launchPersistentContext()`
+üzerine düştü — bu, `--load-extension` ve `--disable-extensions-except` aracılığıyla
+uzantıları güvenilir bir şekilde yükler. Ama isimler kaldı: `connectCDP()`,
+`connectionMode: 'cdp'`, `BROWSE_CDP_URL`, `chrome-launcher.ts`.
 
-The original vision (access user's real browser state) was never implemented. We launched a fresh browser every time — functionally identical to Playwright's Chromium, but with 361 lines of dead code and misleading names.
+Orijinal vizyon (kullanıcının gerçek tarayıcı durumuna erişim) hiçbir zaman
+uygulanmadı. Her seferinde yeni bir tarayıcı başlattık — işlevsel olarak Playwright'ın
+Chromium'u ile aynı, ama 361 satır ölü kod ve yanıltıcı isimlerle.
 
-## The Discovery (2026-03-22)
+## Keşif (2026-03-22)
 
-During a `/office-hours` design session, we traced the architecture and discovered:
+Bir `/office-hours` tasarım oturumu sırasında, mimariyi izledik ve şunları keşfettik:
 
-1. `connectCDP()` doesn't use CDP — it calls `launchPersistentContext()`
-2. `connectionMode: 'cdp'` is misleading — it's just "headed mode"
-3. `chrome-launcher.ts` is dead code — its only import was in an unreachable `attemptReconnect()` method
-4. `preExistingTabIds` was designed for protecting real Chrome tabs we never connect to
-5. `$B handoff` (headless → headed) used a different API (`launch()` + `newContext()`) that couldn't load extensions, creating two different "headed" experiences
+1. `connectCDP()` CDP kullanmıyor — `launchPersistentContext()`'i çağırıyor
+2. `connectionMode: 'cdp'` yanıltıcı — sadece "görsel mod"
+3. `chrome-launcher.ts` ölü kod — tek içe aktarımı ulaşılamaz bir `attemptReconnect()` yöntemindeydi
+4. `preExistingTabIds`, hiçbir zaman bağlanmadığımız gerçek Chrome sekmelerini korumak için tasarlanmıştı
+5. `$B handoff` (başsız → görsel), uzantıları yükleyemeyen farklı bir API (`launch()` + `newContext()`) kullanıyordu, iki farklı "görsel" deneyim yaratıyordu
 
-## The Fix
+## Düzeltme
 
-### Renamed
+### Yeniden adlandırılanlar
 - `connectCDP()` → `launchHeaded()`
 - `connectionMode: 'cdp'` → `connectionMode: 'headed'`
 - `BROWSE_CDP_URL` → `BROWSE_HEADED`
 
-### Deleted
-- `chrome-launcher.ts` (361 LOC)
-- `attemptReconnect()` (dead method)
-- `preExistingTabIds` (dead concept)
-- `reconnecting` field (dead state)
-- `cdp-connect.test.ts` (tests for deleted code)
+### Silinenler
+- `chrome-launcher.ts` (361 SATIR)
+- `attemptReconnect()` (ölü yöntem)
+- `preExistingTabIds` (ölü kavram)
+- `reconnecting` alanı (ölü durum)
+- `cdp-connect.test.ts` (silinen kodun testleri)
 
-### Converged
-- `$B handoff` now uses `launchPersistentContext()` + extension loading (same as `$B connect`)
-- One headed mode, not two
-- Handoff gives you the extension + side panel for free
+### Birleştirilenler
+- `$B handoff` artık `launchPersistentContext()` + uzantı yükleme kullanıyor (`$B connect` ile aynı)
+- Tek görsel mod, iki değil
+- Handoff uzantıyı + yan paneli ücretsiz veriyor
 
-### Gated
-- Sidebar chat behind `--chat` flag
-- `$B connect` (default): activity feed + refs only
-- `$B connect --chat`: + experimental standalone chat agent
+### Kapı altına alınanlar
+- Yan panel sohbeti `--chat` bayrağının arkasında
+- `$B connect` (varsayılan): sadece aktivite akışı + referanslar
+- `$B connect --chat`: + deneysel bağımsız sohbet ajanı
 
-## Architecture (after)
+## Mimari (sonra)
 
 ```
-Browser States:
-  HEADLESS (default) ←→ HEADED ($B connect or $B handoff)
-     Playwright            Playwright (same engine)
+Tarayıcı Durumları:
+  BAŞSIZ (varsayılan) ←→ GÖRSEL ($B connect veya $B handoff)
+     Playwright            Playwright (aynı motor)
      launch()              launchPersistentContext()
-     invisible             visible + extension + side panel
+     görünmez              görünür + uzantı + yan panel
 
-Sidebar (orthogonal add-on, headed only):
-  Activity tab    — always on, shows live browse commands
-  Refs tab        — always on, shows @ref overlays
-  Chat tab        — opt-in via --chat, experimental standalone agent
+Yan panel (dikey eklenti, sadece görsel):
+  Aktivite sekmesi    — her zaman açık, canlı tarama komutlarını gösterir
+  Referanslar sekmesi — her zaman açık, @ref katmanlarını gösterir
+  Sohbet sekmesi      — --chat ile katılım, deneysel bağımsız ajan
 
-Data Bridge (sidebar → workspace):
-  Sidebar writes to .context/sidebar-inbox/*.json
-  Workspace reads via $B inbox
+Veri Köprüsü (yan panel → çalışma alanı):
+  Yan panel .context/sidebar-inbox/*.json dizinine yazar
+  Çalışma alanı $B inbox aracılığıyla okur
 ```
 
-## Why Not Real Chrome?
+## Neden Gerçek Chrome Değil?
 
-Real Chrome blocks `--load-extension` when launched by Playwright. This is a Chrome security feature — extensions loaded via command-line args are restricted in Chromium-based browsers to prevent malicious extension injection.
+Gerçek Chrome, Playwright tarafından başlatıldığında `--load-extension`'ı engeller.
+Bu bir Chrome güvenlik özelliğidir — komut satırı argümanlarıyla yüklenen uzantılar,
+kötü niyetli uzantı enjeksiyonunu önlemek için Chromium-tabanlı tarayıcılarda
+kısıtlanır.
 
-Playwright's bundled Chromium doesn't have this restriction because it's designed for testing and automation. The `ignoreDefaultArgs` option lets us bypass Playwright's own extension-blocking flags.
+Playwright'ın paketlenmiş Chromium'unda bu kısıtlama yoktur çünkü test ve otomasyon
+için tasarlanmıştır. `ignoreDefaultArgs` seçeneği, Playwright'ın kendi uzantı-engelleme
+bayraklarını atlamamıza izin verir.
 
-If we ever want to access the user's real cookies/sessions, the path is:
-1. Cookie import (already works via `$B cookie-import`)
-2. Conductor session injection (future — sidebar sends messages to workspace agent)
+Kullanıcının gerçek çerezlerine/oturumlarına erişmek isteseydik, yol şu olurdu:
+1. Çerez içe aktarma (zaten `$B cookie-import` ile çalışıyor)
+2. Conductor oturum enjeksiyonu (gelecek — yan panel çalışma alanı ajanına mesajlar gönderir)
 
-Not reconnecting to real Chrome.
+Gerçek Chrome'a yeniden bağlanmak değil.

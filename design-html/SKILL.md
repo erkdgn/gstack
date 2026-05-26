@@ -3,15 +3,16 @@ name: design-html
 preamble-tier: 2
 version: 1.0.0
 description: |
-  Design finalization: generates production-quality Pretext-native HTML/CSS.
-  Works with approved mockups from /design-shotgun, CEO plans from /plan-ceo-review,
-  design review context from /plan-design-review, or from scratch with a user
-  description. Text actually reflows, heights are computed, layouts are dynamic.
-  30KB overhead, zero deps. Smart API routing: picks the right Pretext patterns
-  for each design type. Use when: "finalize this design", "turn this into HTML",
-  "build me a page", "implement this design", or after any planning skill.
-  Proactively suggest when user has approved a design or has a plan ready. (gstack)
-  Voice triggers (speech-to-text aliases): "build the design", "code the mockup", "make it real".
+  Tasarım sonlandırma: üretim kalitesinde Pretext-yerel HTML/CSS oluşturur.
+  /design-shotgun'dan onaylanmış taslaklar, /plan-ceo-review'den CEO planları,
+  /plan-design-review'den tasarım incelemesi bağlamı veya kullanıcı tanımından
+  sıfırdan çalışır. Metin gerçekten yeniden akar, yükseklikler hesaplanır, düzenler
+  dinamiktir. 30KB ek yük, sıfır bağımlılık. Akıllı API yönlendirme: her tasarım
+  türü için doğru Pretext örüntülerini seçer. Kullanım: "bu tasarımı sonlandır",
+  "bunu HTML'e çevir", "bana bir sayfa oluştur", "bu tasarımı uygula" veya herhangi
+  bir planlama yeteneğinden sonra. Kullanıcı onaylanmış bir tasarıma veya hazır bir plana
+  sahip olduğunda proaktif olarak önerin. (gstack)
+  Ses tetikleyicileri (konuşmadan metne takma adlar): "tasarımı oluştur", "taslağı kodla", "gerçek yap".
 triggers:
   - build the design
   - code the mockup
@@ -749,12 +750,12 @@ Replace `SKILL_NAME`, `OUTCOME`, and `USED_BROWSE` before running.
 
 Skills that run plan reviews (`/plan-*-review`, `/codex review`) include the EXIT PLAN MODE GATE blocking checklist at the end of the skill, which verifies the plan file ends with `## GSTACK REVIEW REPORT` before ExitPlanMode is called. Skills that don't run plan reviews (operational skills like `/ship`, `/qa`, `/review`) typically don't operate in plan mode and have no review report to verify; this footer is a no-op for them. Writing the plan file is the one edit allowed in plan mode.
 
-# /design-html: Pretext-Native HTML Engine
+# /design-html: Pretext-Yerel HTML Motoru
 
-You generate production-quality HTML where text actually works correctly. Not CSS
-approximations. Computed layout via Pretext. Text reflows on resize, heights adjust
-to content, cards size themselves, chat bubbles shrinkwrap, editorial spreads flow
-around obstacles.
+Metnin gerçekten doğru çalıştığı üretim kalitesinde HTML oluşturursunuz. CSS yaklaşımları
+değil. Pretext ile hesaplanan düzen. Metin yeniden boyutlandırmada akar, yükseklikler içeriğe
+uyar, kartlar kendi boyutunu ayarlar, sohbet balonları daraltır, editöryal yayınlar
+engellerin etrafından akar.
 
 ## DESIGN SETUP (run this check BEFORE any design mockup command)
 
@@ -799,90 +800,92 @@ MUST be saved to `~/.gstack/projects/$SLUG/designs/`, NEVER to `.context/`,
 `docs/designs/`, `/tmp/`, or any project-local directory. Design artifacts are USER
 data, not project files. They persist across branches, conversations, and workspaces.
 
-## UX Principles: How Users Actually Behave
+## UX İlkeleri: Kullanıcılar Gerçekte Nasıl Davranır
 
-These principles govern how real humans interact with interfaces. They are observed
-behavior, not preferences. Apply them before, during, and after every design decision.
+Bu ilkeler gerçek insanların arayüzlerle nasıl etkileşim kurduğunu yönetir. Bunlar
+gözlemlenen davranışlardır, tercihler değil. Her tasarım kararından önce, sırasında ve
+sonrasında uygulayın.
 
-### The Three Laws of Usability
+### Kullanılabilirliğin Üç Yasası
 
-1. **Don't make me think.** Every page should be self-evident. If a user stops
-   to think "What do I click?" or "What does this mean?", the design has failed.
-   Self-evident > self-explanatory > requires explanation.
+1. **Beni düşünmaya zorlama.** Her sayfa kendini açıklayan olmalıdır. Bir kullanıcı
+   "Neye tıklayayım?" veya "Bu ne anlama geliyor?" diye düşünmeyi bırakırsa, tasarım
+   başarısız olmuştur. Kendini açıklayan > kendini açıklayan (az) > açıklama gerektiren.
 
-2. **Clicks don't matter, thinking does.** Three mindless, unambiguous clicks
-   beat one click that requires thought. Each step should feel like an obvious
-   choice (animal, vegetable, or mineral), not a puzzle.
+2. **Tıklamalar değil, düşünmek önemli.** Üç bilinçsiz, belirsiz tıklama, düşünme
+   gerektiren bir tıklamadan daha iyidir. Her adım açık bir seçim gibi hissettirmelidir
+   (hayvan, sebze veya mineral), bir bulmaca değil.
 
-3. **Omit, then omit again.** Get rid of half the words on each page, then get
-   rid of half of what's left. Happy talk (self-congratulatory text) must die.
-   Instructions must die. If they need reading, the design has failed.
+3. **Çıkarın, sonra tekrar çıkarın.** Her sayfada kelimelerin yarısını çıkarın, sonra
+   kalanın yarısını çıkarın. Mutlu konuşma (övdürücü metin) ölmeli. Talimatlar ölmeli.
+   Okuma gerektiriyorlarsa, tasarım başarısız olmuştur.
 
-### How Users Actually Behave
+### Kullanıcılar Gerçekte Nasıl Davranır
 
-- **Users scan, they don't read.** Design for scanning: visual hierarchy
-  (prominence = importance), clearly defined areas, headings and bullet lists,
-  highlighted key terms. We're designing billboards going by at 60 mph, not
-  product brochures people will study.
-- **Users satisfice.** They pick the first reasonable option, not the best.
-  Make the right choice the most visible choice.
-- **Users muddle through.** They don't figure out how things work. They wing
-  it. If they accomplish their goal by accident, they won't seek the "right" way.
-  Once they find something that works, no matter how badly, they stick to it.
-- **Users don't read instructions.** They dive in. Guidance must be brief,
-  timely, and unavoidable, or it won't be seen.
+- **Kullanıcılar tarar, okumaz.** Tarama için tasarlayın: görsel hiyerarşi
+  (öne çıkarma = önem), açıkça tanımlanmış alanlar, başlıklar ve madde listeleri,
+  vurgulanmış anahtar terimler. 60 km/saat geçen tabelalar tasarlıyoruz, insanların
+  inceleyeceği ürün broşürleri değil.
+- **Kullanıcılar tatmin edici seçim yapar.** En iyi seçeneği değil, ilk makul seçeneği
+  seçerler. Doğru seçimi en görünür seçim yapın.
+- **Kullanıcılar idare eder.** İşlerin nasıl çalıştığını anlamazlar. Kanıyla giderler.
+  Hedeflerine kazara ulaşırlarsa, "doğru" yolu aramazlar. İşe yarayan bir şey bulduklarında,
+  ne kadar kötü olursa olsun, ona bağlı kalırlar.
+- **Kullanıcılar talimatları okumaz.** Atlayarak başlarlar. Rehberlik kısa, zamanında ve
+  kaçınılmaz olmalıdır, yoksa görülmez.
 
-### Billboard Design for Interfaces
+### Arayüzler İçin Tabela Tasarımı
 
-- **Use conventions.** Logo top-left, nav top/left, search = magnifying glass.
-  Don't innovate on navigation to be clever. Innovate when you KNOW you have a
-  better idea, otherwise use conventions. Even across languages and cultures,
-  web conventions let people identify the logo, nav, search, and main content.
-- **Visual hierarchy is everything.** Related things are visually grouped. Nested
-  things are visually contained. More important = more prominent. If everything
-  shouts, nothing is heard. Start with the assumption everything is visual noise,
-  guilty until proven innocent.
-- **Make clickable things obviously clickable.** No relying on hover states for
-  discoverability, especially on mobile where hover doesn't exist. Shape, location,
-  and formatting (color, underlining) must signal clickability without interaction.
-- **Eliminate noise.** Three sources: too many things shouting for attention
-  (shouting), things not organized logically (disorganization), and too much stuff
-  (clutter). Fix noise by removal, not addition.
-- **Clarity trumps consistency.** If making something significantly clearer
-  requires making it slightly inconsistent, choose clarity every time.
+- **Gelenekleri kullanın.** Logo üst sol, gezinti üst/sol, arama = büyüteç.
+  Akıllı olmak için gezintiyi yenilikçi yapmayın. DAHA İYİ bir fikriniz olduğunu
+  BİLDİĞİNİZDE yenilik yapın, aksi takdirde gelenekleri kullanın. Diller ve kültürler
+  arasında bile, web gelenekleri insanların logo, gezinti, arama ve ana içeriği
+  tanımlamasını sağlar.
+- **Görsel hiyerarşi her şeydir.** İlgili şeyler görsel olarak gruplandırılır. İç içe
+  olan şeyler görsel olarak içerilir. Daha önemli = daha öne çıkan. Her şey bağırıyorsa,
+  hiçbir şey duyulmaz. Her şeyin görsel gürültü olduğu varsayımıyla başlayın, suçlu
+  olduğunda kanıtlayın.
+- **Tıklanabilir şeyleri açıkça tıklanabilir yapın.** Keşfedilebilirlik için hover
+  durumlarına güvenmeyin, özellikle hover'ın olmadığı mobilde. Şekil, konum ve
+  biçimlendirme (renk, alt çizgi) etkileşim olmadan tıklanabilirliği sinyallemeli.
+- **Gürültüyü ortadan kaldırın.** Üç kaynak: dikkat isteyen çok fazla şey (bağırma),
+  mantıksal olarak düzenlenmemiş şeyler (düzensizlik) ve çok fazla şey (kalabalık).
+  Gürültüyü ekleyerek değil, çıkararak düzeltin.
+- **Netlik tutarlılığa karşı gelir.** Bir şeyi önemli ölçüde daha net kılmak, hafifçe
+  tutarsız kılmayı gerektiriyorsa, her zaman netliği seçin.
 
-### Navigation as Wayfinding
+### Yön Bulma Olarak Gezinti
 
-Users on the web have no sense of scale, direction, or location. Navigation
-must always answer: What site is this? What page am I on? What are the major
-sections? What are my options at this level? Where am I? How can I search?
+Web'deki kullanıcıların ölçek, yön veya konum duygusu yoktur. Gezinti her zaman
+yanıtlamalıdır: Bu hangi site? Hangi sayfadayım? Ana bölümler neler? Bu seviyede
+seçeneklerim neler? Neredeyim? Nasıl arayabilirim?
 
-Persistent navigation on every page. Breadcrumbs for deep hierarchies.
-Current section visually indicated. The "trunk test": cover everything except
-the navigation. You should still know what site this is, what page you're on,
-and what the major sections are. If not, the navigation has failed.
+Her sayfada kalıcı gezinti. Derin hiyerarşiler için içerik yolu. Geçerli bölüm görsel
+olarak belirtilmiş. "Gövde testi": gezinti dışında her şeyi örtün. Hala hangi sitede
+olduğunuzu, hangi sayfada olduğunuzu ve ana bölümlerin ne olduğunu bilmelisiniz. Değilse,
+gezinti başarısız olmuştur.
 
-### The Goodwill Reservoir
+### İyi Niyet Rezervuarı
 
-Users start with a reservoir of goodwill. Every friction point depletes it.
+Kullanıcılar bir iyi niyet rezervuarıyla başlar. Her sürtünme noktası onu tüketir.
 
-**Deplete faster:** Hiding info users want (pricing, contact, shipping). Punishing
-users for not doing things your way (formatting requirements on phone numbers).
-Asking for unnecessary information. Putting sizzle in their way (splash screens,
-forced tours, interstitials). Unprofessional or sloppy appearance.
+**Daha hızlı tüketir:** Kullanıcıların istediği bilgiyi gizlemek (fiyatlar, iletişim,
+kargo). Kullanıcıları kendi yönteminizle yapmaya zorlamak (telefon numaralarında biçim
+gereksinimleri). Gereksiz bilgi istemek. Çıt çıt yoluna koymak (açılış ekranları, zorla
+turlar, geçişler). Profesyonel olmayan veya özensiz görünüm.
 
-**Replenish:** Know what users want to do and make it obvious. Tell them what they
-want to know upfront. Save them steps wherever possible. Make it easy to recover
-from errors. When in doubt, apologize.
+**Yeniler:** Kullanıcıların ne yapmak istediğini bilin ve açık hale getirin. Önceden
+bilmek istediklerini söyleyin. Adımları mümkün olduğunca kaydedin. Hatalardan kurtulmayı
+kolaylaştırın. Şüpheli olduğunda özür dileyin.
 
-### Mobile: Same Rules, Higher Stakes
+### Mobil: Aynı Kurallar, Daha Yüksek Bahisler
 
-All the above applies on mobile, just more so. Real estate is scarce, but never
-sacrifice usability for space savings. Affordances must be VISIBLE: no cursor
-means no hover-to-discover. Touch targets must be big enough (44px minimum).
-Flat design can strip away useful visual information that signals interactivity.
-Prioritize ruthlessly: things needed in a hurry go close at hand, everything
-else a few taps away with an obvious path to get there.
+Yukarıdakilerin hepsi mobilde geçerli, sadece daha fazla. Alan azdır, ama asla
+kullanılabilirliği alan tasarrufu için feda etmeyin. Afordanslar GÖRÜNÜR olmalıdır:
+imleç yoksa hover-ile-keşfet yok demektir. Dokunma hedefleri yeterince büyük olmalıdır
+(44px minimum). Düz tasarım, etkileşimi sinyalleyen yararlı görsel bilgileri çıkarabilir.
+Acımasızca önceliklendirin: acil gereken şeyler yakın el altında, diğer her şey birkaç
+dokunuş uzaklıkta ve açık bir yol ile.
 
 ## SETUP (run this check BEFORE any browse command)
 
@@ -922,7 +925,7 @@ If `NEEDS_SETUP`:
 
 ---
 
-## Step 0: Input Detection
+## Adım 0: Girdi Algılama
 
 ```bash
 eval "$(~/.claude/skills/gstack/bin/gstack-slug 2>/dev/null)"
@@ -955,27 +958,27 @@ _FINALIZED=$(ls -t ~/.gstack/projects/$SLUG/designs/*/finalized.html 2>/dev/null
 [ -f DESIGN.md ] && echo "DESIGN_MD: exists" || echo "NO_DESIGN_MD"
 ```
 
-Now route based on what was found. Check these cases in order:
+Şimdi bulunanlara göre yönlendirin. Bu durumları sırayla kontrol edin:
 
-### Case A: approved.json exists (design-shotgun ran)
+### Durum A: approved.json mevcut (design-shotgun çalıştı)
 
-If `APPROVED` was found, read it. Extract: approved variant PNG path, user feedback,
-screen name. Also read the CEO plan if one exists (it adds strategic context).
+`APPROVED` bulunduysa, okuyun. Şunları çıkarın: onaylanan çeşidi PNG yolu, kullanıcı geri bildirimi,
+ekran adı. Varsa CEO planını da okuyun (stratejik bağlam ekler).
 
-Read `DESIGN.md` if it exists in the repo root. These tokens take priority for
-system-level values (fonts, brand colors, spacing scale).
+Repo kökünde `DESIGN.md` varsa okuyun. Bu jetonlar sistem düzeyindeki değerler
+(yazı tipleri, marka renkleri, aralık ölçeği) için önceliklidir.
 
-Then check for prior finalized.html. If `FINALIZED` was also found, use AskUserQuestion:
-> Found a prior finalized HTML from a previous session. Want to evolve it
-> (apply new changes on top, preserving your custom edits) or start fresh?
-> A) Evolve — iterate on the existing HTML
-> B) Start fresh — regenerate from the approved mockup
+Ardından önceki finalized.html olup olmadığını kontrol edin. `FINALIZED` da bulunduysa, AskUserQuestion kullanın:
+> Önceki bir oturumdan finalized HTML bulundu. Geliştirmek mi istersiniz
+> (mevcut özel düzenlemelerinizi koruyarak üzerine yeni değişiklikler uygulayarak) yoksa sıfırdan mı başlamak?
+> A) Geliştir — mevcut HTML üzerinde yinele
+> B) Sıfırdan başla — onaylanan taslaktan yeniden oluştur
 
 If evolve: read the existing HTML. Apply changes on top during Step 3.
 If fresh or no finalized.html: proceed to Step 1 with the approved PNG as the
 visual reference.
 
-### Case B: CEO plan and/or design variants exist, but no approved.json
+### Durum B: CEO planı ve/veya tasarım çeşitleri mevcut, ancak approved.json yok
 
 If `CEO_PLAN` or `VARIANTS` was found but no `APPROVED`:
 
@@ -997,16 +1000,16 @@ the source of truth. Ask the user for a screen name to use for the output direct
 (e.g., "landing-page", "dashboard", "pricing").
 If C: accept a PNG file path from the user and proceed with that as the reference.
 
-### Case C: Nothing found (clean slate)
+### Durum C: Hiçbir şey bulunamadı (temiz başlangıç)
 
-If none of the above produced any context:
+Yukarıdakilerin hiçbiri bağlam üretmediyse:
 
-Use AskUserQuestion:
-> No design context found for this project. How do you want to start?
-> A) Run /plan-ceo-review first — think through the product strategy before designing
-> B) Run /plan-design-review first — design review with visual mockups
-> C) Run /design-shotgun — jump straight to visual design exploration
-> D) Just describe it — tell me what you want and I'll design the HTML live
+AskUserQuestion kullanın:
+> Bu proje için tasarım bağlamı bulunamadı. Nasıl başlamak istersiniz?
+> A) Önce /plan-ceo-review çalıştırın — tasarlamadan önce ürün stratejisini düşünün
+> B) Önce /plan-design-review çalıştırın — görsel taslaklarla tasarım incelemesi
+> C) /design-shotgun çalıştırın — doğrudan görsel tasarım keşfine atlayın
+> D) Sadece açıklayın — ne istediğinizi söyleyin ve HTML'i canlı tasarlayayım
 
 If A, B, or C: tell the user to run that skill, then come back to /design-html.
 If D: proceed to Step 1 in "freeform mode." Ask the user for a screen name.
@@ -1022,7 +1025,7 @@ After routing, output a brief context summary:
 
 ---
 
-## Step 1: Design Analysis
+## Adım 1: Tasarım Analizi
 
 1. If `$D` is available (`DESIGN_READY`), extract a structured implementation spec:
 ```bash
@@ -1053,7 +1056,7 @@ This returns colors, typography, layout structure, and component inventory via G
 
 ---
 
-## Step 2: Smart Pretext API Routing
+## Adım 2: Akıllı Pretext API Yönlendirmesi
 
 Analyze the approved design and classify it into a Pretext tier. Each tier uses
 different Pretext APIs for optimal results:
@@ -1070,7 +1073,7 @@ State the chosen tier and why. Reference the specific Pretext APIs that will be 
 
 ---
 
-## Step 2.5: Framework Detection
+## Adım 2.5: Çerçeve Algılama
 
 Check if the user's project uses a frontend framework:
 
@@ -1093,7 +1096,7 @@ If no framework detected: default to vanilla HTML, no question needed.
 
 ---
 
-## Step 3: Generate Pretext-Native HTML
+## Adım 3: Pretext-Yerel HTML Oluşturma
 
 ### Pretext Source Embedding
 
@@ -1312,7 +1315,7 @@ setLocale(locale?) → void
 
 ---
 
-## Step 3.5: Live Reload Server
+## Adım 3.5: Canlı Yeniden Yükleme Sunucusu
 
 After writing the HTML file, start a simple HTTP server for live preview:
 
@@ -1342,7 +1345,7 @@ kill $_SERVER_PID 2>/dev/null || true
 
 ---
 
-## Step 4: Preview + Refinement Loop
+## Adım 4: Önizleme + Arıtma Döngüsü
 
 ### Verification Screenshots
 
@@ -1401,7 +1404,7 @@ Maximum 10 iterations. If the user hasn't said "done" after 10, use AskUserQuest
 
 ---
 
-## Step 5: Save & Next Steps
+## Adım 5: Kaydet ve Sonraki Adımlar
 
 ### Design Token Extraction
 
@@ -1452,24 +1455,25 @@ Use AskUserQuestion:
 
 ---
 
-## Important Rules
+## Önemli Kurallar
 
-- **Source of truth fidelity over code elegance.** When an approved mockup exists,
-  pixel-match it. If that requires `width: 312px` instead of a CSS grid class, that's
-  correct. When in plan-driven or freeform mode, the user's feedback during the
-  refinement loop is the source of truth. Code cleanup happens later during
-  component extraction.
+- **Doğruluk kaynağı sadakat, kod zarafetin üzerinde.** Onaylanmış bir taslak mevcut olduğunda,
+  piksel piksel eşleştirin. Bu `width: 312px` gerektiriyorsa CSS grid sınıfı yerine,
+  bu doğrudur. Plan odaklı veya serbest modda olduğunuzda, arıtma döngüsü sırasındaki
+  kullanıcı geri bildirimi doğruluk kaynağıdır. Kod temizliği daha sonra bileşen çıkarma
+  sırasında olur.
 
-- **Always use Pretext for text layout.** Even if the design looks simple, Pretext
-  ensures correct height computation on resize. The overhead is 30KB. Every page benefits.
+- **Metin düzeni için her zaman Pretext kullanın.** Tasarım basit görünse bile, Pretext
+  yeniden boyutlandırmada doğru yükseklik hesaplamasını sağlar. Ek yük 30KB'dir. Her sayfa
+  fayda sağlar.
 
-- **Surgical edits in the refinement loop.** Use the Edit tool to make targeted changes,
-  not the Write tool to regenerate the entire file. The user may have made manual edits
-  via contenteditable that should be preserved.
+- **Arıtma döngüsünde cerrahi düzenlemeler.** Tüm dosyayı yeniden oluşturmak için Write aracı
+  yerine hedefli değişiklikler yapmak için Edit aracını kullanın. Kullanıcı contenteditable
+  üzerinden manuel düzenlemeler yapmış olabilir, bunlar korunmalıdır.
 
-- **Real content only.** When a mockup exists, extract text from it. In plan-driven mode,
-  use content from the plan. In freeform mode, generate realistic content based on the
-  user's description. Never use "Lorem ipsum", "Your text here", or placeholder content.
+- **Yalnızca gerçek içerik.** Taslak mevcut olduğunda, metni oradan çıkarın. Plan odaklı
+  modda, plandaki içeriği kullanın. Serbest modda, kullanıcının açıklamasına dayalı gerçekçi
+  içerik oluşturun. Asla "Lorem ipsum", "Buraya metin yazın" veya yer tutucu içerik kullanmayın.
 
-- **One page per invocation.** For multi-page designs, run /design-html once per page.
-  Each run produces one HTML file.
+- **Çağrı başına bir sayfa.** Çok sayfalı tasarımlar için, sayfa başına bir kez /design-html çalıştırın.
+  Her çalıştırma bir HTML dosyası üretir.

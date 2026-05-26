@@ -2,15 +2,16 @@
 name: careful
 version: 0.1.0
 description: |
-  Safety guardrails for destructive commands. Warns before rm -rf, DROP TABLE,
-  force-push, git reset --hard, kubectl delete, and similar destructive operations.
-  User can override each warning. Use when touching prod, debugging live systems,
-  or working in a shared environment. Use when asked to "be careful", "safety mode",
-  "prod mode", or "careful mode". (gstack)
+  Yıkıcı komutlar için güvenlik koruma rail'leri. rm -rf, DROP TABLE,
+  force-push, git reset --hard, kubectl delete ve benzeri yıkıcı işlemlerden
+  önce uyarır. Kullanıcı her uyarıyı geçersiz kılabilir. Prodüksiyona dokunurken,
+  canlı sistemlerde hata ayıklarken veya paylaşımlı bir ortamda çalışırken kullanın.
+  "dikkatli ol", "güvenlik modu", "prod modu" veya "dikkatli mod"
+  isteklerinde kullanılır. (gstack)
 triggers:
-  - be careful
-  - warn before destructive
-  - safety mode
+  - dikkatli ol
+  - yıkıcı işlemlerden önce uyar
+  - güvenlik modu
 allowed-tools:
   - Bash
   - Read
@@ -20,44 +21,44 @@ hooks:
       hooks:
         - type: command
           command: "bash ${CLAUDE_SKILL_DIR}/bin/check-careful.sh"
-          statusMessage: "Checking for destructive commands..."
+          statusMessage: "Yıkıcı komutlar kontrol ediliyor..."
 ---
-<!-- AUTO-GENERATED from SKILL.md.tmpl — do not edit directly -->
-<!-- Regenerate: bun run gen:skill-docs -->
+<!-- AUTO-GENERATED from SKILL.md.tmpl — doğrudan düzenlemeyin -->
+<!-- Yeniden oluştur: bun run gen:skill-docs -->
 
-# /careful — Destructive Command Guardrails
+# /careful — Yıkıcı Komut Koruma Rail'leri
 
-Safety mode is now **active**. Every bash command will be checked for destructive
-patterns before running. If a destructive command is detected, you'll be warned
-and can choose to proceed or cancel.
+Güvenlik modu artık **aktif**. Her bash komutu çalıştırılmadan önce yıkıcı
+kalıplar için kontrol edilecek. Yıkıcı bir komut algılanırsa uyarılacak ve
+devam etmeyi veya iptal etmeyi seçebileceksiniz.
 
 ```bash
 mkdir -p ~/.gstack/analytics
 echo '{"skill":"careful","ts":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","repo":"'$(basename "$(git rev-parse --show-toplevel 2>/dev/null)" 2>/dev/null || echo "unknown")'"}'  >> ~/.gstack/analytics/skill-usage.jsonl 2>/dev/null || true
 ```
 
-## What's protected
+## Neler korunur
 
-| Pattern | Example | Risk |
-|---------|---------|------|
-| `rm -rf` / `rm -r` / `rm --recursive` | `rm -rf /var/data` | Recursive delete |
-| `DROP TABLE` / `DROP DATABASE` | `DROP TABLE users;` | Data loss |
-| `TRUNCATE` | `TRUNCATE orders;` | Data loss |
-| `git push --force` / `-f` | `git push -f origin main` | History rewrite |
-| `git reset --hard` | `git reset --hard HEAD~3` | Uncommitted work loss |
-| `git checkout .` / `git restore .` | `git checkout .` | Uncommitted work loss |
-| `kubectl delete` | `kubectl delete pod` | Production impact |
-| `docker rm -f` / `docker system prune` | `docker system prune -a` | Container/image loss |
+| Kalıp | Örnek | Risk |
+|-------|-------|------|
+| `rm -rf` / `rm -r` / `rm --recursive` | `rm -rf /var/data` | Özyinelemeli silme |
+| `DROP TABLE` / `DROP DATABASE` | `DROP TABLE users;` | Veri kaybı |
+| `TRUNCATE` | `TRUNCATE orders;` | Veri kaybı |
+| `git push --force` / `-f` | `git push -f origin main` | Geçmiş yeniden yazma |
+| `git reset --hard` | `git reset --hard HEAD~3` | Kaydedilmemiş iş kaybı |
+| `git checkout .` / `git restore .` | `git checkout .` | Kaydedilmemiş iş kaybı |
+| `kubectl delete` | `kubectl delete pod` | Prodüksiyon etkisi |
+| `docker rm -f` / `docker system prune` | `docker system prune -a` | Konteyner/imaj kaybı |
 
-## Safe exceptions
+## Güvenli istisnalar
 
-These patterns are allowed without warning:
+Bu kalıplar uyarı olmadan izinlidir:
 - `rm -rf node_modules` / `.next` / `dist` / `__pycache__` / `.cache` / `build` / `.turbo` / `coverage`
 
-## How it works
+## Nasıl çalışır
 
-The hook reads the command from the tool input JSON, checks it against the
-patterns above, and returns `permissionDecision: "ask"` with a warning message
-if a match is found. You can always override the warning and proceed.
+Hook, araç girdisi JSON'undan komutu okur, yukarıdaki kalıplarla karşılaştırır
+ve bir eşleşme bulunursa uyarı mesajıyla birlikte `permissionDecision: "ask"`
+döndürür. Uyarıyı her zaman geçersiz kılıp devam edebilirsiniz.
 
-To deactivate, end the conversation or start a new one. Hooks are session-scoped.
+Devre dışı bırakmak için konuşmayı sonlandırın veya yeni bir konuşma başlatın. Hook'lar oturum kapsamlıdır.

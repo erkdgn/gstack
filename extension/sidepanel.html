@@ -9,7 +9,7 @@
   <!-- Security shield — reflects ~/.gstack/security/session-state.json status.
        Hidden until the sidebar knows its state (avoids flicker on first load).
        Consumes /health.security — see browse/src/security.ts getStatus(). -->
-  <div class="security-shield" id="security-shield" role="status" aria-label="Security status: unknown" style="display:none" title="Security">
+  <div class="security-shield" id="security-shield" role="status" aria-label="Güvenlik durumu: bilinmiyor" style="display:none" title="Güvenlik">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
     </svg>
@@ -18,10 +18,10 @@
 
   <!-- Connection status banner -->
   <div class="conn-banner" id="conn-banner" style="display:none">
-    <span class="conn-banner-text" id="conn-banner-text">Reconnecting...</span>
+    <span class="conn-banner-text" id="conn-banner-text">Yeniden bağlanıyor...</span>
     <div class="conn-banner-actions" id="conn-banner-actions" style="display:none">
-      <button class="conn-btn" id="conn-reconnect">Reconnect</button>
-      <button class="conn-btn conn-copy" id="conn-copy" title="Copy command">/open-gstack-browser</button>
+      <button class="conn-btn" id="conn-reconnect">Yeniden bağlan</button>
+      <button class="conn-btn conn-copy" id="conn-copy" title="Komutu kopyala">/open-gstack-browser</button>
     </div>
   </div>
 
@@ -36,35 +36,35 @@
          time, not just from the ENDED state. -->
     <div class="terminal-toolbar" id="terminal-toolbar">
       <div class="terminal-toolbar-actions">
-        <button id="chat-cleanup-btn" class="terminal-toolbar-btn" title="Remove ads, banners, popups">🧹 Cleanup</button>
-        <button id="chat-screenshot-btn" class="terminal-toolbar-btn" title="Take a screenshot">📸 Screenshot</button>
-        <button id="chat-cookies-btn" class="terminal-toolbar-btn" title="Import cookies from your browser">🍪 Cookies</button>
+        <button id="chat-cleanup-btn" class="terminal-toolbar-btn" title="Reklamları, bannerları, açılır pencereleri kaldır">🧹 Temizle</button>
+        <button id="chat-screenshot-btn" class="terminal-toolbar-btn" title="Ekran görüntüsü al">📸 Ekran Görüntüsü</button>
+        <button id="chat-cookies-btn" class="terminal-toolbar-btn" title="Tarayıcınızdan çerezleri içe aktar">🍪 Çerezler</button>
       </div>
-      <button class="terminal-toolbar-btn" id="terminal-restart-now" title="Restart Claude Code session">↻ Restart</button>
+      <button class="terminal-toolbar-btn" id="terminal-restart-now" title="Claude Code oturumunu yeniden başlat">↻ Yeniden Başlat</button>
     </div>
     <div class="terminal-bootstrap" id="terminal-bootstrap">
       <div class="terminal-bootstrap-icon">▸</div>
-      <p id="terminal-bootstrap-status">Starting Claude Code...</p>
-      <p class="muted" id="terminal-bootstrap-hint">Real PTY. Real terminal. Real claude.</p>
+      <p id="terminal-bootstrap-status">Claude Code başlatılıyor...</p>
+      <p class="muted" id="terminal-bootstrap-hint">Gerçek PTY. Gerçek terminal. Gerçek claude.</p>
       <pre id="loading-debug" class="muted" style="font-size:11px; font-family:'JetBrains Mono',monospace; white-space:pre-wrap; margin-top:8px; color:#71717A;"></pre>
     </div>
     <div class="terminal-install-card" id="terminal-install-card" style="display:none">
-      <p><strong>Claude Code not found</strong></p>
-      <p class="muted">Install: <a href="https://docs.anthropic.com/en/docs/claude-code" target="_blank">docs.anthropic.com/en/docs/claude-code</a></p>
-      <button class="install-retry-btn" id="terminal-install-retry">I installed it &mdash; try again</button>
+      <p><strong>Claude Code bulunamadı</strong></p>
+      <p class="muted">Kurulum: <a href="https://docs.anthropic.com/en/docs/claude-code" target="_blank">docs.anthropic.com/en/docs/claude-code</a></p>
+      <button class="install-retry-btn" id="terminal-install-retry">Kurdum &mdash; tekrar dene</button>
     </div>
     <div class="terminal-mount" id="terminal-mount" style="display:none"></div>
     <div class="terminal-ended" id="terminal-ended" style="display:none">
-      <p>Session ended.</p>
-      <button class="install-retry-btn" id="terminal-restart">Start a new session</button>
+      <p>Oturum sona erdi.</p>
+      <button class="install-retry-btn" id="terminal-restart">Yeni oturum başlat</button>
     </div>
   </main>
 
   <!-- Debug: Activity Tab (hidden by default) -->
   <main id="tab-activity" class="tab-content" role="log" aria-live="polite">
     <div class="empty-state" id="empty-state">
-      <p>Waiting for commands...</p>
-      <p class="muted">Run a browse command to see activity here.</p>
+      <p>Komutlar bekleniyor...</p>
+      <p class="muted">Burada etkinliği görmek için bir tarama komutu çalıştırın.</p>
     </div>
     <div id="activity-feed"></div>
   </main>
@@ -72,8 +72,8 @@
   <!-- Debug: Refs Tab (hidden by default) -->
   <main id="tab-refs" class="tab-content">
     <div class="empty-state" id="refs-empty">
-      <p>No refs yet</p>
-      <p class="muted">Run <code>snapshot</code> to see element refs.</p>
+      <p>Henüz referans yok</p>
+      <p class="muted">Öğe referanslarını görmek için <code>snapshot</code> çalıştırın.</p>
     </div>
     <div id="refs-list"></div>
     <div class="refs-footer" id="refs-footer"></div>
@@ -83,14 +83,14 @@
   <main id="tab-inspector" class="tab-content">
     <!-- Toolbar: always visible -->
     <div class="inspector-toolbar" id="inspector-toolbar">
-      <button class="inspector-pick-btn" id="inspector-pick-btn" title="Pick an element (click, then click any element on the page)">
-        <span class="inspector-pick-icon">&#x271B;</span> Pick
+      <button class="inspector-pick-btn" id="inspector-pick-btn" title="Bir öğe seç (tıklayın, ardından sayfadaki herhangi bir öğeye tıklayın)">
+        <span class="inspector-pick-icon">&#x271B;</span> Seç
       </button>
       <span class="inspector-selected" id="inspector-selected"></span>
       <span class="inspector-mode-badge" id="inspector-mode-badge" style="display:none"></span>
       <div style="flex:1"></div>
-      <button id="inspector-cleanup-btn" class="inspector-action-btn" title="Remove ads, banners, popups">🧹</button>
-      <button id="inspector-screenshot-btn" class="inspector-action-btn" title="Take a screenshot">📸</button>
+      <button id="inspector-cleanup-btn" class="inspector-action-btn" title="Reklamları, bannerları, açılır pencereleri kaldır">🧹</button>
+      <button id="inspector-screenshot-btn" class="inspector-action-btn" title="Ekran görüntüsü al">📸</button>
     </div>
 
     <!-- Inspector content area -->
@@ -98,13 +98,13 @@
       <!-- Empty state (before first pick) -->
       <div class="inspector-empty" id="inspector-empty">
         <div class="inspector-empty-icon">&#x271B;</div>
-        <p>Pick an element to inspect</p>
-        <p class="muted">Click the button above, then click any element on the page</p>
+        <p>İncelemek için bir öğe seçin</p>
+        <p class="muted">Yukarıdaki düğmeye tıklayın, ardından sayfadaki herhangi bir öğeye tıklayın</p>
       </div>
 
       <!-- Loading state -->
       <div class="inspector-loading" id="inspector-loading" style="display:none">
-        <div class="inspector-loading-text">Inspecting...</div>
+        <div class="inspector-loading-text">İnceleniyor...</div>
         <div class="inspector-skeleton">
           <div class="inspector-skeleton-bar"></div>
           <div class="inspector-skeleton-bar"></div>
@@ -119,7 +119,7 @@
       <div class="inspector-panels" id="inspector-panels" style="display:none">
         <!-- Box Model -->
         <div class="inspector-section" id="inspector-boxmodel-section">
-          <div class="inspector-section-header">Box Model</div>
+          <div class="inspector-section-header">Kutu Modeli</div>
           <div class="inspector-boxmodel" id="inspector-boxmodel"></div>
         </div>
 
@@ -127,7 +127,7 @@
         <div class="inspector-section" id="inspector-rules-section">
           <button class="inspector-section-toggle" data-section="rules" aria-expanded="true">
             <span class="inspector-toggle-arrow">&#x25BC;</span>
-            <span>Matched Rules</span>
+            <span>Eşleşen Kurallar</span>
             <span class="inspector-rule-count" id="inspector-rule-count"></span>
           </button>
           <div class="inspector-section-body" id="inspector-rules" role="tree"></div>
@@ -137,7 +137,7 @@
         <div class="inspector-section" id="inspector-computed-section">
           <button class="inspector-section-toggle collapsed" data-section="computed" aria-expanded="false">
             <span class="inspector-toggle-arrow">&#x25B6;</span>
-            <span>Computed</span>
+            <span>Hesaplanan</span>
           </button>
           <div class="inspector-section-body collapsed" id="inspector-computed"></div>
         </div>

@@ -1,10 +1,5 @@
-**Todo-list discipline.** When working through a multi-step plan, mark each task
-complete individually as you finish it. Do not batch-complete at the end. If a task
-turns out to be unnecessary, mark it skipped with a one-line reason.
+**Yapılacaklar listesi disiplini.** Çok adımlı bir plan üzerinde çalışırken, her görevi tamamladıkça tek tek tamamlandı olarak işaretleyin. Sonunda topluca tamamlamayın. Bir görevin gereksiz olduğu ortaya çıkarsa, tek satırlık bir gerekçeyle atlandı olarak işaretleyin.
 
-**Think before heavy actions.** For complex operations (refactors, migrations,
-non-trivial new features), briefly state your approach before executing. This lets
-the user course-correct cheaply instead of mid-flight.
+**Ağır işlemler önce düşünün.** Karmaşık işlemler (yeniden düzenlemeler, göçler, önemsiz olmayan yeni özellikler) için, uygulamadan önce yaklaşımınızı kısaca belirtin. Bu, kullanıcının uçuş ortasında değil, düşük maliyetle yön düzeltmesine olanak tanır.
 
-**Dedicated tools over Bash.** Prefer Read, Edit, Write, Glob, Grep over shell
-equivalents (cat, sed, find, grep). The dedicated tools are cheaper and clearer.
+**Özel araçlar Bash yerine.** Read, Edit, Write, Glob, Grep araçlarını kabuk karşılıkları (cat, sed, find, grep) yerine tercih edin. Özel araçlar daha ucuz ve daha net.

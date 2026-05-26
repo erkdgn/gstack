@@ -1,45 +1,47 @@
-# Adding a New Host to gstack
+# gstack'e Yeni Host Ekleme
 
-gstack uses a declarative host config system. Each supported AI coding agent
-(Claude, Codex, Factory, Kiro, OpenCode, Slate, Cursor, OpenClaw) is defined
-as a typed TypeScript config object. Adding a new host means creating one file
-and re-exporting it. Zero code changes to the generator, setup, or tooling.
+gstack bildirimsel bir host yapılandırma sistemi kullanır. Desteklenen her AI kodlama
+aracısı (Claude, Codex, Factory, Kiro, OpenCode, Slate, Cursor, OpenClaw) tipli bir
+TypeScript yapılandırma nesnesi olarak tanımlanır. Yeni bir host eklemek bir doska
+oluşturmak ve yeniden dışa aktarmak anlamına gelir. Üreteç, kurulum veya araçlarda sıfır
+kod değişikliği.
 
-## How it works
+## Nasıl çalışır
 
 ```
 hosts/
-├── claude.ts        # Primary host
+├── claude.ts        # Birincil host
 ├── codex.ts         # OpenAI Codex CLI
 ├── factory.ts       # Factory Droid
 ├── kiro.ts          # Amazon Kiro
 ├── opencode.ts      # OpenCode
 ├── slate.ts         # Slate (Random Labs)
 ├── cursor.ts        # Cursor
-├── openclaw.ts      # OpenClaw (hybrid: config + adapter)
-└── index.ts         # Registry: imports all, derives Host type
+├── openclaw.ts      # OpenClaw (karma: yapılandırma + bağdaştırıcı)
+└── index.ts         # Kayıt defteri: tümünü içe aktarır, Host türünü türetir
 ```
 
-Each config file exports a `HostConfig` object that tells the generator:
-- Where to put generated skills (paths)
-- How to transform frontmatter (allowlist/denylist fields)
-- What Claude-specific references to rewrite (paths, tool names)
-- What binary to detect for auto-install
-- What resolver sections to suppress
-- What assets to symlink at install time
+Her yapılandırma dosyası, üretece şunu söyleyen bir `HostConfig` nesnesi dışa aktarır:
+- Üretilen yeteneklerin nereye konacağı (yollar)
+- Frontmatter'ı nasıl dönüştüreceği (izin listesi/ret listesi alanları)
+- Hangi Claude'a özgü referansların yeniden yazılacağı (yollar, araç adları)
+- Otomatik kurulum için hangi ikili dosyanın algılanacağı
+- Hangi çözücü bölümlerin bastırılacağı
+- Kurulum zamanında hangi varlıkların sembolik bağlanacağı
 
-The generator, setup script, platform-detect, uninstall, health checks, worktree
-copy, and tests all read from these configs. None of them have per-host code.
+Üreteç, kurulum betiği, platform-algılama, kaldırma, sağlık denetimleri, worktree
+kopyası ve testlerin hepsi bu yapılandırmalardan okunur. Hiçbirinde host başına kod yoktur.
 
-## Step-by-step: add a new host
+## Adım adım: yeni bir host ekle
 
-### 1. Create the config file
+### 1. Yapılandırma dosyasını oluştur
 
-Copy an existing config as a starting point. `hosts/opencode.ts` is a good
-minimal example. `hosts/factory.ts` shows tool rewrites and conditional fields.
-`hosts/openclaw.ts` shows the adapter pattern for hosts with different tool models.
+Başlangıç noktası olarak var olan bir yapılandırmayı kopyalayın. `hosts/opencode.ts` iyi
+bir minimal örnektir. `hosts/factory.ts` araç yeniden yazımlarını ve koşullu alanları
+gösterir. `hosts/openclaw.ts` farklı araç modellerine sahip hostlar için bağdaştırıcı
+örüntüsünü gösterir.
 
-Create `hosts/myhost.ts`:
+`hosts/myhost.ts` oluştur:
 
 ```typescript
 import type { HostConfig } from '../scripts/host-config';
@@ -47,23 +49,23 @@ import type { HostConfig } from '../scripts/host-config';
 const myhost: HostConfig = {
   name: 'myhost',
   displayName: 'MyHost',
-  cliCommand: 'myhost',        // binary name for `command -v` detection
-  cliAliases: [],              // alternative binary names
+  cliCommand: 'myhost',        // `command -v` algılaması için ikili dosya adı
+  cliAliases: [],              // alternatif ikili dosya adları
 
   globalRoot: '.myhost/skills/gstack',
   localSkillRoot: '.myhost/skills/gstack',
   hostSubdir: '.myhost',
-  usesEnvVars: true,           // false only for Claude (uses literal ~ paths)
+  usesEnvVars: true,           // yalnızca Claude için false (harfi harfine ~ yolları kullanır)
 
   frontmatter: {
-    mode: 'allowlist',         // 'allowlist' keeps only listed fields
+    mode: 'allowlist',         // 'allowlist' yalnızca listelenen alanları tutar
     keepFields: ['name', 'description'],
-    descriptionLimit: null,    // set to 1024 for hosts with limits
+    descriptionLimit: null,    // limitleri olan hostlar için 1024 olarak ayarlayın
   },
 
   generation: {
-    generateMetadata: false,   // true only for Codex (openai.yaml)
-    skipSkills: ['codex'],     // codex skill is Claude-only
+    generateMetadata: false,   // yalnızca Codex için true (openai.yaml)
+    skipSkills: ['codex'],     // codex yeteneği yalnızca Claude'a özeldir
   },
 
   pathRewrites: [
@@ -88,95 +90,95 @@ const myhost: HostConfig = {
 export default myhost;
 ```
 
-### 2. Register in the index
+### 2. İndekse kaydet
 
-Edit `hosts/index.ts`:
+`hosts/index.ts` dosyasını düzenle:
 
 ```typescript
 import myhost from './myhost';
 
-// Add to ALL_HOST_CONFIGS array:
+// ALL_HOST_CONFIGS dizisine ekle:
 export const ALL_HOST_CONFIGS: HostConfig[] = [
   claude, codex, factory, kiro, opencode, slate, cursor, openclaw, myhost
 ];
 
-// Add to re-exports:
+// Yeniden dışa aktarmalara ekle:
 export { claude, codex, factory, kiro, opencode, slate, cursor, openclaw, myhost };
 ```
 
-### 3. Add to .gitignore
+### 3. .gitignore'a ekle
 
-Add `.myhost/` to `.gitignore` (generated skill docs are gitignored).
+`.myhost/` satırını `.gitignore` dosyasına ekle (üretilen yetenek belgeleri gitignore edilir).
 
-### 4. Generate and verify
+### 4. Üret ve doğrula
 
 ```bash
-# Generate skill docs for the new host
+# Yeni host için yetenek belgelerini üret
 bun run gen:skill-docs --host myhost
 
-# Verify output exists and has no .claude/skills leakage
+# Çıktının var olduğunu ve .claude/skills sızıntısı olmadığını doğrula
 ls .myhost/skills/gstack-*/SKILL.md
 grep -r ".claude/skills" .myhost/skills/ | head -5
-# (should be empty)
+# (boş olmalı)
 
-# Generate for all hosts (includes the new one)
+# Tüm hostlar için üret (yenisini de içerir)
 bun run gen:skill-docs --host all
 
-# Health dashboard shows the new host
+# Sağlık panosu yeni hostu gösterir
 bun run skill:check
 ```
 
-### 5. Run tests
+### 5. Testleri çalıştır
 
 ```bash
 bun test test/gen-skill-docs.test.ts
 bun test test/host-config.test.ts
 ```
 
-The parameterized smoke tests automatically pick up the new host. Zero test
-code to write. They verify: output exists, no path leakage, valid frontmatter,
-freshness check passes, codex skill excluded.
+Parametreli duman testleri yeni hostu otomatik olarak algılar. Yazılacak sıfır test
+kodu. Şunları doğrularlar: çıktı var, yol sızıntısı yok, geçerli frontmatter,
+tazelik denetimi geçer, codex yeteneği hariç tutulur.
 
-### 6. Update README.md
+### 6. README.md'yi güncelle
 
-Add install instructions for the new host in the appropriate section.
+Yeni host için kurulum talimatlarını uygun bölüme ekle.
 
-## Config field reference
+## Yapılandırma alanı referansı
 
-See `scripts/host-config.ts` for the full `HostConfig` interface with JSDoc
-comments on every field.
+Her alanda JSDoc yorumlarıyla birlikte tüm `HostConfig` arayüzü için
+`scripts/host-config.ts` dosyasına bakın.
 
-Key fields:
+Temel alanlar:
 
-| Field | Purpose |
+| Alan | Amacı |
 |-------|---------|
-| `frontmatter.mode` | `allowlist` (keep only listed) or `denylist` (strip listed) |
-| `frontmatter.descriptionLimit` | Max chars, `null` for no limit |
-| `frontmatter.descriptionLimitBehavior` | `error` (fail build), `truncate`, `warn` |
-| `frontmatter.conditionalFields` | Add fields based on template values (e.g., sensitive → disable-model-invocation) |
-| `frontmatter.renameFields` | Rename template fields (e.g., voice-triggers → triggers) |
-| `pathRewrites` | Literal replaceAll on content. Order matters. |
-| `toolRewrites` | Rewrite Claude tool names (e.g., "use the Bash tool" → "run this command") |
-| `suppressedResolvers` | Resolver functions that return empty for this host |
-| `coAuthorTrailer` | Git co-author string for commits |
-| `boundaryInstruction` | Anti-prompt-injection warning for cross-model invocations |
-| `adapter` | Path to adapter module for complex transformations |
+| `frontmatter.mode` | `allowlist` (yalnızca listelenenleri tut) veya `denylist` (listelenenleri çıkar) |
+| `frontmatter.descriptionLimit` | Maksimum karakter, sınır yok için `null` |
+| `frontmatter.descriptionLimitBehavior` | `error` (derleme başarısız), `truncate`, `warn` |
+| `frontmatter.conditionalFields` | Şablon değerlerine göre alan ekle (örn., sensitive → disable-model-invocation) |
+| `frontmatter.renameFields` | Şablon alanlarını yeniden adlandır (örn., voice-triggers → triggers) |
+| `pathRewrites` | İçerikte harfi harfine replaceAll. Sıra önemlidir. |
+| `toolRewrites` | Claude araç adlarını yeniden yaz (örn., "use the Bash tool" → "run this command") |
+| `suppressedResolvers` | Bu host için boş dönen çözücü işlevleri |
+| `coAuthorTrailer` | Commitler için git ortak yazar dizesi |
+| `boundaryInstruction` | Çapraz model çağrıları için istem-enjeksiyonu karşıtı uyarı |
+| `adapter` | Karmaşık dönüşümler için bağdaştırıcı modülü yolu |
 
-## Adapter pattern (for hosts with different tool models)
+## Bağdaştırıcı örüntüsü (farklı araç modellerine sahip hostlar için)
 
-If string-replace tool rewrites aren't enough (the host has fundamentally
-different tool semantics), use the adapter pattern. See `hosts/openclaw.ts`
-and `scripts/host-adapters/openclaw-adapter.ts`.
+Dizi-değiştirme araç yeniden yazımları yeterli değilse (hostun temelden farklı araç
+anlambilimi varsa), bağdaştırıcı örüntüsünü kullanın. `hosts/openclaw.ts` ve
+`scripts/host-adapters/openclaw-adapter.ts` dosyalarına bakın.
 
-The adapter runs as a post-processing step after all generic rewrites. It
-exports `transform(content: string, config: HostConfig): string`.
+Bağdaştırıcı, tüm genel yeniden yazımlardan sonra bir son işleme adımı olarak çalışır.
+`transform(content: string, config: HostConfig): string` işlevini dışa aktarır.
 
-## Validation
+## Doğrulama
 
-The `validateHostConfig()` function in `scripts/host-config.ts` checks:
-- Name: lowercase alphanumeric with hyphens
-- CLI command: alphanumeric with hyphens/underscores
-- Paths: safe characters only (alphanumeric, `.`, `/`, `$`, `{}`, `~`, `-`, `_`)
-- No duplicate names, hostSubdirs, or globalRoots across configs
+`scripts/host-config.ts` içindeki `validateHostConfig()` işlevi şunları denetler:
+- İsim: tireli küçük harf alfanümerik
+- CLI komutu: tireli/altçizgili alfanümerik
+- Yollar: yalnızca güvenli karakterler (alfanümerik, `.`, `/`, `$`, `{}`, `~`, `-`, `_`)
+- Yapılandırmalar arasında yinelenen isim, hostSubdirs veya globalRoot yok
 
-Run `bun run scripts/host-config-export.ts validate` to check all configs.
+Tüm yapılandırmaları denetlemek için `bun run scripts/host-config-export.ts validate` çalıştırın.

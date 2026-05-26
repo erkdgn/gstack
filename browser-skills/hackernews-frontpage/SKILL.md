@@ -1,6 +1,6 @@
 ---
 name: hackernews-frontpage
-description: Scrape the Hacker News front page (titles, points, comment counts).
+description: Hacker News ana sayfasını kazır (başlıklar, puanlar, yorum sayıları).
 host: news.ycombinator.com
 trusted: true
 source: human
@@ -13,13 +13,13 @@ triggers:
   - latest hacker news stories
 ---
 
-# Hacker News front-page scraper
+# Hacker News ana sayfa kazıyıcısı
 
-Scrapes the Hacker News (`news.ycombinator.com`) front page and returns the
-top 30 stories as JSON. Each story has its rank, title, link URL, point count,
-and comment count.
+Hacker News (`news.ycombinator.com`) ana sayfasını kazır ve en
+iyi 30 haberi JSON olarak döndürür. Her haberin sırası, başlığı, bağlantı URL'si,
+puan sayısı ve yorum sayısı bulunur.
 
-## Usage
+## Kullanım
 
 ```
 $ $B skill run hackernews-frontpage
@@ -32,21 +32,21 @@ $ $B skill run hackernews-frontpage
 }
 ```
 
-## How it works
+## Nasıl çalışır
 
-1. Navigates to `https://news.ycombinator.com` via the daemon.
-2. Reads the page HTML.
-3. Parses each story row (HN's stable `tr.athing` structure) into a typed
-   `Story` record.
-4. Emits a single JSON document on stdout.
+1. Daemon üzerinden `https://news.ycombinator.com` adresine gider.
+2. Sayfa HTML'ini okur.
+3. Her haber satırını (HN'nin kararlı `tr.athing` yapısı) tiplendirilmiş
+   `Story` kaydına dönüştürür.
+4. Standart çıktıya tek bir JSON belgesi yazar.
 
-## Why this is the reference skill
+## Neden bu referans yetenek
 
-`hackernews-frontpage` is the smallest interesting browser-skill: no auth,
-stable HTML, deterministic output, file-fixture-friendly. Every Phase 1
-component (SDK, scoped tokens, three-tier lookup, spawn lifecycle) is
-exercised by `$B skill run hackernews-frontpage` and the bundled
-`script.test.ts`.
+`hackernews-frontpage`, en küçük ilginç browser-skill'dir: kimlik doğrulama yok,
+kararlı HTML, deterministik çıktı, dosya-fikstürü-uyumlu. Her Aşama 1
+bileşeni (SDK, kapsamlı token'lar, üç katmanlı arama, spawn yaşam döngüsü)
+`$B skill run hackernews-frontpage` ve paketlenen
+`script.test.ts` tarafından kullanılır.
 
-When the HN HTML rotates and our selectors break, the test fails against the
-captured fixture before users notice. That's the point.
+HN HTML'si değiştiğinde ve seçicilerimiz bozulduğunda, test kaydedilen
+fikstüre karşı kullanıcılar fark etmeden önce başarısız olur. İşte amaç bu.

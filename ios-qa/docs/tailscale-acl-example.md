@@ -1,41 +1,41 @@
-# Tailscale ACL example for the iOS QA daemon
+# iOS QA daemon'u için Tailscale ACL örneği
 
-The Mac-side daemon binds the Tailscale interface only when you pass
-`--tailnet`. By default the daemon is local-USB-only. This doc walks through
-the steps to expose your iPhone to remote agents safely so they can run iOS QA over the tailnet.
+Mac tarafındaki daemon, Tailscale arayüzünü yalnızca `--tailnet` geçtiğinizde
+bağlar. Varsayılan olarak daemon yalnızca yerel-USB üzerinden çalışır. Bu belge,
+iPhone'unuzu uzak ajanlara güvenli bir şekilde sunmak için tailnet üzerinden
+iOS QA çalıştırabilecekleri adımları açıklar.
 
-## Threat model recap
+## Tehdit modeli özeti
 
-- **iOS app StateServer:** loopback-only always. Reachable from the Mac via
-  the CoreDevice IPv6 tunnel. Never directly bound to tailnet.
-- **Mac daemon:** owns the tailnet interface. Binds two listeners — loopback
-  (full surface, never forwarded) and tailnet (locked allowlist with
-  capability tiers).
-- **Auth:** Tailscale identity validation via the local `tailscaled` socket
-  (`/var/run/tailscale.sock` LocalAPI WhoIs). Allowlist file at
-  `~/.gstack/ios-qa-allowlist.json` is the single source of truth for who can
-  do what.
+- **iOS uygulaması StateServer:** her zaman yalnızca geri döngü (loopback). Mac
+  üzerinden CoreDevice IPv6 tüneli ile erişilebilir. Asla doğrudan tailnet'e
+  bağlanmaz.
+- **Mac daemon'u:** tailnet arayüzüne sahip. İki dinleyici bağlar — geri döngü
+  (tam yüzey, asla yönlendirilmez) ve tailnet (yetki katmanlı kilitli izin listesi).
+- **Kimlik doğrulama:** Yerel `tailscaled` soketi üzerinden Tailscale kimlik
+  doğrulaması (`/var/run/tailscale.sock` LocalAPI WhoIs). `~/.gstack/ios-qa-allowlist.json`
+  konumundaki izin listesi dosyası, kimin ne yapabileceğinin tek kaynakıdır.
 
-## Step 1: Install and run Tailscale
+## Adım 1: Tailscape kurun ve çalıştırın
 
 ```bash
 brew install --cask tailscale
-# Login + start tailscaled, then verify:
+# Giriş yapın + tailscaled'i başlatın, ardından doğrulayın:
 tailscale status
 ```
 
-Confirm the daemon can read the LocalAPI socket:
+Daemon'un LocalAPI soketini okuyabildiğini doğrulayın:
 
 ```bash
 test -S /var/run/tailscale.sock && echo "socket present" || echo "MISSING"
 ```
 
-If missing, the daemon will refuse to open the tailnet listener (fail-closed).
+Eğer eksikse, daemon tailnet dinleyicisini açmayı reddeder (kapalı-hata).
 
-## Step 2: Set up the daemon's ACL
+## Adım 2: Daemon'un ACL'ini kurun
 
-The daemon needs to know which Tailscale identities are allowed to control
-which devices at which capability tier. The allowlist file is JSON:
+Daemon'un hangi Tailscale kimliklerine hangi cihazları hangi yetki katmanında
+kontrol etme izni olduğunu bilmesi gerekir. İzin listesi dosyası JSON'dur:
 
 ```json
 {
@@ -45,71 +45,72 @@ which devices at which capability tier. The allowlist file is JSON:
       "identity": "you@example.com",
       "capabilities": ["restore"],
       "expires_at": null,
-      "note": "Owner — full access"
+      "note": "Sahip — tam erişim"
     },
     {
       "identity": "ci@example.com",
       "capabilities": ["mutate"],
       "expires_at": "2026-12-31T00:00:00Z",
-      "note": "CI runner — can write state but not full restore"
+      "note": "CI çalıştırıcısı — durum yazabilir ama tam geri yükleme yapamaz"
     },
     {
       "identity": "tag:claude-readonly",
       "capabilities": ["observe"],
       "expires_at": null,
-      "note": "Agents that should only read"
+      "note": "Yalnızca okuma yapması gereken ajanlar"
     }
   ]
 }
 ```
 
-Identities are canonicalized via WhoIs:
+Kimlikler WhoIs aracılığıyla kurallaştırılır:
 
-- **User OAuth:** `user@example.com` (no `acct:`, no domain rewriting).
-- **Tagged nodes:** `tag:<tagname>` (lowercased).
-- **Node keys:** `node:<nodekey-hex>` (rare; use tags instead).
+- **Kullanıcı OAuth:** `user@example.com` (`acct:` yok, alan adı yeniden yazımı yok).
+- **Etiketli düğümler:** `tag:<tagname>` (küçük harfe dönüştürülmüş).
+- **Düğüm anahtarları:** `node:<nodekey-hex>` (nadir; bunun yerine etiketler kullanın).
 
-Capability tiers are ordered: `observe` < `interact` < `mutate` < `restore`.
-Granting `restore` implies all lower tiers.
+Yetki katmanları sıralıdır: `observe` < `interact` < `mutate` < `restore`.
+`restore` vermek, tüm alt katmanları da kapsar.
 
-## Step 3: Mint a session token for a remote agent
+## Adım 3: Uzak ajan için oturum token'ı oluşturun
 
-You can let agents self-mint (if their identity is allowlisted) or you can
-mint server-side for them:
+Ajanların kendi kendilerine token oluşturmasına izin verebilirsiniz (kimlikleri izin
+listesindeyse) veya onlar için sunucu tarafında oluşturabilirsiniz:
 
 ```bash
-# Server-side mint (owner-only, runs locally on the Mac with the device):
+# Sunucu tarafı oluşturma (yalnızca sahip, cihazlı Mac'te yerel olarak çalışır):
 gstack-ios-qa-mint --remote ci@example.com --capability mutate --ttl 1h
 
-# Self-service mint (agent over tailnet):
+# Kendi kendine oluşturma (tailnet üzerinden ajan):
 curl -X POST http://<mac-tailnet-ip>:9999/auth/mint \
   -H "Content-Type: application/json" \
   -d '{"capability": "interact"}'
 # → {"session_token": "...", "expires_at": "...", "capability": "interact"}
 ```
 
-## Step 4: Tighten the Tailscale ACL (defense in depth)
+## Adım 4: Tailscale ACL'yi sıkılaştırın (derinlemesine savunma)
 
-The daemon's allowlist is the primary access control. Belt-and-suspenders:
-restrict the tailnet ACL to limit who can even *reach* the daemon port.
+Daemon'un izin listesi birincil erişim kontrolüdür. Ek önlem olarak:
+tailnet ACL'sini, daemon portuna kimin erişebileceğini sınırlandırmak için
+kısıtlayın.
 
 ```jsonc
-// In your tailscale admin console:
+// Tailscale yönetici konsolunuzda:
 {
   "acls": [
-    // Allow CI runner to reach the iOS QA Mac on port 9999 only.
+    // CI çalıştırıcısının iOS QA Mac'ine yalnızca 9999 portunda erişmesine izin ver.
     {
       "action": "accept",
       "src": ["ci@example.com"],
       "dst": ["ios-qa-mac:9999"]
     },
-    // Tagged Claude agents — observe tier only (enforced by daemon, not ACL).
+    // Etiketli Claude ajanları — yalnızca gözlem katmanı (daemon tarafından uygulanır, ACL değil).
     {
       "action": "accept",
       "src": ["tag:claude-readonly"],
       "dst": ["ios-qa-mac:9999"]
     },
-    // Default deny.
+    // Varsayılan reddet.
     {
       "action": "drop",
       "src": ["*"],
@@ -119,39 +120,37 @@ restrict the tailnet ACL to limit who can even *reach* the daemon port.
 }
 ```
 
-## Step 5: Audit trail
+## Adım 5: Denetim izi
 
-Every authenticated mutating request through the tailnet listener writes a
-row to `~/.gstack/security/ios-qa-audit.jsonl`:
+Tailnet dinleyicisi üzerinden kimliği doğrulanmış her değiştirici istek,
+`~/.gstack/security/ios-qa-audit.jsonl` dosyasına bir satır yazar:
 
 ```jsonl
 {"ts":"2026-05-18T14:23:00Z","identity":"ci@example.com","device_udid":"00008101-XXXX","endpoint":"/tap","session_id":"abc...","capability":"interact","request_id":"req_001","status":200}
 ```
 
-Rejections (no token, expired token, capability-insufficient, identity not
-allowlisted, rate limit hit) write to `~/.gstack/security/attempts.jsonl`.
+Reddedilen istekler (token yok, süresi dolmuş token, yetersiz yetki, izin
+listesinde olmayan kimlik, hız sınırına ulaşılan) `~/.gstack/security/attempts.jsonl`
+dosyasına yazılır.
 
-## Rate limits
+## Hız limitleri
 
-- `/auth/mint`: 10 mints / 60s per identity. 11th returns 429.
-- Per-tailnet-request body: 1MB hard cap (413 above).
-- Screenshot response: 10MB hard cap (500 above with sanitized error).
+- `/auth/mint`: kimlik başına 60 saniyede 10 oluşturma. 11.'si 429 döndürür.
+- Tailnet isteği başına gövde: 1MB sabit sınır (üstünde 413).
+- Ekran görüntüsü yanıtı: 10MB sabit sınır (üstünde 500, temizlenmiş hata ile).
 
-## Token lifetime
+## Token ömrü
 
-- Daemon-minted session tokens: default 1h TTL, max 24h via
-  `--tailnet-session-ttl`.
-- Refreshable via `POST /session/heartbeat` (extends by `ttl_seconds`, capped
-  at the original max).
-- Boot token (between iOS app launch and daemon rotation): ~5s lifetime —
-  daemon rotates immediately on first scrape.
+- Daemon tarafından oluşturulan oturum token'ları: varsayılan 1s TTL, `--tailnet-session-ttl` ile en fazla 24s.
+- `POST /session/heartbeat` ile yenilenebilir (orijinal maksimum ile sınırlandırılmış `ttl_seconds` kadar uzatır).
+- Önyükleme token'ı (iOS uygulaması başlatma ile daemon rotasyonu arasında): ~5s ömrü — daemon ilk kazımada hemen döndürür.
 
-## Failure modes
+## Hata durumları
 
-| Symptom | Cause | Action |
+| Belirti | Neden | Eylem |
 |---|---|---|
-| Daemon refuses to open tailnet listener | `/var/run/tailscale.sock` missing or permission-denied | Install Tailscale; verify `tailscale status` works as the user running daemon |
-| `403 identity_not_allowed` | identity missing from allowlist | Owner mint: `gstack-ios-qa-mint --remote <identity>` |
-| `403 capability_insufficient` | token tier below endpoint requirement | Owner mint with higher `--capability` tier |
-| `429 rate_limited` | >10 mints/min from one identity | Wait 60s; investigate why the agent is re-minting so often |
-| `409 schema_mismatch` on `/state/restore` | snapshot from older app build | Discard the snapshot; re-capture from current app build |
+| Daemon tailnet dinleyicisini açmayı reddediyor | `/var/run/tailscale.sock` eksik veya izin hatası | Tailscale'i kurun; daemon'u çalıştıran kullanıcıyla `tailscale status` çalıştığını doğrulayın |
+| `403 identity_not_allowed` | kimlik izin listesinde yok | Sahip oluşturma: `gstack-ios-qa-mint --remote <identity>` |
+| `403 capability_insufficient` | token katmanı uç nokta gereksiniminin altında | Daha yüksek `--capability` katmanı ile sahip oluşturma |
+| `429 rate_limited` | bir kimlikten >10 oluşturma/dakika | 60 saniye bekleyin; ajanın neden bu kadar sık yeniden oluşturduğunu araştırın |
+| `/state/restore` üzerinde `409 schema_mismatch` | eski uygulama derlemesinden snapshot | Snapshot'ı atın; mevcut uygulama derlemesinden yeniden yakalayın |

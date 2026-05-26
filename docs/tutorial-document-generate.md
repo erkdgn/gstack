@@ -1,84 +1,98 @@
-# Tutorial: generate docs for a feature in 90 seconds
+# Eğitim: 90 saniyede bir özellik için belgeler üretin
 
-You'll run `/document-generate` against a project you already have, watch it write tutorial / how-to / reference / explanation docs in the right places, and end with a coverage map you can drop into a PR. By the end, you'll know the four moves: scope, archaeology, partition, write.
+Zaten sahip olduğunuz bir projede `/document-generate` çalıştıracaksınız, doğru yerlerde
+eğitim / nasıl yapılır / referans / açıklama belgeleri yazmasını izleyeceksiniz ve bir
+PR'ye bırakabileceğiniz bir kapsam haritası ile biteceksiniz. Sonunda, dört hamleyi
+bileceksiniz: kapsam, arkeoloji, bölümlendirme, yazma.
 
-## What you'll need
+## İhtiyacınız olanlar
 
-- gstack installed (`git clone --single-branch --depth 1 https://github.com/garrytan/gstack.git ~/.claude/skills/gstack && cd ~/.claude/skills/gstack && ./setup`)
-- Claude Code running in any project that has at least one piece of public surface (a CLI command, an exported function, a config option, a skill, an API endpoint)
-- About 90 seconds
+- gstack kurulu (`git clone --single-branch --depth 1 https://github.com/garrytan/gstack.git ~/.claude/skills/gstack && cd ~/.claude/skills/gstack && ./setup`)
+- En az bir genel yüzeyi (bir CLI komutu, dışa aktarılan bir işlev, bir yapılandırma
+  seçeneği, bir yetenek, bir API uç noktası) olan herhangi bir projede çalışan Claude Code
+- Yaklaşık 90 saniye
 
-You do not need a `docs/` directory in advance — the skill creates one if it's missing. You do not need to know Diataxis terminology — the skill labels the output for you.
+Önceden bir `docs/` dizinine ihtiyacınız yok — yetenek eksikse bir tane oluşturur. Diataxis
+terminolojisini bilmenize gerek yok — yetenek çıktıyı sizin için etiketler.
 
-## Step 1: Invoke the skill in any project
+## 1. Adım: Yeteneği herhangi bir projede çağırın
 
-Open Claude Code in the project you want to document. Type:
+Belgelendirmek istediğiniz projede Claude Code'u açın. Yazın:
 
 ```
 /document-generate
 ```
 
-You'll see the skill ask one question about output target:
+Yetenek çıktı hedefi hakkında bir soru sorar:
 
 ```
-A) Write documentation inline in existing files (README, ARCHITECTURE, etc.)
-B) Create standalone documentation files (e.g., docs/ directory)
-C) Both — inline summaries in existing files + deep docs in standalone files
+A) Mevcut dosyalarda satır içi belgelendirme yaz (README, ARCHITECTURE, vb.)
+B) Bağımsız belgelendirme dosyaları oluştur (örn., docs/ dizini)
+C) İkisi de — mevcut dosyalarda satır içi özetler + bağımsız dosyalarda derin belgeler
 
-RECOMMENDATION: Choose C because it maximizes both discoverability and depth.
+ÖNERİ: Hem bulunabilirliği hem de derinliği en üst düzeye çıkardığı için C'yi seçin.
 ```
 
-Pick C. You'll get a README pointer plus a full set of standalone docs.
+C'yi seçin. Bir README işaretçisi artı tam bir bağımsız belge seti alacaksınız.
 
-## Step 2: Watch the archaeology run
+## 2. Adım: Arkeoloji çalışmasını izleyin
 
-The skill goes silent for ~30 seconds while it reads the codebase. This is intentional — the Step 1 "Codebase Archaeology" phase is the most important step in the workflow. The skill is reading:
+Yetenek ~30 saniye boyunca sessiz kalırken kod tabanını okur. Bu kasıtlıdır — 1. Adım
+"Kod Tabanı Arkeolojisi" aşaması iş akışındaki en önemli adımdır. Yetenek şunları okuyor:
 
-- The full repository structure
-- README, ARCHITECTURE, CONTRIBUTING, CLAUDE.md (the entry points)
-- The implementation files for whatever you're documenting (full file, not just signatures)
-- The tests (which reveal edge cases and intended behavior)
-- Inline comments tagged `// NOTE:`, `// DESIGN:`, `// WHY:`
+- Tam depo yapısı
+- README, ARCHITECTURE, CONTRIBUTING, CLAUDE.md (giriş noktaları)
+- Belgelendirdiğiniz her şeyin uygulama dosyaları (tam dosya, yalnızca imzalar değil)
+- Testler (uç durumları ve amaçlanan davranışı ortaya çıkarır)
+- `// NOTE:`, `// DESIGN:`, `// WHY:` ile etiketlenmiş satır içi yorumlar
 
-When it finishes, you'll see a line like:
-
-```
-Researched 47 files, identified 12 public surface items, 8 concepts, and 4 design decisions.
-```
-
-That number tells you the skill actually read the code rather than guessing from filenames.
-
-## Step 3: See the Diataxis partition plan
-
-The skill prints a partition plan showing which quadrants it'll write for which entity:
+Bitirdiğinde, şöyle bir satır görürsünüz:
 
 ```
-Documentation plan:
-  [entity]              [tutorial] [how-to] [reference] [explanation]
-  WidgetService         ✅ new     ✅ new   ✅ new      ✅ new
-  --verbose flag        ❌        ✅ new   ✅ inline   ❌
-  Bayesian scheduler    ❌        ❌       ✅ new      ✅ new
+47 dosya araştırıldı, 12 genel yüzey öğesi, 8 kavram ve 4 tasarım kararı tanımlandı.
 ```
 
-Not every entity needs all four quadrants. CLI flags get reference + how-to. Internal modules get reference + explanation. User-facing features get all four. The skill picks based on entity type.
+Bu sayı, yeteneğin dosya adlarından tahmin etmek yerine gerçekten kodu okuduğunu size söyler.
 
-If the plan has more than 5 documents, the skill asks you to confirm before proceeding. Otherwise it goes.
+## 3. Adım: Diataxis bölümleme planını görün
 
-## Step 4: Read the first doc that lands
+Yetenek, hangi varlık için hangi kadranlarda yazacağını gösteren bir bölümleme planı
+yazdırır:
 
-Reference docs land first because they fix the vocabulary. You'll see lines like:
+```
+Belgelendirme planı:
+  [varlık]              [eğitim] [nasıl yapılır] [referans] [açıklama]
+  WidgetService         ✅ yeni     ✅ yeni   ✅ yeni      ✅ yeni
+  --verbose bayrağı        ❌        ✅ yeni   ✅ satır içi   ❌
+  Bayesian zamanlayıcı    ❌        ❌       ✅ yeni      ✅ yeni
+```
+
+Her varlığın dört kadranın hepsine ihtiyacı yoktur. CLI bayrakları referans + nasıl yapılır
+alır. Dahili modüller referans + açıklama alır. Kullanıcıya dönük özellikler dördünü de alır.
+Yetenek varlık türüne göre seçer.
+
+Planda 5'ten fazla belge varsa, yetenek devam etmeden önce onaylamanızı ister. Aksi
+takdirde devam eder.
+
+## 4. Adım: İnen ilk belgeyi okuyun
+
+Referans belgeleri önce iner çünkü sözlüğü sabitlerler. Şöyle satırlar görürsünüz:
 
 ```
 GENERATED: docs/reference-widget-service.md
 ```
 
-Open that file. It has a strict structure: one-paragraph intro, complete API listing with types and defaults, 2-3 runnable examples, and a Related section linking to the how-to and tutorial that will land next.
+O dosyayı açın. Katı bir yapıya sahiptir: bir paragraflık giriş, türler ve varsayılanlarla
+tam API listesi, 2-3 çalıştırılabilir örnek ve sıradaki nasıl yapılır ve eğitime bağlantı
+veren bir İlgili bölüm.
 
-This is what reference docs look like in Diataxis: factual, exhaustive, no narrative. If you find yourself wanting to explain *why* an option exists, that belongs in the explanation doc the skill will write next.
+Diataxis'te referans belgeleri böyledir: gerçekçi, kapsamlı, anlatı yok. Bir seçeneğin
+neden var olduğunu açıklamak istiyorsanız, bu yeteneğin bir sonraki yazacağı açıklama
+belgesine aittir.
 
-## Step 5: See the explanation, how-to, and tutorial appear
+## 5. Adım: Açıklama, nasıl yapılır ve eğitimin belirmesini görün
 
-In quick succession (each ~5-10 seconds), the skill writes the remaining quadrants:
+Hızlı bir sırayla (her biri ~5-10 saniye), yetenek kalan kadranları yazar:
 
 ```
 GENERATED: docs/explanation-widget-architecture.md
@@ -86,57 +100,70 @@ GENERATED: docs/howto-create-a-custom-widget.md
 GENERATED: docs/tutorial-build-your-first-widget.md
 ```
 
-Open each one. Notice they don't repeat each other:
+Her birini açın. Birbirlerini tekrar etmediklerine dikkat edin:
 
-- **Explanation** leads with the problem, then the approach, then trade-offs and alternatives considered
-- **How-to** has prerequisites, numbered steps with exact commands, a verification section, and a troubleshooting section
-- **Tutorial** gets you to a working result in under 3 steps, ends with "What you built"
+- **Açıklama** sorunla başlar, ardından yaklaşım, ardından ödünleşimler ve düşünülen
+  alternatifler
+- **Nasıl yapılır** ön koşullar, tam komutlarla numaralandırılmış adımlar, bir doğrulama
+  bölümü ve bir sorun giderme bölümü içerir
+- **Eğitim** 3 adım veya daha azında çalışan bir sonuca ulaştırır, "Ne inşa ettiniz" ile
+  biter
 
-The skill enforces these structures. If a how-to was missing a verification section, the Step 8 Quality Self-Review caught it before commit.
+Yetenek bu yapıları zorlar. Bir nasıl yapılırda doğrulama bölümü eksikse, 8. Adım Kalite
+Özdenetimi commit öncesinde yakalar.
 
-## Step 6: Check cross-linking
+## 6. Adım: Çapraz bağlantıları denetleyin
 
-Every doc links to the others. Reference doc Related section: links to how-to and tutorial. How-to Related section: links to reference. Tutorial "What you built" section: links to reference for deeper exploration.
+Her belge diğerlerine bağlantı verir. Referans belgesi İlgili bölümü: nasıl yapılır ve
+eğitime bağlantı verir. Nasıl yapılır İlgili bölümü: referansa bağlantı verir. Eğitim
+"Ne inşa ettiniz" bölümü: daha derin keşif için referansa bağlantı verir.
 
-Run a grep to verify no broken links:
+Bozuk bağlantı olmadığını doğrulamak için bir grep çalıştırın:
 
 ```bash
 grep -rE '\]\([^)]*\.md\)' docs/ | head -10
 ```
 
-Every linked file should exist. The skill's Step 7 "Cross-Document Linking & Discoverability" checks this before commit.
+Bağlantı verilen her dosya mevcut olmalıdır. Yeteneğin 7. Adım "Çapraz Belge Bağlantısı
+ve Keşfedilebilirlik" adımı commit öncesinde bunu denetler.
 
-## Step 7: See the coverage summary in the PR body
+## 7. Adım: PR gövdesindeki kapsam özetini görün
 
-If you're on a feature branch with an open PR, the skill updates the PR body with a `## Documentation Generated` table:
+Açık bir PR'ye sahip bir özellik dalındaysanız, yetenek PR gövdesini bir
+`## Documentation Generated` tablosu ile günceller:
 
 ```
 ## Documentation Generated
 
-| File | Quadrant | Description |
+| Dosya | Kadran | Açıklama |
 |------|----------|-------------|
-| docs/tutorial-build-your-first-widget.md | Tutorial | Walk-through from install to first working widget |
-| docs/reference-widget-service.md | Reference | Complete widget API with types, defaults, examples |
-| docs/explanation-widget-architecture.md | Explanation | Why widgets are isolated services |
-| docs/howto-create-a-custom-widget.md | How-to | Creating and registering custom widgets |
+| docs/tutorial-build-your-first-widget.md | Eğitim | Kurulumdan ilk çalışan widget'a yol gösterimi |
+| docs/reference-widget-service.md | Referans | Türler, varsayılanlar, örneklerle tam widget API'si |
+| docs/explanation-widget-architecture.md | Açıklama | Widget'ların neden yalıtılmış servisler olduğu |
+| docs/howto-create-a-custom-widget.md | Nasıl yapılır | Özel widget'lar oluşturma ve kaydetme |
 ```
 
-A reviewer opening the PR sees the table and knows immediately what kind of coverage shipped.
+Bir gözden geçiren PR'yi açtığında tabloyu görür ve ne tür bir kapsamın gönderildiğini
+hemen bilir.
 
-## What you built
+## Ne inşa ettiniz
 
-You now have four documents that serve four different readers:
+Artık dört farklı okuyucuya hizmet eden dört belgeye sahipsiniz:
 
-- A newcomer to your project can read `tutorial-*.md` and get something working
-- An experienced user can read `howto-*.md` to accomplish a specific task
-- An API caller can read `reference-*.md` for exact signatures
-- A code reviewer can read `explanation-*.md` to understand the design
+- Projenize yeni gelen biri `tutorial-*.md` dosyasını okuyup çalışan bir şey elde edebilir
+- Deneyimli bir kullanıcı belirli bir görevi başarmak için `howto-*.md` dosyasını okuyabilir
+- Bir API çağırıcısı tam imzalar için `reference-*.md` dosyasını okuyabilir
+- Bir kod gözden geçiren tasarımı anlamak için `explanation-*.md` dosyasını okuyabilir
 
-Each one is short enough to maintain. Each one has a single job. The PR body shows which quadrants were covered. If you run `/document-release` later, the Diataxis coverage map will report this entity as fully covered (4/4 quadrants).
+Her biri bakımı yeterince kısa. Her birinin tek bir işi var. PR gövdesi hangi kadranların
+kapsandığını gösterir. Daha sonra `/document-release` çalıştırırsanız, Diataxis kapsam
+haritası bu varlığı tamamen kapsanmış (4/4 kadran) olarak raporlar.
 
-## What to do next
+## Sırada ne yapmalı
 
-- **If you have gaps** /document-release flagged but didn't fill: run `/document-generate` again, scoped to those entities specifically.
-- **If you want to understand why the four quadrants exist:** read [explanation-diataxis-in-gstack.md](./explanation-diataxis-in-gstack.md).
-- **If you want to document one specific shipped feature** (not the whole project): read [howto-document-a-shipped-feature.md](./howto-document-a-shipped-feature.md).
-- **Reference for the skill itself:** [`document-generate/SKILL.md`](../document-generate/SKILL.md).
+- **Boşluklarınız varsa** /document-release işaretledi ama doldurmadı: kapsamı özellikle
+  o varlıklara sınırlandırarak `/document-generate` komutunu tekrar çalıştırın.
+- **Dört kadranın neden var olduğunu anlamak istiyorsanız:** [explanation-diataxis-in-gstack.md](./explanation-diataxis-in-gstack.md) dosyasını okuyun.
+- **Belirli bir yayımlanan özelliği belgelendirmek istiyorsanız** (tüm proje değil):
+  [howto-document-a-shipped-feature.md](./howto-document-a-shipped-feature.md) dosyasını okuyun.
+- **Yeteneğin kendisi için referans:** [`document-generate/SKILL.md`](../document-generate/SKILL.md).

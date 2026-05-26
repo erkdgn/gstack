@@ -1,126 +1,126 @@
-# QA Report: {APP_NAME}
+# QA Raporu: {APP_NAME}
 
-| Field | Value |
-|-------|-------|
-| **Date** | {DATE} |
+| Alan | Değer |
+|------|-------|
+| **Tarih** | {DATE} |
 | **URL** | {URL} |
-| **Branch** | {BRANCH} |
+| **Dal** | {BRANCH} |
 | **Commit** | {COMMIT_SHA} ({COMMIT_DATE}) |
-| **PR** | {PR_NUMBER} ({PR_URL}) or "—" |
-| **Tier** | Quick / Standard / Exhaustive |
-| **Scope** | {SCOPE or "Full app"} |
-| **Duration** | {DURATION} |
-| **Pages visited** | {COUNT} |
-| **Screenshots** | {COUNT} |
-| **Framework** | {DETECTED or "Unknown"} |
-| **Index** | [All QA runs](./index.md) |
+| **PR** | {PR_NUMBER} ({PR_URL}) veya "—" |
+| **Katman** | Hızlı / Standart / Kapsamlı |
+| **Kapsam** | {SCOPE} veya "Tam uygulama" |
+| **Süre** | {DURATION} |
+| **Ziyaret edilen sayfalar** | {COUNT} |
+| **Ekran görüntüleri** | {COUNT} |
+| **Çerçeve** | {DETECTED} veya "Bilinmiyor" |
+| **Dizin** | [Tüm QA çalışmaları](./index.md) |
 
-## Health Score: {SCORE}/100
+## Sağlık Puanı: {SCORE}/100
 
-| Category | Score |
-|----------|-------|
-| Console | {0-100} |
-| Links | {0-100} |
-| Visual | {0-100} |
-| Functional | {0-100} |
-| UX | {0-100} |
-| Performance | {0-100} |
-| Accessibility | {0-100} |
+| Kategori | Puan |
+|----------|------|
+| Konsol | {0-100} |
+| Bağlantılar | {0-100} |
+| Görsel | {0-100} |
+| İşlevsel | {0-100} |
+| Kullanıcı Deneyimi | {0-100} |
+| Performans | {0-100} |
+| Erişilebilirlik | {0-100} |
 
-## Top 3 Things to Fix
+## Düzeltilmesi Gereken İlk 3 Şey
 
-1. **{ISSUE-NNN}: {title}** — {one-line description}
-2. **{ISSUE-NNN}: {title}** — {one-line description}
-3. **{ISSUE-NNN}: {title}** — {one-line description}
+1. **{ISSUE-NNN}: {başlık}** — {tek satır açıklama}
+2. **{ISSUE-NNN}: {başlık}** — {tek satır açıklama}
+3. **{ISSUE-NNN}: {başlık}** — {tek satır açıklama}
 
-## Console Health
+## Konsol Sağlığı
 
-| Error | Count | First seen |
-|-------|-------|------------|
-| {error message} | {N} | {URL} |
+| Hata | Sayı | İlk görülme |
+|------|------|-------------|
+| {hata mesajı} | {N} | {URL} |
 
-## Summary
+## Özet
 
-| Severity | Count |
-|----------|-------|
-| Critical | 0 |
-| High | 0 |
-| Medium | 0 |
-| Low | 0 |
-| **Total** | **0** |
+| Ciddiyet | Sayı |
+|----------|------|
+| Kritik | 0 |
+| Yüksek | 0 |
+| Orta | 0 |
+| Düşük | 0 |
+| **Toplam** | **0** |
 
-## Issues
+## Sorunlar
 
-### ISSUE-001: {Short title}
+### ISSUE-001: {Kısa başlık}
 
-| Field | Value |
-|-------|-------|
-| **Severity** | critical / high / medium / low |
-| **Category** | visual / functional / ux / content / performance / console / accessibility |
-| **URL** | {page URL} |
+| Alan | Değer |
+|------|-------|
+| **Ciddiyet** | kritik / yüksek / orta / düşük |
+| **Kategori** | görsel / işlevsel / kullanıcı deneyimi / içerik / performans / konsol / erişilebilirlik |
+| **URL** | {sayfa URL'si} |
 
-**Description:** {What is wrong, expected vs actual.}
+**Açıklama:** {Neyin yanlış olduğu, beklenen vs gerçekleşen.}
 
-**Repro Steps:**
+**Yeniden Üretim Adımları:**
 
-1. Navigate to {URL}
-   ![Step 1](screenshots/issue-001-step-1.png)
-2. {Action}
-   ![Step 2](screenshots/issue-001-step-2.png)
-3. **Observe:** {what goes wrong}
-   ![Result](screenshots/issue-001-result.png)
-
----
-
-## Fixes Applied (if applicable)
-
-| Issue | Fix Status | Commit | Files Changed |
-|-------|-----------|--------|---------------|
-| ISSUE-NNN | verified / best-effort / reverted / deferred | {SHA} | {files} |
-
-### Before/After Evidence
-
-#### ISSUE-NNN: {title}
-**Before:** ![Before](screenshots/issue-NNN-before.png)
-**After:** ![After](screenshots/issue-NNN-after.png)
+1. {URL} adresine git
+   ![Adım 1](screenshots/issue-001-step-1.png)
+2. {Eylem}
+   ![Adım 2](screenshots/issue-001-step-2.png)
+3. **Gözlemle:** {neyin yanlış gittiği}
+   ![Sonuç](screenshots/issue-001-result.png)
 
 ---
 
-## Regression Tests
+## Uygulanan Düzeltmeler (varsa)
 
-| Issue | Test File | Status | Description |
-|-------|-----------|--------|-------------|
-| ISSUE-NNN | path/to/test | committed / deferred / skipped | description |
+| Sorun | Düzeltme Durumu | Commit | Değiştirilen Dosyalar |
+|-------|----------------|-------|----------------------|
+| ISSUE-NNN | doğrulandı / en iyi çaba / geri alındı / ertelendi | {SHA} | {dosyalar} |
 
-### Deferred Tests
+### Önce/Sonra Kanıtı
 
-#### ISSUE-NNN: {title}
-**Precondition:** {setup state that triggers the bug}
-**Action:** {what the user does}
-**Expected:** {correct behavior}
-**Why deferred:** {reason}
+#### ISSUE-NNN: {başlık}
+**Önce:** ![Önce](screenshots/issue-NNN-before.png)
+**Sonra:** ![Sonra](screenshots/issue-NNN-after.png)
 
 ---
 
-## Ship Readiness
+## Regresyon Testleri
 
-| Metric | Value |
+| Sorun | Test Dosyası | Durum | Açıklama |
+|-------|-------------|-------|----------|
+| ISSUE-NNN | path/to/test | commit edildi / ertelendi / atlandı | açıklama |
+
+### Ertelenen Testler
+
+#### ISSUE-NNN: {başlık}
+**Önkoşul:** {hatayı tetikleyen kurulum durumu}
+**Eylem:** {kullanıcının yaptığı şey}
+**Beklenen:** {doğru davranış}
+**Neden ertelendi:** {neden}
+
+---
+
+## Yayına Hazırlık
+
+| Metrik | Değer |
 |--------|-------|
-| Health score | {before} → {after} ({delta}) |
-| Issues found | N |
-| Fixes applied | N (verified: X, best-effort: Y, reverted: Z) |
-| Deferred | N |
+| Sağlık puanı | {önce} → {sonra} ({fark}) |
+| Bulunan sorunlar | N |
+| Uygulanan düzeltmeler | N (doğrulanan: X, en iyi çaba: Y, geri alman: Z) |
+| Ertelenen | N |
 
-**PR Summary:** "QA found N issues, fixed M, health score X → Y."
+**PR Özeti:** "QA N sorun buldu, M'sini düzeltti, sağlık puanı X → Y."
 
 ---
 
-## Regression (if applicable)
+## Regresyon (varsa)
 
-| Metric | Baseline | Current | Delta |
-|--------|----------|---------|-------|
-| Health score | {N} | {N} | {+/-N} |
-| Issues | {N} | {N} | {+/-N} |
+| Metrik | Temel | Güncel | Fark |
+|--------|-------|--------|------|
+| Sağlık puanı | {N} | {N} | {+/-N} |
+| Sorunlar | {N} | {N} | {+/-N} |
 
-**Fixed since baseline:** {list}
-**New since baseline:** {list}
+**Temel değerden beri düzeltilen:** {liste}
+**Temel değerden beri yeni:** {liste}

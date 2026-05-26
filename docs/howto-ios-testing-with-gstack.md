@@ -1,48 +1,78 @@
-# How to test iOS apps with GStack iOS
+# GStack iOS ile iOS Uygulamaları Nasıl Test Edilir
 
-This is the end-to-end walkthrough for the iOS QA capability that ships with gstack: install the canonical Swift templates into your app, connect a real iPhone over USB, and drive it from any agent (Claude Code locally, or any HTTP-capable agent over Tailscale). No simulators, no XCTest harness, no WebDriverAgent.
+Bu, gstack ile birlikte gelen iOS QA yeteneği için uçtan uca yönlendirmedir:
+kanonik Swift şablonlarını uygulamanıza yükleyin, gerçek bir iPhone'u USB üzerinden
+bağlayın ve herhangi bir aracıdan (yerel olarak Claude Code veya Tailscale üzerinden
+HTTP yapabilen herhangi bir aracı) sürün. Simülatör yok, XCTest donanımı yok,
+WebDriverAgent yok.
 
-Everything below has been verified end-to-end on a real iPhone 17 Pro Max running iOS 26.5. The same flow works on any iOS 16+ device.
+Aşağıdaki her şey, iOS 26.5 çalıştıran gerçek bir iPhone 17 Pro Max'de uçtan uca
+doğrulanmıştır. Aynı akış, iOS 16+ cihazlarda çalışır.
 
-## What you'll need
+## İhtiyacınız olanlar
 
-- macOS with Xcode 16.0+ installed (`xcrun devicectl --version` must succeed). Xcode 16 ships the CoreDevice tunnel `devicectl` uses to reach the device over USB.
-- A real iPhone running iOS 16 or later. Unlocked, paired with your Mac, with **Developer Mode** enabled in Settings → Privacy & Security.
-- An Apple developer team — the free personal team works fine for live-device debug deploys. You'll need the team ID (e.g. `623FYQ2M88`), not the certificate ID. Find it in Xcode → Settings → Accounts → your Apple ID → team list. The setup signs the app for your device on first deploy via `-allowProvisioningUpdates -allowProvisioningDeviceRegistration`.
-- gstack installed (`./setup` complete; `bin/gstack-ios-qa-daemon` must be on disk and executable).
-- Bun runtime on PATH (`bun --version`). The Mac-side daemon is a bun process.
+- Xcode 16.0+ kurulu macOS (`xcrun devicectl --version` başarılı olmalı). Xcode 16,
+  `devicectl` komutunun cihaza USB üzerinden ulaşmak için kullandığı CoreDevice
+  tünellerini gönderir.
+- iOS 16 veya sonraki bir gerçek iPhone. Kilitli olmayan, Mac'inizle eşleştirilmiş,
+  Ayarlar → Gizlilik ve Güvenlik'de **Geliştirici Modu** etkinleştirilmiş.
+- Bir Apple geliştirici ekibi — ücretsiz kişisel ekip canlı cihaz hata ayıklama
+  dağıtımları için çalışır. Ekip kimliğine (örn. `623FYQ2M88`), sertifika kimliğine
+  değil, ihtiyacınız var. Xcode → Ayarlar → Hesaplar → Apple Kimliğiniz → ekip
+  listesi'nde bulunur. Kurulum, uygulamayı ilk dağıtımda
+  `-allowProvisioningUpdates -allowProvisioningDeviceRegistration` ile cihazınız için
+  imzalar.
+- gstack kurulu (`./setup` tamamlanmış; `bin/gstack-ios-qa-daemon` diskte olmalı ve
+  çalıştırılabilir olmalı).
+- PATH üzerinde Bun çalışma zamanı (`bun --version`). Mac tarafındaki artalan süreci
+  bir bun sürecidir.
 
-For the optional remote-agent (Tailscale) mode, you'll additionally need Tailscale installed on the Mac with `/var/run/tailscale.sock` readable.
+İsteğe bağlı uzak-aracı (Tailscale) modu için ayrıca Mac'te Tailscale kurulu olmalı ve
+`/var/run/tailscale.sock` okunabilir olmalıdır.
 
-## Architecture in one breath
+## Bir nefeste mimari
 
 ```
-┌─────────────────┐   tailnet (opt)    ┌──────────────────────┐   USB CoreDevice    ┌─────────────────────┐
-│ Remote agent    │ ─────────────────▶ │ gstack-ios-qa-daemon │ ──────────────────▶ │ iOS app StateServer │
-│ (Claude, GPT,   │  bearer + session  │  (Mac, bun/TS)       │  IPv6 ULA tunnel    │  (loopback only)    │
+┌─────────────────┐   tailnet (isteğe bağlı)    ┌──────────────────────┐   USB CoreDevice    ┌─────────────────────┐
+│ Uzak aracı      │ ─────────────────▶ │ gstack-ios-qa-daemon │ ──────────────────▶ │ iOS uygulaması StateServer │
+│ (Claude, GPT,   │  bearer + oturum   │  (Mac, bun/TS)       │  IPv6 ULA tüneli    │  (yalnızca geri döngü)    │
 │  OpenClaw, ...) │                    │                      │                     │                     │
 └─────────────────┘                    └──────────────────────┘                     └─────────────────────┘
 ```
 
-- iOS app embeds a `StateServer` (`DebugBridge` SPM library, `#if DEBUG` only) listening on `::1` + `127.0.0.1` port 9999. Bearer-token gated. Boot token rotates within ~5 seconds of daemon spawn so anything scraping `os_log` past then sees a dead credential.
-- Mac daemon brokers traffic over the CoreDevice IPv6 tunnel that `xcrun devicectl` opens automatically when a paired device is connected.
-- In Tailscale mode, the daemon exposes a separate listener bound to your tailnet IP, with capability tiers (observe / interact / mutate / restore) enforced per session token. Tokens are minted explicitly by the Mac owner via `gstack-ios-qa-mint`; remote callers never auto-allowlist.
+- iOS uygulaması, `::1` + `127.0.0.1` 9999 portunda dinleyen bir `StateServer`
+  (`DebugBridge` SPM kütüphanesi, yalnızca `#if DEBUG`) içerir. Bearer belirteçli
+  geçitli. Önyükleme belirteci, artalan süreci başlatıldıktan sonraki ~5 saniye içinde
+  döndürülür, böylece `os_log` kazıyan her şey ölü bir kimlik bilgisi görür.
+- Mac artalan süreci, eşleştirilmiş bir cihaz bağlandığında `xcrun devicectl`
+  komutunun otomatik olarak açtığı CoreDevice IPv6 tüneli üzerinden trafiği yönlendirir.
+- Tailscale modunda, artalan süreci tailnet IP'nize bağlı ayrı bir dinleyici sunar,
+  oturum belirteci başına uygulanan yetenek katmanları (gözlem / etkileşim / değişiklik /
+  geri yükleme) ile. Belirteçler Mac sahibi tarafından `gstack-ios-qa-mint` aracılığıyla
+  açıkça basılır; uzak çağrıcılar asla otomatik olarak izin verilenler listesine eklenmez.
 
-The iOS `StateServer` is loopback-only **always**, even in remote mode. Identity validation happens Mac-side because the iPhone has no way to validate a Tailscale identity.
+iOS `StateServer` **her zaman** yalnızca geri döngüdür, uzak modda bile. Kimlik
+doğrulama Mac tarafında gerçekleşir çünkü iPhone'un bir Tailscale kimliğini doğrulama
+yolu yoktur.
 
-## Step 1: Add the DebugBridge templates to your iOS app
+## 1. Adım: DebugBridge şablonlarını iOS uygulamanıza ekleyin
 
-The templates live at `~/.claude/skills/gstack/ios-qa/templates/` after `./setup`. The fastest install is to invoke the `/ios-qa` skill in Claude Code from your app's root — it reads your Swift source, codegens typed `@Observable` state accessors, and lays down the templates with your bundle ID. Or do it by hand:
+Şablonlar `./setup` komutundan sonra `~/.claude/skills/gstack/ios-qa/templates/`
+konumundadır. En hızlı kurulum, uygulamanızın kökünden Claude Code'da `/ios-qa`
+yeteneğini çağırmaktır — Swift kaynak kodunuzu okur, tipli `@Observable` durum
+erişimcileri oluşturur ve şablonları paket kimliğinizle indirir. Ya da el ile yapın:
 
-1. Copy these into a `DebugBridge/` SPM package inside your app workspace:
-   - `Sources/DebugBridgeCore/StateServer.swift` (from `StateServer.swift.template`)
-   - `Sources/DebugBridgeCore/DebugBridgeManager.swift` (from `DebugBridgeManager.swift.template`)
-   - `Sources/DebugBridgeTouch/DebugBridgeTouch.m` + `Sources/DebugBridgeTouch/include/DebugBridgeTouch.h` (from the two `.template` files)
-   - `Sources/DebugBridgeUI/Bridges.swift` (from `Bridges.swift.template`)
-   - `Sources/DebugBridgeUI/DebugOverlay.swift` (from `DebugOverlay.swift.template`)
-   - `Package.swift` (from `Package.swift.template`)
-2. Add the package as a local dependency of your app. Depend on the `DebugBridgeUI` product with `condition: .when(configuration: .debug)`. `DebugBridgeCore` and `DebugBridgeTouch` come in transitively.
-3. In your `@main` App init, gate the wiring on `#if DEBUG`:
+1. Bunları uygulamanızın çalışma alanı içinde bir `DebugBridge/` SPM paketine kopyalayın:
+   - `Sources/DebugBridgeCore/StateServer.swift` (`StateServer.swift.template` dosyasından)
+   - `Sources/DebugBridgeCore/DebugBridgeManager.swift` (`DebugBridgeManager.swift.template` dosyasından)
+   - `Sources/DebugBridgeTouch/DebugBridgeTouch.m` + `Sources/DebugBridgeTouch/include/DebugBridgeTouch.h` (iki `.template` dosyasından)
+   - `Sources/DebugBridgeUI/Bridges.swift` (`Bridges.swift.template` dosyasından)
+   - `Sources/DebugBridgeUI/DebugOverlay.swift` (`DebugOverlay.swift.template` dosyasından)
+   - `Package.swift` (`Package.swift.template` dosyasından)
+2. Paketi uygulamanızın yerel bir bağımlılığı olarak ekleyin. `DebugBridgeUI` ürününe
+   `condition: .when(configuration: .debug)` ile bağımlı olun. `DebugBridgeCore` ve
+   `DebugBridgeTouch` geçişli olarak gelir.
+3. `@main` App init'inizde bağlantıyı `#if DEBUG` ile geçitleyin:
 
    ```swift
    #if DEBUG
@@ -55,13 +85,21 @@ The templates live at `~/.claude/skills/gstack/ios-qa/templates/` after `./setup
    #endif
    ```
 
-The three Swift targets split as: `DebugBridgeCore` is cross-platform (so `swift build` on a CI Mac host can validate the bulk of the code without UIKit), `DebugBridgeUI` and `DebugBridgeTouch` are iOS-only (they link UIKit). `DebugBridgeTouch` is Objective-C — it carries the KIF-derived UITouch synthesis with the iOS 18+ `_UIHitTestContext` fix that makes SwiftUI Button taps actually fire.
+Üç Swift hedefi şöyle bölünür: `DebugBridgeCore` çapraz platformludur (böylece bir CI
+Mac ana bilgisayarında `swift build` UIKit olmadan kodun çoğunu doğrulayabilir),
+`DebugBridgeUI` ve `DebugBridgeTouch` yalnızca iOS'tur (UIKit'e bağlantı verirler).
+`DebugBridgeTouch` Objective-C'dir — iOS 18+ `_UIHitTestContext` düzeltmesi ile
+SwiftUI Düğme dokunuşlarının gerçekten çalışmasını sağlayan KIF kaynaklı UITouch
+sentezini taşır.
 
-The structural Release-build guard is the `.when(configuration: .debug)` clause in `Package.swift`. SwiftPM refuses to link any `DebugBridge*` target in a Release build, so the bridge cannot ship to TestFlight even if you forget to clean up.
+Yapısal Release-build koruması, `Package.swift` içindeki `.when(configuration: .debug)`
+ifadesidir. SwiftPM herhangi bir `DebugBridge*` hedefini bir Release derlemesinde
+bağlantılamayı reddeder, bu nedenle köprüyü temizlemeyi unutsanız bile TestFlight'a
+gönderilemez.
 
-## Step 2: Build + install to the device
+## 2. Adım: Derle + cihaza yükle
 
-From the app's project directory:
+Uygulamanın proje dizininden:
 
 ```
 xcodebuild \
@@ -75,7 +113,7 @@ xcodebuild \
   build
 ```
 
-Then install + launch:
+Ardından yükle + başlat:
 
 ```
 UDID=$(xcrun devicectl list devices 2>/dev/null | awk 'NR>2 && $0!="" {print $(NF-2); exit}')
@@ -83,67 +121,86 @@ xcrun devicectl device install app --device "$UDID" /tmp/build/Build/Products/De
 xcrun devicectl device process launch --device "$UDID" --terminate-existing your.bundle.id
 ```
 
-If the phone is locked you'll get `FBSOpenApplicationServiceErrorDomain error 1 — Locked`. Unlock and retry. First-time installs surface a Trust dialog on the phone; tap Trust, then re-run.
+Telefon kilitliyse `FBSOpenApplicationServiceErrorDomain error 1 — Locked` alırsınız.
+Kilidi açın ve yeniden deneyin. İlk yükleme, telefonda bir Güven iletişim kutusu gösterir;
+Güven'e dokunun, ardından yeniden çalıştırın.
 
-## Step 3: Start the Mac-side daemon
+## 3. Adım: Mac tarafındaki artalan sürecini başlatın
 
-Two options.
+İki seçenek.
 
-**Option A — let the skill spawn it.** Run `/ios-qa` in Claude Code from anywhere; the skill spawns the daemon on demand, bootstraps the tunnel, rotates the boot token, and exposes the device through the proxy. Cleanest path for local-USB use.
+**Seçenek A — yeteneğin başlatmasına izin verin.** Claude Code'da herhangi bir yerden
+`/ios-qa` çalıştırın; yetenek artalan sürecini talep üzerine başlatır, tüneli önyükleme
+yapar, önyükleme belirtecini döndürür ve cihazı vekil üzerinden kullanıma sunar.
+Yerel USB kullanımı için en temiz yol.
 
-**Option B — start it yourself.** Run:
+**Seçenek B — kendiniz başlatın.** Çalıştırın:
 
 ```
 gstack-ios-qa-daemon
 ```
 
-The daemon prints `READY: port=<n> pid=<pid>` once both loopback listeners are bound. The default port is 9099. Spawners can read that line with a ~5 second timeout to confirm readiness; you can also point `curl` at the printed port.
+Artalan süreç, her iki geri döngü dinleyicisi bağlandığında `READY: port=<n> pid=<pid>`
+yazdırır. Varsayılan port 9099'dur. Başlatıcılar, hazır olmayı onaylamak için ~5 saniyelik
+zaman aşımı ile bu satırı okuyabilir; ayrıca yazdırılan porta `curl` ile işaret
+edebilirsiniz.
 
-Either way the daemon takes an exclusive flock on `~/.gstack/ios-qa-daemon.pid` — running it twice from two Claude Code sessions is safe; the second invocation discovers the running daemon's port and joins.
+Her iki şekilde de artalan süreç `~/.gstack/ios-qa-daemon.pid` üzerinde özel bir flock
+alır — iki Claude Code oturumundan çalıştırmak güvenlidir; ikinci çağrım, çalışan artalan
+sürecinin portunu keşfeder ve katılır.
 
-Set these env vars to target a specific device or bundle:
+Belirli bir cihazı veya paketi hedeflemek için bu ortam değişkenlerini ayarlayın:
 
 ```
 GSTACK_IOS_TARGET_UDID=248C3A58-B843-5BDB-8F5D-89ADB7D7BF6A
 GSTACK_IOS_TARGET_BUNDLE_ID=com.yourorg.yourapp
-GSTACK_IOS_DAEMON_PORT=9099       # loopback listener port; default 9099
+GSTACK_IOS_DAEMON_PORT=9099       # geri döngü dinleyici portu; varsayılan 9099
 ```
 
-If `GSTACK_IOS_TARGET_UDID` is unset, the daemon picks the first paired connected device.
+`GSTACK_IOS_TARGET_UDID` ayarlanmamışsa, artalan süreç eşleştirilmiş bağlanan ilk cihazı seçer.
 
-## Step 4: Drive the device
+## 4. Adım: Cihazı sürün
 
-Once the daemon is running, you have an HTTP surface at `http://127.0.0.1:9099` (or `[::1]:9099`). The skill flow does this for you, but the raw endpoints are:
+Artalan süreç çalıştığında, `http://127.0.0.1:9099` (veya `[::1]:9099`) konumunda bir
+HTTP yüzeyiniz var. Yetenek akışı bunu sizin için yapar, ancak ham uç noktalar şunlardır:
 
-| Endpoint | What it does | Auth |
+| Uç nokta | Ne yapar | Kimlik doğrulama |
 |---|---|---|
-| `GET /healthz` | Version probe. | none (loopback) |
-| `POST /auth/rotate` | Daemon-only; rotates the boot token to an in-memory-only value. | boot token |
-| `POST /session/acquire` | Acquire the per-device session lock. Returns `{session_id, ttl_seconds}`. | bearer |
-| `POST /session/release` | Release the lock. | bearer + session |
-| `GET /screenshot` | Capture a PNG of the active window. Returns `{png_base64: "..."}`. | bearer |
-| `GET /elements` | Accessibility-tree snapshot. | bearer |
-| `GET /state/snapshot` | Dump every `@Snapshotable` field as JSON. | bearer |
-| `POST /state/restore` | Atomically restore a full snapshot. | bearer + session, mutate tier |
-| `POST /tap` `{x,y}` | Synthesize a real UITouch at window coordinates. SwiftUI Buttons fire. | bearer + session, interact tier |
-| `POST /swipe` `{from_x,from_y,to_x,to_y}` | Scroll the nearest enclosing UIScrollView. | bearer + session, interact tier |
-| `POST /type` `{text}` | Set text on the current first responder. | bearer + session, interact tier |
+| `GET /healthz` | Sürüm yoklaması. | yok (geri döngü) |
+| `POST /auth/rotate` | Yalnızca artalan süreci; önyükleme belirtecini yalnızca bellekte bir değere döndürür. | önyükleme belirteci |
+| `POST /session/acquire` | Cihaz başına oturum kilidini al. `{session_id, ttl_seconds}` döndürür. | bearer |
+| `POST /session/release` | Kilidi serbest bırak. | bearer + oturum |
+| `GET /screenshot` | Etkin pencerenin PNG ekran görüntüsünü yakala. `{png_base64: "..."}` döndürür. | bearer |
+| `GET /elements` | Erişilebilirlik-ağacı anlık görüntüsü. | bearer |
+| `GET /state/snapshot` | Her `@Snapshotable` alanını JSON olarak dök. | bearer |
+| `POST /state/restore` | Tam bir anlık görüntüyü atomik olarak geri yükle. | bearer + oturum, değişiklik katmanı |
+| `POST /tap` `{x,y}` | Pencere koordinatlarında gerçek bir UITouch sentezle. SwiftUI Düğmeleri çalışır. | bearer + oturum, etkileşim katmanı |
+| `POST /swipe` `{from_x,from_y,to_x,to_y}` | En yakın kapsayan UIScrollView'u kaydır. | bearer + oturum, etkileşim katmanı |
+| `POST /type` `{text}` | Geçerli ilk yanıtlayıcıda metin ayarla. | bearer + oturum, etkileşim katmanı |
 
-Mutating requests require both an `Authorization: Bearer <token>` header AND an `X-Session-Id` header. Read endpoints (`/screenshot`, `/elements`, `GET /state/*`) only need the bearer.
+Değişiklik yapan istekler hem bir `Authorization: Bearer <token>` başlığı hem de bir
+`X-Session-Id` başlığı gerektirir. Okuma uç noktaları (`/screenshot`, `/elements`,
+`GET /state/*`) yalnızca bearer gerektirir.
 
-The state snapshot is opt-in per field via a `@Snapshotable` property wrapper on your canonical state struct. Fields you don't annotate never appear in the snapshot, which keeps tokens, PII, and auth state out of recorded fixtures by default.
+Durum anlık görüntüsü, kurallı durum yapınızdaki `@Snapshotable` özellik sarmalayıcısı
+aracılığıyla alan başına katılım tabanlıdır. Açıklama eklemeyen alanlar anlık görüntüde
+asla görünmez, bu da belirteçleri, PII ve kimlik doğrulama durumunu varsayılan olarak
+kayıtlı sabitlerden uzak tutar.
 
-## Step 5: Make remote agents work (optional)
+## 5. Adım: Uzak aracıları çalışır hale getirme (isteğe bağlı)
 
-To let an agent on another machine drive the device, run the daemon with `--tailnet`:
+Başka bir makinedeki bir aracının cihazı sürmesine izin vermek için, artalan süreci
+`--tailnet` ile çalıştırın:
 
 ```
 gstack-ios-qa-daemon --tailnet
 ```
 
-The daemon probes `/var/run/tailscale.sock` first; if the socket is missing or unreadable, it refuses to open the tailnet listener at all (loopback still runs). Remote mode never half-starts.
+Artalan süreç önce `/var/run/tailscale.sock` dosyasını yoklar; soket eksikse veya
+okunamazsa, tailnet dinleyicisini hiç açmaz (geri döngü hala çalışır). Uzak mod asla
+yarım başlamaz.
 
-Then mint a session token for the identity that should be able to connect:
+Ardından bağlanabilmesi gereken kimlik için bir oturum belirteci basın:
 
 ```
 gstack-ios-qa-mint grant --remote 'alice@example.com' --capability interact
@@ -151,30 +208,52 @@ gstack-ios-qa-mint grant --remote 'tag:ci' --capability mutate --ttl 86400 --not
 gstack-ios-qa-mint list
 ```
 
-Capability tiers are nested: `observe` (read endpoints only) ⊂ `interact` (taps, swipes, type) ⊂ `mutate` (`POST /state/*`) ⊂ `restore` (`POST /state/restore`). Pick the smallest tier that does the job. The allowlist file is at `~/.gstack/ios-qa-allowlist.json` (mode 0600) — the daemon reads it on every `/auth/mint` request, so changes take effect immediately without restarting.
+Yetenek katmanları iç içedir: `observe` (yalnızca okuma uç noktaları) ⊂ `interact`
+(dokunuşlar, kaydırmalar, yazma) ⊂ `mutate` (`POST /state/*`) ⊂ `restore`
+(`POST /state/restore`). İşi yapan en küçük katmanı seçin. İzin verilenler listesi
+dosyası `~/.gstack/ios-qa-allowlist.json` konumundadır (mod 0600) — artalan süreç her
+`/auth/mint` isteğinde bunu okur, bu nedenle değişiklikler artalan sürecini yeniden
+başlatmadan hemen geçerli olur.
 
-The remote agent then hits `POST /auth/mint` against the daemon's tailnet listener. The daemon canonicalizes the caller's identity via tailscaled's WhoIs endpoint, checks the allowlist, and returns a short-lived session token (1 hour default, 24 hour cap). Every authenticated mutating request lands in `~/.gstack/security/ios-qa-audit.jsonl`; rejected requests land in `~/.gstack/security/attempts.jsonl`.
+Uzak aracı daha sonra artalan sürecinin tailnet dinleyicisine karşı `POST /auth/mint`
+isteğinde bulunur. Artalan süreç, çağrıcının kimliğini tailscaled'nin WhoIs uç noktası
+aracılığıyla kurallaştırır, izin verilenler listesini denetler ve kısa ömürlü bir oturum
+belirteci döndürür (varsayılan 1 saat, en fazla 24 saat). Her kimliği doğrulanmış
+değişiklik yapan istek `~/.gstack/security/ios-qa-audit.jsonl` dosyasına; reddedilen
+istekler `~/.gstack/security/attempts.jsonl` dosyasına kaydedilir.
 
-## Step 6: Ship a release build
+## 6. Adım: Release derlemesi gönderin
 
-Before you ship to TestFlight or the App Store, run `/ios-clean`. It removes the `DebugBridge` SPM dependency and strips the `#if DEBUG` wiring from your `@main` App. The structural guard in `Package.swift` (`condition: .when(configuration: .debug)`) means a Release build wouldn't link the bridge even if you forgot to clean up, but `/ios-clean` gives you a tidy diff to review and ship.
+TestFlight veya App Store'a göndermeden önce `/ios-clean` çalıştırın. Bu, `DebugBridge`
+SPM bağımlılığını kaldırır ve `@main` App'inizdeki `#if DEBUG` bağlantılamasını çıkarır.
+`Package.swift`'teki yapısal koruma (`condition: .when(configuration: .debug)`),
+temizlemeyi unutsanız bile Release derlemesinin köprüyü bağlantılamayacağı anlamına gelir,
+ancak `/ios-clean` size incelemek ve göndermek için düzenli bir diff verir.
 
-## Common failures
+## Yaygın hatalar
 
-| Symptom | What broke |
+| Belirti | Ne bozuldu |
 |---|---|
-| `xcodebuild` fails with `Could not locate device support files for iOS X.Y` | Run `xcodebuild -downloadPlatform iOS` to fetch the device support package for your iPhone's iOS version (~8GB). |
-| Install succeeds, `process launch` fails with `Locked` | The phone is locked. Unlock and retry. |
-| First install on a paired device fails with no clear error | The phone needs to Trust the Mac. Open Settings → General → VPN & Device Management on the phone and confirm. |
-| `Developer Mode` toggle missing from Settings → Privacy | Connect the device to Xcode → Window → Devices and Simulators once, or try any `devicectl device install` against it. iOS will surface the toggle after the first attempt. |
-| `xcrun devicectl device copy from` returns ERROR 7000 | The source path is wrong — boot token lives at `tmp/gstack-ios-qa.token` inside the app's data container (NSTemporaryDirectory), not at the path's root. |
-| `/healthz` returns 200 but `/tap` returns ok:true with no UI change | The phone is paired but the StateServer port may have changed across launches. Re-resolve the CoreDevice IPv6 (`dscacheutil -q host -a name '<DeviceName>.coredevice.local'`). |
-| `403 identity_not_allowed` from `/auth/mint` | The remote caller's identity isn't on the Mac's allowlist. Run `gstack-ios-qa-mint grant --remote <identity> --capability interact` on the Mac. |
-| Daemon won't open the tailnet listener | Tailscale isn't installed, or `/var/run/tailscale.sock` is unreadable. Fix Tailscale, then restart the daemon. Loopback still runs in the meantime. |
-| SwiftUI Button tap returns `ok:true` but the action never fires | You're on iOS 17 or older where `_UIHitTestContext` doesn't exist. The DebugBridgeTouch implementation falls back to plain `hitTest:` which doesn't resolve into SwiftUI's gesture container. Update to iOS 18+ on the device, or tap a UIKit control instead. |
+| `xcodebuild` `Could not locate device support files for iOS X.Y` ile başarısız oluyor | iPhone'unuzun iOS sürümü için cihaz destek paketini indirmek için `xcodebuild -downloadPlatform iOS` çalıştırın (~8GB). |
+| Yükleme başarılı, `process launch` `Locked` ile başarısız oluyor | Telefon kilitli. Kilidi açın ve yeniden deneyin. |
+| Eşleştirilmiş bir cihazda ilk yükleme net bir hata olmadan başarısız oluyor | Telefonun Mac'e güvenmesi gerekiyor. Telefonda Ayarlar → Genel → VPN ve Cihaz Yönetimi'ni açın ve onaylayın. |
+| `Developer Mode` geçişi Ayarlar → Gizlilik'te yok | Cihazı Xcode → Pencere → Cihazlar ve Simülatörler'e bir kez bağlayın veya ona karşı herhangi bir `devicectl device install` deneyin. iOS, ilk denemeden sonra geçişi gösterir. |
+| `xcrun devicectl device copy from` ERROR 7000 döndürüyor | Kaynak yolu yanlış — önyükleme belirteci uygulamanın veri kapsayıcısında `tmp/gstack-ios-qa.token` konumundadır (NSTemporaryDirectory), yolun kökünde değil. |
+| `/healthz` 200 döndürüyor ama `/tap` ok:true döndürüyor ve UI'da değişiklik yok | Telefon eşleştirilmiş ama StateServer portu lansmanlar arasında değişmiş olabilir. CoreDevice IPv6'yı yeniden çözün (`dscacheutil -q host -a name '<CihazAdı>.coredevice.local'`). |
+| `/auth/mint`'ten `403 identity_not_allowed` | Uzak çağrıcının kimliği Mac'in izin verilenler listesinde yok. Mac'te `gstack-ios-qa-mint grant --remote <kimlik> --capability interact` çalıştırın. |
+| Artalan süreç tailnet dinleyicisini açmıyor | Tailscale kurulu değil veya `/var/run/tailscale.sock` okunamaz. Tailscale'i düzeltin, ardından artalan sürecini yeniden başlatın. Bu arada geri döngü hala çalışır. |
+| SwiftUI Düğme dokunuşu `ok:true` döndürüyor ama eylem hiç çalışmıyor | iOS 17 veya daha eskisinde `_UIHitTestContext` mevcut değil. DebugBridgeTouch uygulaması, SwiftUI'nin jest konteynerine çözümlenmeyen düz `hitTest:`'e geri döner. Cihazda iOS 18+'ya güncelleyin veya bunun yerine bir UIKit denetimine dokunun. |
 
-## What this gets you
+## Bu size ne sağlar
 
-You can write an agent loop in any language that speaks HTTP. Take a screenshot, ask a model what to do, send a tap. Capture state snapshots before and after to record deterministic fixtures for `/ios-fix` regression tests. Add a colleague to the allowlist and they drive your iPhone from their laptop over Tailscale without ever touching the hardware. Plug the same daemon into CI by minting a `tag:ci` session token with mutate-tier capability and a 24-hour TTL.
+HTTP konuşan herhangi bir dilde bir aracı döngüsü yazabilirsiniz. Bir ekran görüntüsü
+alın, bir modele ne yapacağını sorun, bir dokunuş gönderin. Belirleyici sabitler kaydetmek
+için önce ve sonra durum anlık görüntülerini yakalayın — `/ios-fix` regresyon testleri için.
+Bir work arkadaşı izin verilenler listesine ekleyin ve asla donanıma dokunmadan Tailscale
+üzerinden dizüstü bilgisayarlarından iPhone'unuzu sürsünler. Aynı artalan sürecini CI'ye
+değişiklik katmanı yeteneği ve 24 saatlik TTL ile bir `tag:ci` oturum belirteci basarak
+bağlayın.
 
-The whole stack is a Mac you already own, an iPhone you already own, a free Apple developer account, and gstack. No paid testing service. No simulator drift. The thing the user sees is what the agent drives.
+Tüm yığın, zaten sahip olduğunuz bir Mac, zaten sahip olduğunuz bir iPhone, ücretsiz bir
+Apple geliştirici hesabı ve gstack'tir. Ücretli test hizmeti yok. Simülatör kayması yok.
+Kullanıcının gördüğü şey, aracının sürdüğü şeydir.

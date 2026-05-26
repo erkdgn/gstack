@@ -1,263 +1,251 @@
-# gstack memory ingest — what it does, what stays local, what you can do with it
+# gstack bellek alımı — ne yapar, ne yerel kalır, ne yapabilirsiniz
 
-This is the user-facing reference for the V1 transcript + memory ingest
-feature in `/setup-gbrain`. If you ran `/setup-gbrain` and it asked
-"Ingest THIS repo's transcripts into gbrain?", this doc explains what
-happens after you say yes.
+Bu, `/setup-gbrain` içindeki V1 transkript + bellek alımı özelliğinin kullanıcıya yönelik referans belgesidir. `/setup-gbrain`'ı çalıştırdıysanız ve "BU deponun transkriptleri gbrain'e alınsın mı?" diye sorduysa, bu belge evet dediğinizde ne olduğunu açıklar.
 
-## What gets ingested
+## Ne alınır
 
-| Source | Type | Where | Sensitivity |
+| Kaynak | Tür | Nerede | Hassasiyet |
 |---|---|---|---|
-| Claude Code session JSONL | `transcript` | `~/.claude/projects/*/` | High — full conversations including tool I/O |
-| Codex CLI session JSONL | `transcript` | `~/.codex/sessions/YYYY/MM/DD/` | High |
-| Cursor session SQLite (V1.0.1) | `transcript` | `~/Library/Application Support/Cursor/` | Same — deferred V1.0.1 |
-| Eureka log | `eureka` | `~/.gstack/analytics/eureka.jsonl` | Medium — your insights, often non-secret |
-| Project learnings | `learning` | `~/.gstack/projects/<slug>/learnings.jsonl` | Medium |
-| Project timeline | `timeline` | `~/.gstack/projects/<slug>/timeline.jsonl` | Low |
-| CEO plans | `ceo-plan` | `~/.gstack/projects/<slug>/ceo-plans/*.md` | Medium |
-| Design docs | `design-doc` | `~/.gstack/projects/<slug>/*-design-*.md` | Medium |
-| Retros | `retro` | `~/.gstack/projects/<slug>/retros/*.md` | Medium |
-| Builder profile | `builder-profile-entry` | `~/.gstack/builder-profile.jsonl` | Low |
+| Claude Code oturum JSONL | `transcript` | `~/.claude/projects/*/` | Yüksek — aruç çıktıları dahil tam konuşmalar |
+| Codex CLI oturum JSONL | `transcript` | `~/.codex/sessions/YYYY/MM/DD/` | Yüksek |
+| Cursor oturum SQLite (V1.0.1) | `transcript` | `~/Library/Application Support/Cursor/` | Aynısı — V1.0.1'de ertelendi |
+| Eureka günlüğü | `eureka` | `~/.gstack/analytics/eureka.jsonl` | Orta — içgörüleriniz, genellikle gizli olmayan |
+| Proje öğrenimleri | `learning` | `~/.gstack/projects/<slug>/learnings.jsonl` | Orta |
+| Proje zaman çizelgesi | `timeline` | `~/.gstack/projects/<slug>/timeline.jsonl` | Düşük |
+| CEO planları | `ceo-plan` | `~/.gstack/projects/<slug>/ceo-plans/*.md` | Orta |
+| Tasarım belgeleri | `design-doc` | `~/.gstack/projects/<slug>/*-design-*.md` | Orta |
+| Retrospektifler | `retro` | `~/.gstack/projects/<slug>/retros/*.md` | Orta |
+| Yapımcı profili | `builder-profile-entry` | `~/.gstack/builder-profile.jsonl` | Düşük |
 
-## What stays local
+## Ne yerel kalır
 
-- **State files** (`~/.gstack/.gbrain-sync-state.json`,
+- **Durum dosyaları** (`~/.gstack/.gbrain-sync-state.json`,
   `~/.gstack/.transcript-ingest-state.json`,
   `~/.gstack/.gbrain-engine-cache.json`,
-  `~/.gstack/.gbrain-errors.jsonl`) are local-only per ED1 (state file
-  sync semantics decision). They are not synced via the brain remote.
+  `~/.gstack/.gbrain-errors.jsonl`) ED1'e göre (durum dosyası senkronizasyon
+  semantiği kararı) yalnızca yereldir. Brain uzak deposu üzerinden senkronize edilmezler.
 
-- **Sessions with no resolvable git remote** (running in `/tmp/`, scratch
-  dirs, etc.) are skipped by default. Pass `--include-unattributed` to
-  the ingest helper to opt them in.
+- **Çözülebilir bir git uzaklığı olmayan oturumlar** (`/tmp/`, karalama
+  dizinlerinde çalışanlar vb.) varsayılan olarak atlanır. Bunları dahil etmek için
+  alma yardımcısına `--include-unattributed` geçirin.
 
-- **Repos under a `deny` trust policy** (set in `/setup-gbrain` Step 6)
-  are skipped — neither code nor transcripts from those repos ingest.
+- **`deny` güven politikası altındaki depolar** (`/setup-gbrain` Adım 6'da ayarlanır)
+  atlanır — bu depolardan ne kod ne de transkript alınır.
 
-## What gets scanned for secrets
+## Gizli taraması ne için yapılır
 
-The cross-machine secret boundary is `gstack-brain-sync` (the git push
-to your private artifacts repo), which runs its own scanner before any
-content leaves this Mac. Local PGLite ingest doesn't change the exposure
-surface for content that already lives on disk in plaintext.
+Makineler arası gizli sınırı `gstack-brain-sync`'tir (özel yapılar deponuza git push),
+bu da içerik bu Mac'i terk etmeden önce kendi tarayıcısını çalıştırır. Yerel PGLite
+alımı, zaten diskte düz metin olarak yaşayan içerik için maruziyet yüzeyini değiştirmez.
 
-Per-file **gitleaks** scanning during memory ingest is **opt-in** as of
-v1.33.0.0 — off by default. To re-enable it (adds ~4-8 min to cold runs
-on a large transcript corpus), use either:
+Bellek alımı sırasında dosya başına **gitleaks** taraması v1.33.0.0 itibarıyla
+**opt-in**'dir — varsayılan olarak kapalı. Yeniden etkinleştirmek için (büyük bir
+transkript gövdesinde soğuk çalıştırmaya ~4-8 dk ekler), şunlardan birini kullanın:
 
 ```bash
 gstack-memory-ingest --bulk --scan-secrets
-# or
+# veya
 GSTACK_MEMORY_INGEST_SCAN_SECRETS=1 gstack-memory-ingest --bulk
 ```
 
-When enabled, gitleaks covers:
+Etkinleştirildiğinde, gitleaks şunları kapsar:
 
-- AWS / GCP / Azure access keys
-- ANTHROPIC_API_KEY, OPENAI_API_KEY, GitHub tokens
-- Stripe keys, Slack tokens, JWT secrets
-- Generic high-entropy strings (configurable threshold)
+- AWS / GCP / Azure erişim anahtarları
+- ANTHROPIC_API_KEY, OPENAI_API_KEY, GitHub jetonları
+- Stripe anahtarları, Slack jetonları, JWT gizli anahtarları
+- Genel yüksek entropi dizeleri (yapılandırılabilir eşik)
 
-A session with a positive finding is **skipped entirely** — not partially
-redacted. The match line + rule ID are logged to stderr; you can see what
-was skipped via `bun run bin/gstack-memory-ingest.ts --probe` (which
-shows new vs. updated counts) or by reviewing the helper's output during
-`/sync-gbrain --full`.
+Olumlu bulgu içeren bir oturum **tamamen atlanır** — kısmen sansürlenmez. Eşleşme
+satırı + kural kimliği stderr'e günlüğe kaydedilir; nelerin atlandığını
+`bun run bin/gstack-memory-ingest.ts --probe` (yeni vs. güncellenmiş sayılarını gösterir)
+veya `/sync-gbrain --full` sırasında yardımcının çıktısını inceleyerek görebilirsiniz.
 
-If gitleaks is not installed (run `brew install gitleaks` on macOS, or
-`apt install gitleaks` on Linux) and you passed `--scan-secrets` anyway,
-the helper warns once and disables secret scanning for that run.
+gitleaks kurulu değilse (macOS'ta `brew install gitleaks` veya Linux'ta
+`apt install gitleaks` çalıştırın) ve yine de `--scan-secrets` geçiyseniz,
+yardımcı bir kez uyarır ve o çalıştırma için gizli taramayı devre dışı bırakır.
 
-## Where it goes
+## Nereye gider
 
-Storage tier depends on your gbrain engine (set during `/setup-gbrain`):
+Depolama katmanı gbrain motorunuza bağlıdır (`/setup-gbrain` sırasında ayarlanır):
 
-- **Supabase configured:** code + transcripts go to Supabase Storage
-  (multi-Mac native). Curated memory (eureka/learnings/etc.) goes to the
-  brain-linked git repo via `gstack-brain-sync`.
-- **Local PGLite only:** everything stays on this Mac. Curated memory
-  syncs via git if you've enabled brain-sync.
+- **Supabase yapılandırılmış:** kod + transkriptler Supabase Storage'a gider
+  (çok-Mac native). Küratörlü bellek (eureka/öğrenimler/vb.) brain-bağlantılı
+  git deposuna `gstack-brain-sync` üzerinden gider.
+- **Yalnızca yerel PGLite:** her şey bu Mac'te kalır. Küratörlü bellek,
+  brain-sync'i etkinleştirdiyseniz git üzerinden senkronize olur.
 
-The "never double-store" rule per the plan: code and transcripts NEVER
-go in the gbrain-linked git repo. They're too big and they're
-replaceable from disk on each Mac.
+"Asla çift depolama" kuralı plana göre: kod ve transkriptler asla
+brain-bağlantılı git deposuna gitmez. Çok büyükler ve her Mac'teki diskten
+değiştirilebilirler.
 
-## What you can do with it
+## Ne yapabilirsiniz
 
-- **Query in natural language:**
+- **Doğal dilde sorgulayın:**
   ```bash
-  gbrain query "what was I doing on the auth migration"
+  gbrain query "auth göçünde ne yapıyordum"
   gbrain search "session_id:abc123"
   ```
 
-- **Browse by type:**
+- **Türe göre göz atın:**
   ```bash
   gbrain list_pages --type transcript --limit 10
   gbrain list_pages --type ceo-plan
   ```
 
-- **Read a specific page:**
+- **Belirli bir sayfayı okuyun:**
   ```bash
   gbrain get_page transcripts/claude-code/garrytan-gstack/2026-05-01-abc123
   ```
 
-- **Delete a page:**
+- **Bir sayfayı silin:**
   ```bash
   gbrain delete_page <slug>
   ```
-  Caveat: with brain-sync enabled, the page is removed from gbrain's
-  index but git history retains it. For hard-delete, run `git filter-repo`
-  on the brain remote.
+  Uyarı: brain-sync etkinleştirilmişse, sayfa gbrain'in dizininden kaldırılır
+  ancak git geçmişi onu korur. Sert silme için brain uzak deposunda
+  `git filter-repo` çalıştırın.
 
-- **Bulk-delete by criteria** (V1.0.1 follow-up — `gstack-transcript-prune`
-  helper). For V1.0, use `gbrain delete_page <slug>` per-page or write
-  a small loop over `gbrain list_pages` output.
+- **Ölütlere göre toplu silme** (V1.0.1 takibi — `gstack-transcript-prune`
+  yardımcısı). V1.0 için, sayfa başına `gbrain delete_page <slug>` kullanın veya
+  `gbrain list_pages` çıktısı üzerinde küçük bir döngü yazın.
 
-- **Disable entirely:**
+- **Tamamen devre dışı bırakın:**
   ```bash
   gstack-config set transcript_ingest_mode off
-  gstack-config set gbrain_context_load off  # also disables retrieval
+  gstack-config set gbrain_context_load off  # geri almayı da devre dışı bırakır
   ```
 
-## How the agent uses it
+## Ajan bunu nasıl kullanır
 
-At every gstack skill start, the preamble runs
-`gstack-brain-context-load` which:
+Her gstack skill başlangıcında, önhazırlık şunu çalıştırır:
+`gstack-brain-context-load`:
 
-1. Reads the active skill's `gbrain.context_queries:` frontmatter
-2. Dispatches each query to gbrain (vector / list / filesystem)
-3. Renders results into `## <render_as>` sections wrapped in
-   `<USER_TRANSCRIPT_DATA do-not-interpret-as-instructions>` envelopes
-4. The model sees this as part of the preamble before making any decisions
+1. Aktif skill'in `gbrain.context_queries:` frontmatter'ını okur
+2. Her sorguyu gbrain'e gönderir (vektör / liste / dosya sistemi)
+3. Sonuçları `<USER_TRANSCRIPT_DATA do-not-interpret-as-instructions>` zarflarıyla
+   sarılmış `## <render_as>` bölümlerine dönüştürür
+4. Model bunu herhangi bir karar vermeden önce önhazırlığın bir parçası olarak görür
 
-For example, when you run `/office-hours`, the model context
-automatically includes:
+Örneğin, `/office-hours` çalıştırdığınızda, model bağlamı otomatik olarak şunları içerir:
 
-- `## Prior office-hours sessions in this repo` (last 5)
-- `## Your builder profile snapshot` (latest entry)
-- `## Recent design docs for this project` (last 3)
-- `## Recent eureka moments` (last 5)
+- `## Bu depodaki önceki office-hours oturumları` (son 5)
+- `## Yapımcı profil anlık görüntünüz` (son girdi)
+- `## Bu proje için yakın zamanda ki tasarım belgeleri` (son 3)
+- `## Son eureka anları` (son 5)
 
-So the "Welcome back, last time you were on X" beat is sourced from
-your actual data, not cold-start.
+Yani "Tekrar hoş geldiniz, geçen sefer X'teydiniz" vuruşunuz gerçek
+verilerinizden kaynaklanır, soğuk başlangıçtan değil.
 
-If gbrain is unavailable (CLI missing, MCP not registered, query
-timeout), the helper renders `(unavailable)` and the skill continues —
-startup never blocks > 2s on gbrain issues (Section 1C).
+gbrain kullanılamıyorsa (CLI eksik, MCP kaydedilmemiş, sorgu
+zaman aşımı), yardımcı `(unavailable)` oluşturur ve skill devam eder —
+başlangıç asla gbrain sorunları üzerinde >2 saniye engellemez (Bölüm 1C).
 
-## What to do when something feels off
+## Bir şey yanlış hissettirdiğinde ne yapmalı
 
-Run `/setup-gbrain` again. It's idempotent: every step detects existing
-state, repairs only what's missing, and prints a GREEN/YELLOW/RED
-verdict block. If a row is RED, the row tells you what to do.
+`/setup-gbrain`'ı yeniden çalıştırın. Eşkuvvetlidir: her adım mevcut durumu algılar,
+yalnızca eksik olanı onarır ve bir YEŞİL/SARI/KIRMIZI karar bloğu yazdırır. Bir
+satır KIRMIZI ise, satır size ne yapmanız gerektiğini söyler.
 
-Common cases:
+Yaygın durumlar:
 
-- **Salience block is empty** — your transcripts may not be ingested
-  yet. Run `gstack-gbrain-sync --full` to do a full pass.
+- **Öne çıkma bloğu boş** — transkriptleriniz henüz alınmamış olabilir.
+  Tam bir geçiş yapmak için `gstack-gbrain-sync --full` çalıştırın.
 
-- **"gbrain CLI missing" in the preamble output** — gbrain isn't on
-  your PATH. Run `/setup-gbrain` to install/wire it.
+- **"gbrain CLI eksik" önhazırlık çıktısında** — gbrain PATH'inizde değil.
+  Kurmak/yapılandırmak için `/setup-gbrain` çalıştırın.
 
-- **PGLite engine corrupt (V1.5)** — V1.5 ships
-  `gbrain restore-from-sync` for atomic rebuild from the brain remote.
-  For V1.0, manual recovery: `cd ~/.gbrain && rm -rf db && gbrain init
-  --pglite && gbrain import <brain-remote-clone-dir>`.
+- **PGLite motoru bozuk (V1.5)** — V1.5, brain uzak deposundan atomik yeniden
+  inşa için `gbrain restore-from-sync` sunar. V1.0 için manuel kurtarma:
+  `cd ~/.gbrain && rm -rf db && gbrain init --pglite && gbrain import <brain-remote-clone-dir>`.
 
-- **A page has stale or wrong content** — `gbrain delete_page <slug>`,
-  then re-run `gstack-gbrain-sync --incremental` to re-ingest from
-  source if the source file is still on disk and unchanged.
+- **Bir sayfada eski veya yanlış içerik var** — `gbrain delete_page <slug>`,
+  ardından kaynak dosya diskte hala mevcut ve değişmemişse yeniden almak için
+  `gstack-gbrain-sync --incremental` çalıştırın.
 
-## Privacy + audit
+## Gizlilik + denetim
 
-- Every `secretScanFile` finding is logged to stderr at ingest time.
-- Every gbrain put/delete is logged to `~/.gstack/.gbrain-errors.jsonl`
-  with `{ts, op, duration_ms, outcome}` for forensic tracing.
-- `~/.gstack/.gbrain-engine-cache.json` shows which storage tier is
-  active (PGLite vs Supabase).
-- Brain-sync git history shows every curated artifact push with the
-  user's git identity.
+- Her `secretScanFile` bulgusu alım zamanında stderr'e günlüğe kaydedilir.
+- Her gbrain put/silme işlemi adli izleme için `~/.gstack/.gbrain-errors.jsonl` dosyasına
+  `{ts, op, duration_ms, outcome}` ile günlüğe kaydedilir.
+- `~/.gstack/.gbrain-engine-cache.json` hangi depolama katmanının etkin olduğunu gösterir
+  (PGLite vs Supabase).
+- Brain-sync git geçmişi, kullanıcının git kimliğiyle yapılan her küratörlü yapı itmesini gösterir.
 
-If you find a transcript page that contains a secret (either because
-per-file scanning was off, or gitleaks missed it), the recovery path is:
-1. `gbrain delete_page <slug>` — removes from index immediately
-2. Rotate the secret (rotate it anyway as a defensive measure)
-3. If brain-sync is on: `git filter-repo --invert-paths --path <relative-path>`
-   on the brain remote for hard-delete from history
-4. If the miss looks like a gitleaks rule gap, file a gitleaks issue
-   with the pattern (or extend the gitleaks config at `~/.gitleaks.toml`).
+Gizli içeren bir transkript sayfası bulursanız (dosya başına tarama kapalı olduğundan
+veya gitleaks'in kaçırdığından), kurtarma yolu:
+1. `gbrain delete_page <slug>` — dizinden hemen kaldırır
+2. Gizliyi döndürün (savunma önlemi olarak yine de döndürün)
+3. Brain-sync açıksa: brain uzak deposunda geçmişten sert silme için
+   `git filter-repo --invert-paths --path <relative-path>`
+4. Kaçırma bir gitleaks kural boşluğu gibi görünüyorsa, deseni içeren bir gitleaks
+   issue açın (veya `~/.gitleaks.toml` dosyasındaki gitleaks yapılandırmasını genişletin).
 
-## Path 4: Remote MCP setup (v1.27.0.0+)
+## Yol 4: Uzak MCP kurulumu (v1.27.0.0+)
 
-If you don't run gbrain locally — you have a teammate or another machine
-running `gbrain serve` over HTTP, accessible via Tailscale, ngrok, or
-internal LAN — `/setup-gbrain` Path 4 is the one-paste flow.
+gbrain'i yerel olarak çalıştırmıyorsanız — Tailscale, ngrok veya iç LAN üzerinden
+`gbrain serve` çalıştıran bir takım arkadaşınız veya başka bir makineniz varsa —
+`/setup-gbrain` Yol 4 tek yapıştırma akışıdır.
 
-You provide:
-- The MCP URL (e.g., `https://wintermute.tail554574.ts.net:3131/mcp`)
-- A bearer token (issued by the brain admin via `gbrain access-token issue`)
+Sağlamanız gerekenler:
+- MCP URL'si (örn., `https://wintermute.tail554574.ts.net:3131/mcp`)
+- Bir bearer jetonu (brain yöneticisi tarafından `gbrain access-token issue` ile verilir)
 
-What `/setup-gbrain` does:
-1. Verifies the URL + token via `gstack-gbrain-mcp-verify`. Three failure
-   modes get classified with one-line remediation hints:
-   **NETWORK** ("check Tailscale/DNS"), **AUTH** ("rotate token"),
-   **MALFORMED** ("Accept-header gotcha — pass both `application/json`
-   AND `text/event-stream`").
-2. Registers the MCP at user scope:
+`/setup-gbrain`'ın yaptığı:
+1. URL + jetonunu `gstack-gbrain-mcp-verify` ile doğrular. Üç başarısızlık modu
+   tek satırlık düzeltme ipuçlarıyla sınıflandırılır:
+   **NETWORK** ("Tailscale/DNS'i kontrol edin"), **AUTH** ("jetonu döndürün"),
+   **MALFORMED** ("Accept-header tuzağı — hem `application/json`
+   HEM DE `text/event-stream` geçirin").
+2. MCP'yi kullanıcı kapsamında kaydeder:
    ```
    claude mcp add --scope user --transport http gbrain "$URL" \
      --header "Authorization: Bearer $TOKEN"
    ```
-3. Skips local install, local doctor, transcript ingest, and federated
-   source registration. All four require a local `gbrain` CLI that Path 4
-   doesn't install.
-4. Optionally provisions a `gstack-artifacts-$USER` private repo on
-   GitHub or GitLab and prints the one-line `gbrain sources add` command
-   for your brain admin to run on the brain host.
+3. Yerel kurulumu, yerel doctor'ı, transkript alımını ve federasyon kaynağı
+   kaydını atlar. Dördü de Yol 4'ün kurmadığı yerel bir `gbrain` CLI gerektirir.
+4. İsteğe bağlı olarak GitHub veya GitLab üzerinde bir `gstack-artifacts-$USER` özel
+   deposu sağlar ve brain yöneticinizin brain sunucusunda çalıştırması için tek satırlık
+   `gbrain sources add` komutunu yazdırır.
 
-### Token storage trade-off
+### Jeton depolama takası
 
-The bearer token lives in `~/.claude.json` (mode 0600), where Claude Code
-stores every MCP server's credentials. During `claude mcp add --header
-"Authorization: Bearer $TOKEN"`, the token is briefly visible in
-process argv (~10ms) — visible to `ps` running concurrently. The window
-is small but it's not zero.
+Bearer jetonu `~/.claude.json` dosyasında (mod 0600) yaşar; burada Claude Code her
+MCP sunucusunun kimlik bilgilerini saklar. `claude mcp add --header "Authorization: Bearer $TOKEN"`
+sırasında jeton işlem argv'sinde kısa süreli görünür (~10ms) — eşzamanlı olarak
+çalışan `ps`'e görünür. Pencere küçüktür ama sıfır değildir.
 
-Mitigations we've considered:
-- **Stdin or env-var input form for headers** — would close the argv
-  window. As of Claude Code v1.0.x, the CLI doesn't expose either.
-  When it does, `/setup-gbrain` Path 4 will switch automatically.
-- **Keychain storage** — explicitly out of scope (the token's resting
-  state in `~/.claude.json` is the existing trust surface for every MCP
-  credential; expanding to Keychain would touch every MCP server, not
-  just gbrain).
+Dikkate aldığımız azaltmalar:
+- **Başlıklar için stdin veya env-var giriş formu** — argv penceresini kapatır.
+  Claude Code v1.0.x itibarıyla CLI ikisini de açığa çıkarmaz.
+  Açığa çıkardığında, `/setup-gbrain` Yol 4 otomatik olarak geçiş yapar.
+- **Anahtarlık depolama** — açıkça kapsam dışında (jetonun `~/.claude.json`'daki
+  dinlenme durumu her MCP kimlik bilgisinin mevcut güven yüzeyidir; Keychain'e
+  genişletmek yalnızca gbrain'i değil her MCP sunucusunu etkiler).
 
-### Why Path 4 is "always print" for the brain-admin hookup
+### Yol 4'ün brain-admin bağlantısı neden "her zaman yazdır"
 
-`gstack-artifacts-init` always prints the `gbrain sources add` command
-labeled "Send this to your brain admin" — even when the user IS the
-brain admin (consistent UX, no mode-detection fragility).
+`gstack-artifacts-init` her zaman `gbrain sources add` komutunu
+"Brain yöneticinize gönderin" etiketiyle yazdırır — kullanıcı brain yöneticisi
+olduğunda bile (tutarlı UX, mod algılama kırılganlığı yok).
 
-A previous design proposed probing whether the user's bearer has admin
-scope (via a benign MCP write call like `add_tag`) and auto-executing
-the source registration when scope was sufficient. The design review
-flagged that page-write doesn't actually prove source-management
-permission — those are different scopes in any sensible auth model.
-Until gbrain ships:
-- a `mcp__gbrain__whoami` capability tool that returns the bearer's
-  scope set, AND
-- a `mcp__gbrain__sources_add` MCP tool with admin-scope gating
+Önceki bir tasarım, kullanıcının bearer'ının yönetici kapsamı olup olmadığını
+arştırmasını (benign bir MCP yazma çağrısı like `add_tag` ile) ve kapsam yeterliyse
+kaynak kaydını otomatik olarak çalıştırmasını önerdi. Tasarım incelemesi,
+sayfa yazımının gerçekte kaynak yönetimi iznini kanıtlamadığını işaret etti —
+bunlar herhangi bir sağduyulu yetki modelinde farklı kapsamlar. gbrain şunları
+sunana kadar:
+- yetki sahibinin kapsam kümesini döndüren bir `mcp__gbrain__whoami` yetenek aracı, VE
+- yönetici kapsamı kapısı olan bir `mcp__gbrain__sources_add` MCP aracı
 
-we always print the command rather than pretending we know who has
-permission to run it.
+her zaman kimin çalıştırma iznine sahip olduğunu bildiğimizi varsaymak yerine
+komutu yazdırırız.
 
-### CLAUDE.md block in Path 4
+### Yol 4'te CLAUDE.md bloğu
 
-Distinct from local-stdio mode. Token is **never** written to CLAUDE.md
-(many projects check CLAUDE.md into git). The block records the URL,
-the verified server version, the artifacts repo URL (if provisioned),
-and the per-repo trust policy.
+Yerel-stdio modundan farklı. Jeton asla CLAUDE.md'ye yazılmaz
+(birçok proje CLAUDE.md'yi git'e commit eder). Blok URL'yi,
+doğrulanmış sunucu sürümünü, yapılar depo URL'sini (sağlandıysa)
+ve depo başına güven politikasını kaydeder.
 
 ```markdown
 ## GBrain Configuration (configured by /setup-gbrain)
@@ -272,16 +260,16 @@ and the per-repo trust policy.
 - Current repo policy: read-write
 ```
 
-### Token rotation
+### Jeton döndürme
 
-Server-side. When verify hits `AUTH` (e.g., the brain admin rotated the
-token), the helper says: "rotate token on the brain host, re-run
-/setup-gbrain." On wintermute or wherever your gbrain server lives:
+Sunucu tarafında. Doğrulama `AUTH`'a çarptığında (örn., brain yöneticisi jetonu
+döndürdü), yardımcı şunu söyler: "brain sunucusunda jetonu döndürün, `/setup-gbrain`'ı
+yeniden çalıştırın." Wintermute'ta veya gbrain sunucunuzun nerede çalıştığında:
 
 ```
-gbrain access-token rotate    # invalidates old, issues new
+gbrain access-token rotate    # eskisini geçersiz kılar, yenisini verir
 ```
 
-(See `gstack/setup-gbrain/SKILL.md.tmpl` for the full Path 4 flow plus
-the gbrain enhancement requests around scoped tokens that would let
-gstack auto-rotate in V2.)
+(Tam Yol 4 akışı ve gstack'in kapsamlı jetonlar etrafındaki gbrain geliştirme
+istekleri için `gstack/setup-gbrain/SKILL.md.tmpl` dosyasına bakın,
+bunun V2'de otomatik döndürmeye izin verecek.)

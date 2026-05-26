@@ -4,12 +4,12 @@ set -e
 umask 077  # Restrict new files to owner-only (0o600 files, 0o700 dirs)
 
 if ! command -v bun >/dev/null 2>&1; then
-  echo "Error: bun is required but not installed." >&2
-  echo "Install with checksum verification:" >&2
+  echo "Hata: bun gerekli ancak kurulu değil." >&2
+  echo "Sağlama toplamı doğrulamasıyla kurun:" >&2
   echo '  BUN_VERSION="1.3.10"' >&2
   echo '  tmpfile=$(mktemp)' >&2
   echo '  curl -fsSL "https://bun.sh/install" -o "$tmpfile"' >&2
-  echo '  echo "Verify checksum before running: shasum -a 256 $tmpfile"' >&2
+  echo '  echo "Çalıştırmadan önce sağlama toplamını doğrulayın: shasum -a 256 $tmpfile"' >&2
   echo '  BUN_VERSION="$BUN_VERSION" bash "$tmpfile" && rm "$tmpfile"' >&2
   exit 1
 fi
@@ -66,7 +66,7 @@ _link_or_copy() {
 _WINDOWS_COPY_NOTE_PRINTED=0
 _print_windows_copy_note_once() {
   if [ "$IS_WINDOWS" -eq 1 ] && [ "$_WINDOWS_COPY_NOTE_PRINTED" -eq 0 ]; then
-    echo "  note: Windows install uses file copies (no Developer Mode required). Re-run ./setup after every 'git pull' to refresh skill files."
+    echo "  Not: Windows kurulumu dosya kopyaları kullanır (Geliştirici Modu gerekmez). Her 'git pull' sonrası yetenek dosyalarını yenilemek için ./setup komutunu tekrar çalıştırın."
     _WINDOWS_COPY_NOTE_PRINTED=1
   fi
 }
@@ -84,7 +84,7 @@ TEAM_MODE=0
 NO_TEAM_MODE=0
 while [ $# -gt 0 ]; do
   case "$1" in
-    --host) [ -z "$2" ] && echo "Missing value for --host (expected claude, codex, kiro, factory, opencode, openclaw, hermes, gbrain, or auto)" >&2 && exit 1; HOST="$2"; shift 2 ;;
+    --host) [ -z "$2" ] && echo "Eksik --host değeri (beklenen: claude, codex, kiro, factory, opencode, openclaw, hermes, gbrain veya auto)" >&2 && exit 1; HOST="$2"; shift 2 ;;
     --host=*) HOST="${1#--host=}"; shift ;;
     --local) LOCAL_INSTALL=1; shift ;;
     --prefix)    SKILL_PREFIX=1; SKILL_PREFIX_FLAG=1; shift ;;
@@ -100,39 +100,39 @@ case "$HOST" in
   claude|codex|kiro|factory|opencode|auto) ;;
   openclaw)
     echo ""
-    echo "OpenClaw integration uses a different model — OpenClaw spawns Claude Code"
-    echo "sessions natively via ACP. gstack provides methodology artifacts, not a"
-    echo "full skill installation."
+    echo "OpenClaw entegrasyonu farklı bir model kullanır — OpenClaw, Claude Code"
+    echo "oturumlarını ACP aracılığıyla yerel olarak başlatır. gstack yöntembilim"
+    echo "artefaktları sağlar, tam bir yetenek kurulumu değil."
     echo ""
-    echo "To integrate gstack with OpenClaw:"
-    echo "  1. Tell your OpenClaw agent: 'install gstack for openclaw'"
-    echo "  2. Or generate artifacts: bun run gen:skill-docs --host openclaw"
-    echo "  3. See docs/OPENCLAW.md for the full architecture"
+    echo "gstack'i OpenClaw ile entegre etmek için:"
+    echo "  1. OpenClaw ajanınıza söyleyin: 'install gstack for openclaw'"
+    echo "  2. Veya artefaktları oluşturun: bun run gen:skill-docs --host openclaw"
+    echo "  3. Tam mimari için docs/OPENCLAW.md dosyasına bakın"
     echo ""
     exit 0 ;;
   hermes)
     echo ""
-    echo "Hermes integration uses the same model as OpenClaw — Hermes spawns"
-    echo "Claude Code sessions, and gstack provides methodology artifacts."
+    echo "Hermes entegrasyonu OpenClaw ile aynı modeli kullanır — Hermes,"
+    echo "Claude Code oturumlarını başlatır ve gstack yöntembilim artefaktları sağlar."
     echo ""
-    echo "To integrate gstack with Hermes:"
-    echo "  1. Tell your Hermes agent: 'install gstack for hermes'"
-    echo "  2. Or generate artifacts: bun run gen:skill-docs --host hermes"
+    echo "gstack'i Hermes ile entegre etmek için:"
+    echo "  1. Hermes ajanınıza söyleyin: 'install gstack for hermes'"
+    echo "  2. Veya artefaktları oluşturun: bun run gen:skill-docs --host hermes"
     echo ""
     exit 0 ;;
   gbrain)
     echo ""
-    echo "GBrain is a mod for gstack — it makes coding skills brain-aware."
-    echo "GBrain generates brain-enhanced skill variants that search your brain"
-    echo "for context before starting and save results after finishing."
+    echo "GBrain, gstack için bir moddur — kodlama yeteneklerini beyin-duyarlı hale getirir."
+    echo "GBrain, başlamadan önce beyininizi bağlam için arayan ve bitirdikten sonra"
+    echo "sonuçları kaydeden beyin-geliştirilmiş yetenek varyantları oluşturur."
     echo ""
-    echo "To generate brain-aware skills:"
+    echo "Beyin-duyarlı yetenekler oluşturmak için:"
     echo "  bun run gen:skill-docs --host gbrain"
     echo ""
-    echo "GBrain setup and brain skills ship from the GBrain repo."
+    echo "GBrain kurulumu ve beyin yetenekleri GBrain deposundan gelir."
     echo ""
     exit 0 ;;
-  *) echo "Unknown --host value: $HOST (expected claude, codex, kiro, factory, opencode, openclaw, hermes, gbrain, or auto)" >&2; exit 1 ;;
+  *) echo "Bilinmeyen --host değeri: $HOST (beklenen: claude, codex, kiro, factory, opencode, openclaw, hermes, gbrain veya auto)" >&2; exit 1 ;;
 esac
 
 # ─── Resolve skill prefix preference ─────────────────────────
@@ -151,15 +151,15 @@ if [ "$SKILL_PREFIX_FLAG" -eq 0 ]; then
       SKILL_PREFIX=0
     elif [ -t 0 ]; then
       echo ""
-      echo "Skill naming: how should gstack skills appear?"
+      echo "Yetenek adlandırması: gstack yetenekleri nasıl görünsün?"
       echo ""
-      echo "  1) Short names: /qa, /ship, /review"
-      echo "     Recommended. Clean and fast to type."
+      echo "  1) Kısa isimler: /qa, /ship, /review"
+      echo "     Önerilen. Temiz ve yazması hızlı."
       echo ""
-      echo "  2) Namespaced: /gstack-qa, /gstack-ship, /gstack-review"
-      echo "     Use this if you run other skill packs alongside gstack to avoid conflicts."
+      echo "  2) Ad alanlı: /gstack-qa, /gstack-ship, /gstack-review"
+      echo "     Diğer yetenek paketlerini gstack ile birlikte kullanıyorsanız çakışmaları önlemek için bunu seçin."
       echo ""
-      printf "Choice [1/2] (default: 1, auto-selects in 10s): "
+      printf "Seçim [1/2] (varsayılan: 1, 10 saniyede otomatik seçilir): "
       read -t 10 -r _prefix_choice </dev/tty 2>/dev/null || _prefix_choice=""
       case "$_prefix_choice" in
         2) SKILL_PREFIX=1 ;;
@@ -178,10 +178,10 @@ fi
 
 # --local: install to .claude/skills/ in the current working directory (deprecated)
 if [ "$LOCAL_INSTALL" -eq 1 ]; then
-  echo "Warning: --local is deprecated. Use global install + --team instead." >&2
-  echo "  See: https://github.com/garrytan/gstack#team-mode" >&2
+  echo "Uyarı: --local kullanım dışıdır. Genel kurulum + --team kullanın." >&2
+  echo "  Bakın: https://github.com/garrytan/gstack#team-mode" >&2
   if [ "$HOST" = "codex" ]; then
-    echo "Error: --local is only supported for Claude Code (not Codex)." >&2
+    echo "Hata: --local yalnızca Claude Code için desteklenir (Codex için değil)." >&2
     exit 1
   fi
   INSTALL_SKILLS_DIR="$(pwd)/.claude/skills"
@@ -228,12 +228,12 @@ migrate_direct_codex_install() {
 
   mkdir -p "$(dirname "$migrated_dir")"
   if [ -e "$migrated_dir" ] && [ "$migrated_dir" != "$gstack_dir" ]; then
-    echo "gstack setup failed: direct Codex install detected at $gstack_dir" >&2
-    echo "A migrated repo already exists at $migrated_dir; move one of them aside and rerun setup." >&2
+    echo "gstack kurulumu başarısız: $gstack_dir konumunda doğrudan Codex kurulumu algılandı" >&2
+    echo "$migrated_dir konumunda zaten taşınmış bir depo var; birini kenara taşıyın ve kurulumu yeniden çalıştırın." >&2
     exit 1
   fi
 
-  log "Migrating direct Codex install to $migrated_dir to avoid duplicate skill discovery..."
+  log "Doğrudan Codex kurulumu yinelenen yetenek keşfini önlemek için $migrated_dir konumuna taşınıyor..."
   mv "$gstack_dir" "$migrated_dir"
   SOURCE_GSTACK_DIR="$migrated_dir"
   INSTALL_GSTACK_DIR="$migrated_dir"
@@ -305,7 +305,7 @@ elif [ -f "$SOURCE_GSTACK_DIR/bun.lock" ] && [ "$SOURCE_GSTACK_DIR/bun.lock" -nt
 fi
 
 if [ "$NEEDS_BUILD" -eq 1 ]; then
-  log "Building browse binary..."
+  log "Browse ikili dosyası derleniyor..."
   (
     cd "$SOURCE_GSTACK_DIR"
     bun_cmd install --frozen-lockfile 2>/dev/null || bun_cmd install
@@ -328,7 +328,7 @@ if [ "$NEEDS_BUILD" -eq 1 ]; then
       [ -f "$_bin_path" ] && [ -x "$_bin_path" ] || continue
       codesign --remove-signature "$_bin_path" 2>/dev/null || true
       if ! codesign -s - -f "$_bin_path" 2>/dev/null; then
-        log "warning: codesign failed for $_bin (binary may not run on Apple Silicon)"
+        log "uyarı: $_bin için kod imzalama başarısız oldu (ikili dosya Apple Silicon üzerinde çalışmayabilir)"
       fi
     done
   fi

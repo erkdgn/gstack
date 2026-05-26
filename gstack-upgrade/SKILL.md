@@ -2,34 +2,34 @@
 name: gstack-upgrade
 version: 1.1.0
 description: |
-  Upgrade gstack to the latest version. Detects global vs vendored install,
-  runs the upgrade, and shows what's new. Use when asked to "upgrade gstack",
-  "update gstack", or "get latest version".
-  Voice triggers (speech-to-text aliases): "upgrade the tools", "update the tools", "gee stack upgrade", "g stack upgrade".
+  gstack'i en son sürüme yükseltir. Global ve vendored kurulumu algılar,
+  yükseltmeyi çalıştırır ve yenilikleri gösterir. "gstack'i yükselt",
+  "gstack'i güncelle" veya "en son sürümü al" isteklerinde kullanılır.
+  Ses tetikleyicileri (konuşmadan metne takma adlar): "araçları yükselt", "araçları güncelle", "gee stack yükselt", "g stack yükselt".
 triggers:
-  - upgrade gstack
-  - update gstack version
-  - get latest gstack
+  - gstack yükselt
+  - gstack sürümünü güncelle
+  - en son gstack'i al
 allowed-tools:
   - Bash
   - Read
   - Write
   - AskUserQuestion
 ---
-<!-- AUTO-GENERATED from SKILL.md.tmpl — do not edit directly -->
-<!-- Regenerate: bun run gen:skill-docs -->
+<!-- AUTO-GENERATED from SKILL.md.tmpl — doğrudan düzenlemeyin -->
+<!-- Yeniden oluştur: bun run gen:skill-docs -->
 
 # /gstack-upgrade
 
-Upgrade gstack to the latest version and show what's new.
+gstack'i en son sürüme yükselt ve yenilikleri göster.
 
-## Inline upgrade flow
+## Satır içi yükseltme akışı
 
-This section is referenced by all skill preambles when they detect `UPGRADE_AVAILABLE`.
+Bu bölüm, tüm skill önsözleri tarafından `UPGRADE_AVAILABLE` algıladıklarında referans alınır.
 
-### Step 1: Ask the user (or auto-upgrade)
+### Adım 1: Kullanıcıya sor (veya otomatik yükselt)
 
-First, check if auto-upgrade is enabled:
+Önce otomatik yükseltmenin etkin olup olmadığını kontrol edin:
 ```bash
 _AUTO=""
 [ "${GSTACK_AUTO_UPGRADE:-}" = "1" ] && _AUTO="true"
@@ -37,21 +37,21 @@ _AUTO=""
 echo "AUTO_UPGRADE=$_AUTO"
 ```
 
-**If `AUTO_UPGRADE=true` or `AUTO_UPGRADE=1`:** Skip AskUserQuestion. Log "Auto-upgrading gstack v{old} → v{new}..." and proceed directly to Step 2. If `./setup` fails during auto-upgrade, restore from backup (`.bak` directory) and warn the user: "Auto-upgrade failed — restored previous version. Run `/gstack-upgrade` manually to retry."
+**Eğer `AUTO_UPGRADE=true` veya `AUTO_UPGRADE=1`:** AskUserQuestion'ı atlayın. "gstack v{old} → v{new} otomatik olarak yükseltiliyor..." loglayın ve doğrudan Adım 2'ye geçin. Otomatik yükseltme sırasında `./setup` başarısız olursa, yedekten (`.bak` dizini) geri yükleyin ve kullanıcıyı uyarın: "Otomatik yükseltme başarısız oldu — önceki sürüm geri yüklendi. Tekrar denemek için `/gstack-upgrade` komutunu manuel olarak çalıştırın."
 
-**Otherwise**, use AskUserQuestion:
-- Question: "gstack **v{new}** is available (you're on v{old}). Upgrade now?"
-- Options: ["Yes, upgrade now", "Always keep me up to date", "Not now", "Never ask again"]
+**Aksi takdirde**, AskUserQuestion kullanın:
+- Soru: "gstack **v{new}** mevcut (v{old} sürümündesiniz). Şimdi yükseltmek ister misiniz?"
+- Seçenekler: ["Evet, şimdi yükselt", "Beni her zaman güncel tut", "Şimdi değil", "Bir daha sorma"]
 
-**If "Yes, upgrade now":** Proceed to Step 2.
+**"Evet, şimdi yükselt" seçilirse:** Adım 2'ye geçin.
 
-**If "Always keep me up to date":**
+**"Beni her zaman güncel tut" seçilirse:**
 ```bash
 ~/.claude/skills/gstack/bin/gstack-config set auto_upgrade true
 ```
-Tell user: "Auto-upgrade enabled. Future updates will install automatically." Then proceed to Step 2.
+Kullanıcıya şunu söyleyin: "Otomatik yükseltme etkinleştirildi. Gelecekteki güncellemeler otomatik olarak kurulacak." Ardından Adım 2'ye geçin.
 
-**If "Not now":** Write snooze state with escalating backoff (first snooze = 24h, second = 48h, third+ = 1 week), then continue with the current skill. Do not mention the upgrade again.
+**"Şimdi değil" seçilirse:** Artan geri bildirimle snooze durumu yazın (ilk snooze = 24 saat, ikinci = 48 saat, üçüncü ve sonrası = 1 hafta), ardından mevcut skill ile devam edin. Yükseltmeyi tekrar belirtmeyin.
 ```bash
 _SNOOZE_FILE="$HOME/.gstack/update-snoozed"
 _REMOTE_VER="{new}"
@@ -67,18 +67,18 @@ _NEW_LEVEL=$((_CUR_LEVEL + 1))
 [ "$_NEW_LEVEL" -gt 3 ] && _NEW_LEVEL=3
 echo "$_REMOTE_VER $_NEW_LEVEL $(date +%s)" > "$_SNOOZE_FILE"
 ```
-Note: `{new}` is the remote version from the `UPGRADE_AVAILABLE` output — substitute it from the update check result.
+Not: `{new}`, `UPGRADE_AVAILABLE` çıktısındaki uzak sürümdür — güncelleme kontrol sonucundan değiştirin.
 
-Tell user the snooze duration: "Next reminder in 24h" (or 48h or 1 week, depending on level). Tip: "Set `auto_upgrade: true` in `~/.gstack/config.yaml` for automatic upgrades."
+Kullanıcıya snooze süresini söyleyin: "Sonraki hatırlatma 24 saat sonra" (veya seviyeye göre 48 saat veya 1 hafta). İpucu: "Otomatik yükseltmeler için `~/.gstack/config.yaml` dosyasında `auto_upgrade: true` ayarlayın."
 
-**If "Never ask again":**
+**"Bir daha sorma" seçilirse:**
 ```bash
 ~/.claude/skills/gstack/bin/gstack-config set update_check false
 ```
-Tell user: "Update checks disabled. Run `~/.claude/skills/gstack/bin/gstack-config set update_check true` to re-enable."
-Continue with the current skill.
+Kullanıcıya şunu söyleyin: "Güncelleme kontrolleri devre dışı bırakıldı. Yeniden etkinleştirmek için `~/.claude/skills/gstack/bin/gstack-config set update_check true` çalıştırın."
+Mevcut skill ile devam edin.
 
-### Step 2: Detect install type
+### Adım 2: Kurulum türünü algıla
 
 ```bash
 if [ -d "$HOME/.claude/skills/gstack/.git" ]; then
@@ -100,27 +100,27 @@ elif [ -d "$HOME/.claude/skills/gstack" ]; then
   INSTALL_TYPE="vendored-global"
   INSTALL_DIR="$HOME/.claude/skills/gstack"
 else
-  echo "ERROR: gstack not found"
+  echo "ERROR: gstack bulunamadı"
   exit 1
 fi
 echo "Install type: $INSTALL_TYPE at $INSTALL_DIR"
 ```
 
-The install type and directory path printed above will be used in all subsequent steps.
+Yukarıda yazdırılan kurulum türü ve dizin yolu sonraki tüm adımlarda kullanılacaktır.
 
-### Step 3: Save old version
+### Adım 3: Eski sürümü kaydet
 
-Use the install directory from Step 2's output below:
+Adım 2'nin çıktısındaki kurulum dizinini kullanın:
 
 ```bash
 OLD_VERSION=$(cat "$INSTALL_DIR/VERSION" 2>/dev/null || echo "unknown")
 ```
 
-### Step 4: Upgrade
+### Adım 4: Yükselt
 
-Use the install type and directory detected in Step 2:
+Adım 2'de algılanan kurulum türü ve dizini kullanın:
 
-**For git installs** (global-git, local-git):
+**Git kurulumları için** (global-git, local-git):
 ```bash
 cd "$INSTALL_DIR"
 STASH_OUTPUT=$(git stash 2>&1)
@@ -128,9 +128,9 @@ git fetch origin
 git reset --hard origin/main
 ./setup
 ```
-If `$STASH_OUTPUT` contains "Saved working directory", warn the user: "Note: local changes were stashed. Run `git stash pop` in the skill directory to restore them."
+Eğer `$STASH_OUTPUT` "Saved working directory" içeriyorsa, kullanıcıyı uyarın: "Not: yerel değişiklikler stash edildi. Geri yüklemek için skill dizininde `git stash pop` çalıştırın."
 
-**For vendored installs** (vendored, vendored-global):
+**Vendored kurulumlar için** (vendored, vendored-global):
 ```bash
 PARENT=$(dirname "$INSTALL_DIR")
 TMP_DIR=$(mktemp -d)
@@ -141,9 +141,9 @@ cd "$INSTALL_DIR" && ./setup
 rm -rf "$INSTALL_DIR.bak" "$TMP_DIR"
 ```
 
-### Step 4.5: Handle local vendored copy
+### Adım 4.5: Yerel vendored kopyayı işle
 
-Use the install directory from Step 2. Check if there's also a local vendored copy, and whether team mode is active:
+Adım 2'deki kurulum dizinini kullanın. Ayrıca yerel bir vendored kopya olup olmadığını ve team modunun etkin olup olmadığını kontrol edin:
 
 ```bash
 _ROOT=$(git rev-parse --show-toplevel 2>/dev/null)
@@ -160,7 +160,7 @@ echo "LOCAL_GSTACK=$LOCAL_GSTACK"
 echo "TEAM_MODE=$_TEAM_MODE"
 ```
 
-**If `LOCAL_GSTACK` is non-empty AND `TEAM_MODE` is `true`:** Remove the vendored copy. Team mode uses the global install as the single source of truth.
+**Eğer `LOCAL_GSTACK` boş değilse VE `TEAM_MODE` `true` ise:** Vendored kopyayı kaldırın. Team modu, tek bilgi kaynağı olarak global kurulumu kullanır.
 
 ```bash
 cd "$_ROOT"
@@ -170,9 +170,9 @@ if ! grep -qF '.claude/skills/gstack/' .gitignore 2>/dev/null; then
 fi
 rm -rf "$LOCAL_GSTACK"
 ```
-Tell user: "Removed vendored copy at `$LOCAL_GSTACK` (team mode active — global install is the source of truth). Commit the `.gitignore` change when ready."
+Kullanıcıya şunu söyleyin: "`$LOCAL_GSTACK` konumundaki vendored kopya kaldırıldı (team modu aktif — global kurulum bilgi kaynağıdır). `.gitignore` değişikliğini hazır olduğunuzda commit edin."
 
-**If `LOCAL_GSTACK` is non-empty AND `TEAM_MODE` is NOT `true`:** Update it by copying from the freshly-upgraded primary install (same approach as README vendored install):
+**Eğer `LOCAL_GSTACK` boş değilse VE `TEAM_MODE` `true` DEĞİLSE:** Yeni yükseltilmiş birincil kurulumdan kopyalayarak güncelleyin (README vendored kurulumuyla aynı yaklaşım):
 ```bash
 mv "$LOCAL_GSTACK" "$LOCAL_GSTACK.bak"
 cp -Rf "$INSTALL_DIR" "$LOCAL_GSTACK"
@@ -180,29 +180,27 @@ rm -rf "$LOCAL_GSTACK/.git"
 cd "$LOCAL_GSTACK" && ./setup
 rm -rf "$LOCAL_GSTACK.bak"
 ```
-Tell user: "Also updated vendored copy at `$LOCAL_GSTACK` — commit `.claude/skills/gstack/` when you're ready."
+Kullanıcıya şunu söyleyin: "`$LOCAL_GSTACK` konumundaki vendored kopya da güncellendi — hazır olduğunuzda `.claude/skills/gstack/` dizinini commit edin."
 
-If `./setup` fails, restore from backup and warn the user:
+Eğer `./setup` başarısız olursa, yedekten geri yükleyin ve kullanıcıyı uyarın:
 ```bash
 rm -rf "$LOCAL_GSTACK"
 mv "$LOCAL_GSTACK.bak" "$LOCAL_GSTACK"
 ```
-Tell user: "Sync failed — restored previous version at `$LOCAL_GSTACK`. Run `/gstack-upgrade` manually to retry."
+Kullanıcıya şunu söyleyin: "Eşitleme başarısız oldu — `$LOCAL_GSTACK` konumundaki önceki sürüm geri yüklendi. Tekrar denemek için `/gstack-upgrade` komutunu manuel olarak çalıştırın."
 
-### Step 4.75: Run version migrations
+### Adım 4.75: Sürüm geçişlerini çalıştır
 
-After `./setup` completes, run any migration scripts for versions between the old
-and new version. Migrations handle state fixes that `./setup` alone can't cover
-(stale config, orphaned files, directory structure changes).
+`./setup` tamamlandıktan sonra, eski ve yeni sürüm arasındaki geçiş betiklerini çalıştırın. Geçişler, `./setup`'ın tek başına kapsayamayacağı durum düzeltmelerini (eski yapılandırma, yetim dosyalar, dizin yapısı değişiklikleri) işler.
 
 ```bash
 MIGRATIONS_DIR="$INSTALL_DIR/gstack-upgrade/migrations"
 if [ -d "$MIGRATIONS_DIR" ]; then
   for migration in $(find "$MIGRATIONS_DIR" -maxdepth 1 -name 'v*.sh' -type f 2>/dev/null | sort -V); do
-    # Extract version from filename: v0.15.2.0.sh → 0.15.2.0
+    # Dosya adından sürümü çıkar: v0.15.2.0.sh → 0.15.2.0
     m_ver="$(basename "$migration" .sh | sed 's/^v//')"
-    # Run if this migration version is newer than old version
-    # (simple string compare works for dotted versions with same segment count)
+    # Bu geçiş sürümü eski sürümden yenise çalıştır
+    # (Aynı segment sayısına sahip noktalı sürümler için basit dize karşılaştırması çalışır)
     if [ "$OLD_VERSION" != "unknown" ] && [ "$(printf '%s\n%s' "$OLD_VERSION" "$m_ver" | sort -V | head -1)" = "$OLD_VERSION" ] && [ "$OLD_VERSION" != "$m_ver" ]; then
       echo "Running migration $m_ver..."
       bash "$migration" || echo "  Warning: migration $m_ver had errors (non-fatal)"
@@ -211,11 +209,9 @@ if [ -d "$MIGRATIONS_DIR" ]; then
 fi
 ```
 
-Migrations are idempotent bash scripts in `gstack-upgrade/migrations/`. Each is named
-`v{VERSION}.sh` and runs only when upgrading from an older version. See CONTRIBUTING.md
-for how to add new migrations.
+Geçişler, `gstack-upgrade/migrations/` dizinindeki idempotent bash betikleridir. Her biri `v{SÜRÜM}.sh` olarak adlandırılır ve yalnızca daha eski bir sürümden yükseltme yapılırken çalışır. Yeni geçişler eklemek için CONTRIBUTING.md sayfasına bakın.
 
-### Step 5: Write marker + clear cache
+### Adım 5: İşaretleyici yaz + önbelleği temizle
 
 ```bash
 mkdir -p ~/.gstack
@@ -224,56 +220,56 @@ rm -f ~/.gstack/last-update-check
 rm -f ~/.gstack/update-snoozed
 ```
 
-### Step 6: Show What's New
+### Adım 6: Yenilikleri göster
 
-Read `$INSTALL_DIR/CHANGELOG.md`. Find all version entries between the old version and the new version. Summarize as 5-7 bullets grouped by theme. Don't overwhelm — focus on user-facing changes. Skip internal refactors unless they're significant.
+`$INSTALL_DIR/CHANGELOG.md` dosyasını okuyun. Eski sürüm ve yeni sürüm arasındaki tüm sürüm girdilerini bulun. Tema tarafından gruplandırılmış 5-7 madde olarak özetleyin. Fazla detaya girmeyin — kullanıcıya yönelik değişikliklere odaklanın. Önemsiz iç yeniden yapılandırmaları atlayın (çok önemli değillerse).
 
 Format:
 ```
-gstack v{new} — upgraded from v{old}!
+gstack v{new} — v{old} sürümünden yükseltildi!
 
-What's new:
-- [bullet 1]
-- [bullet 2]
+Yenilikler:
+- [madde 1]
+- [madde 2]
 - ...
 
-Happy shipping!
+Mutlu göndermeler!
 ```
 
-### Step 7: Continue
+### Adım 7: Devam et
 
-After showing What's New, continue with whatever skill the user originally invoked. The upgrade is done — no further action needed.
+Yenilikleri gösterdikten sonra, kullanıcının özgün olarak çağırdığı skill ile devam edin. Yükseltme tamamlandı — başka bir işlem gerekmez.
 
 ---
 
-## Standalone usage
+## Bağımsız kullanım
 
-When invoked directly as `/gstack-upgrade` (not from a preamble):
+Doğrudan `/gstack-upgrade` olarak çağrıldığında (bir önsözden değil):
 
-1. Force a fresh update check (bypass cache):
+1. Yeni bir güncelleme kontrolü zorla (önbelleği atla):
 ```bash
 ~/.claude/skills/gstack/bin/gstack-update-check --force 2>/dev/null || \
 .claude/skills/gstack/bin/gstack-update-check --force 2>/dev/null || true
 ```
-Use the output to determine if an upgrade is available.
+Bir yükseltme olup olmadığını belirlemek için çıktıyı kullanın.
 
-2. If `UPGRADE_AVAILABLE <old> <new>`: follow Steps 2-6 above.
+2. Eğer `UPGRADE_AVAILABLE <old> <new>` varsa: yukarıdaki Adım 2-6'yı izleyin.
 
-3. If no output (primary is up to date): check for a stale local vendored copy.
+3. Çıktı yoksa (birincil güncel ise): eski bir yerel vendored kopya olup olmadığını kontrol edin.
 
-Run the Step 2 bash block above to detect the primary install type and directory (`INSTALL_TYPE` and `INSTALL_DIR`). Then run the Step 4.5 detection bash block above to check for a local vendored copy (`LOCAL_GSTACK`) and team mode status (`TEAM_MODE`).
+Yukarıdaki Adım 2 bash bloğunu çalıştırarak birincil kurulum türünü ve dizinini (`INSTALL_TYPE` ve `INSTALL_DIR`) algılayın. Ardından yukarıdaki Adım 4.5 algılama bash bloğunu çalıştırarak yerel vendored kopya (`LOCAL_GSTACK`) ve team modu durumunu (`TEAM_MODE`) kontrol edin.
 
-**If `LOCAL_GSTACK` is empty** (no local vendored copy): tell the user "You're already on the latest version (v{version})."
+**Eğer `LOCAL_GSTACK` boşsa** (yerel vendored kopya yok): kullanıcıya "Zaten en son sürümdesiniz (v{version})." deyin.
 
-**If `LOCAL_GSTACK` is non-empty AND `TEAM_MODE` is `true`:** Remove the vendored copy using the Step 4.5 team-mode removal bash block above. Tell user: "Global v{version} is up to date. Removed stale vendored copy (team mode active). Commit the `.gitignore` change when ready."
+**Eğer `LOCAL_GSTACK` boş değilse VE `TEAM_MODE` `true` ise:** Yukarıdaki Adım 4.5 team-modu kaldırma bash bloğunu kullanarak vendored kopyayı kaldırın. Kullanıcıya şunu söyleyin: "Global v{version} güncel. Eski vendored kopya kaldırıldı (team modu aktif). `.gitignore` değişikliğini hazır olduğunuzda commit edin."
 
-**If `LOCAL_GSTACK` is non-empty AND `TEAM_MODE` is NOT `true`**, compare versions:
+**Eğer `LOCAL_GSTACK` boş değilse VE `TEAM_MODE` `true` DEĞİLSE**, sürümleri karşılaştırın:
 ```bash
 PRIMARY_VER=$(cat "$INSTALL_DIR/VERSION" 2>/dev/null || echo "unknown")
 LOCAL_VER=$(cat "$LOCAL_GSTACK/VERSION" 2>/dev/null || echo "unknown")
 echo "PRIMARY=$PRIMARY_VER LOCAL=$LOCAL_VER"
 ```
 
-**If versions differ:** follow the Step 4.5 sync bash block above to update the local copy from the primary. Tell user: "Global v{PRIMARY_VER} is up to date. Updated local vendored copy from v{LOCAL_VER} → v{PRIMARY_VER}. Commit `.claude/skills/gstack/` when you're ready."
+**Sürümler farklıysa:** Yerel kopyayı birincilden güncellemek için yukarıdaki Adım 4.5 eşitleme bash bloğunu izleyin. Kullanıcıya şunu söyleyin: "Global v{PRIMARY_VER} güncel. Yerel vendored kopya v{LOCAL_VER} → v{PRIMARY_VER} olarak güncellendi. Hazır olduğunuzda `.claude/skills/gstack/` dizinini commit edin."
 
-**If versions match:** tell the user "You're on the latest version (v{PRIMARY_VER}). Global and local vendored copy are both up to date."
+**Sürümler aynıysa:** kullanıcıya "En son sürümdesiniz (v{PRIMARY_VER}). Global ve yerel vendored kopyanın ikisi de güncel." deyin.

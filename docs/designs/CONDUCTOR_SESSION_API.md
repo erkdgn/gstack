@@ -1,53 +1,57 @@
-# Conductor Session Streaming API Proposal
+# Conductor Oturum Akışı API Önerisi
 
-## Problem
+## Sorun
 
-When Claude controls your real browser via CDP (gstack `$B connect`), you look at two
-windows: **Conductor** (to see Claude's thinking) and **Chrome** (to see Claude's actions).
+Claude gerçek tarayıcınızı CDP üzerinden kontrol ettiğinde (gstack `$B connect`),
+iki pencereye bakarsınız: **Conductor** (Claude'un düşünmesini görmek için) ve
+**Chrome** (Claude'un eylemlerini görmek için).
 
-gstack's Chrome extension Side Panel shows browse activity — every command, result,
-and error. But for *full* session mirroring (Claude's thinking, tool calls, code edits),
-the Side Panel needs Conductor to expose the conversation stream.
+gstack'ın Chrome uzantısı Yan Panel tarama etkinliğini gösterir — her komutu, sonucu
+ve hatayı. Ama *tam* oturum yansıtma (Claude'un düşünmesi, araç çağrıları, kod düzenlemeleri)
+için Yan Panel'in Conductor'ın konuşma akışını açığa çıkarmasına ihtiyacı var.
 
-## What this enables
+## Bu ne sağlar
 
-A "Session" tab in the gstack Chrome extension Side Panel that shows:
-- Claude's thinking/content (truncated for performance)
-- Tool call names + icons (Edit, Bash, Read, etc.)
-- Turn boundaries with cost estimates
-- Real-time updates as the conversation progresses
+gstack Chrome uzantisi Yan Panel'inde, şunları gösteren bir "Oturum" sekmesi:
 
-The user sees everything in one place — Claude's actions in their browser + Claude's
-thinking in the Side Panel — without switching windows.
+- Claude'un düşünme/içerik (performans için kesilmiş)
+- Araç çağrısı isimleri + simgeler (Düzenle, Bash, Oku, vb.)
+- Maliyet tahminleri ile dönüş sınırları
+- Konuşma ilerledikçe gerçek zamanlı güncellemeler
 
-## Proposed API
+Kullanıcı her şeyi tek bir yerde görür — tarayıcısında Claude'un eylemleri + Yan Panel'de
+Claude'un düşünmesi — pencereler arasında geçiş yapmadan.
+
+## Önerilen API
 
 ### `GET http://127.0.0.1:{PORT}/workspace/{ID}/session/stream`
 
-Server-Sent Events endpoint that re-emits Claude Code's conversation as NDJSON events.
+Claude Code'un konuşmasını NDJSON etkinlikleri olarak yeniden yayayan Sunucu-Gönderilen
+Etkinlikler uç noktası.
 
-**Event types** (reuse Claude Code's `--output-format stream-json` format):
+**Etkinlik türleri** (Claude Code'un `--output-format stream-json` formatını yeniden kullanır):
 
 ```
 event: assistant
-data: {"type":"assistant","content":"Let me check that page...","truncated":true}
+data: {"type":"assistant","content":"Şu sayfayı kontrol edeyim...","truncated":true}
 
 event: tool_use
 data: {"type":"tool_use","name":"Bash","input":"$B snapshot","truncated_input":true}
 
 event: tool_result
-data: {"type":"tool_result","name":"Bash","output":"[snapshot output...]","truncated_output":true}
+data: {"type":"tool_result","name":"Bash","output":"[snapshot çıktısı...]","truncated_output":true}
 
 event: turn_complete
 data: {"type":"turn_complete","input_tokens":1234,"output_tokens":567,"cost_usd":0.02}
 ```
 
-**Content truncation:** Tool inputs/outputs capped at 500 chars in the stream. Full
-data stays in Conductor's UI. The Side Panel is a summary view, not a replacement.
+**İçerik kesme:** Araç girdileri/çıktıları akışta 500 karakterle sınırlıdır. Tam
+veri Conductor'ın kullanıcı arayüzünde kalır. Yan Panel bir özet görünümüdür, bir
+yedek değil.
 
 ### `GET http://127.0.0.1:{PORT}/api/workspaces`
 
-Discovery endpoint listing active workspaces.
+Aktif çalışma alanlarını listeleyen keşif uç noktası.
 
 ```json
 {
@@ -64,45 +68,46 @@ Discovery endpoint listing active workspaces.
 }
 ```
 
-The Chrome extension auto-selects a workspace by matching the browse server's git repo
-(from `/health` response) to a workspace's directory or name.
+Chrome uzantısı, tarama sunucusunun git deposunu ((`/health` yanıtından) bir çalışma
+alanının dizini veya adıyla eşleştirerek çalışma alanını otomatik olarak seçer.
 
-## Security
+## Güvenlik
 
-- **Localhost-only.** Same trust model as Claude Code's own debug output.
-- **No auth required.** If Conductor wants auth, include a Bearer token in the
-  workspace listing that the extension passes on SSE requests.
-- **Content truncation** is a privacy feature — long code outputs, file contents, and
-  sensitive tool results never leave Conductor's full UI.
+- **Sadece yerel ana bilgisayar.** Claude Code'un kendi hata ayıklama çıktısıyla aynı
+  güven modeli.
+- **Kimlik doğrulama gerekmez.** Conductor kimlik doğrulama isterse, uzantının SSE
+  isteklerinde ilettiği bir Bearer belirteci çalışma alanı listelemesine ekleyin.
+- **İçerik kesme** bir gizlilik özelliğidir — uzun kod çıktıları, dosya içerikleri
+  ve hassas araç sonuçları asla Conductor'ın tam kullanıcı arayüzünden ayrılmaz.
 
-## What gstack builds (extension side)
+## gstack ne inşa eder (uzantı tarafı)
 
-Already scaffolded in the Side Panel "Session" tab (currently shows placeholder).
+Yan Panel "Oturum" sekmesinde zaten iskelelendirilmiş (şu anda yer tutucu gösteriyor).
 
-When Conductor's API is available:
-1. Side Panel discovers Conductor via port probe or manual entry
-2. Fetches `/api/workspaces`, matches to browse server's repo
-3. Opens `EventSource` to `/workspace/{id}/session/stream`
-4. Renders: assistant messages, tool names + icons, turn boundaries, cost
-5. Falls back gracefully: "Connect Conductor for full session view"
+Conductor'ın API'si mevcut olduğunda:
+1. Yan Panel, port araştırması veya manuel giriş ile Conductor'ı keşfeder
+2. `/api/workspaces`'ı getirir, tarama sunucusunun deposuyla eşleştirir
+3. `/workspace/{id}/session/stream`'e `EventSource` açar
+4. Render eder: asistan mesajları, araç isimleri + simgeler, dönüş sınırları, maliyet
+5. Zarifçe geri döner: "Tam oturum görünümü için Conductor'ı bağlayın"
 
-Estimated effort: ~200 LOC in `sidepanel.js`.
+Tahmini çaba: `sidepanel.js`'de ~200 SATIR.
 
-## What Conductor builds (server side)
+## Conductor ne inşa eder (sunucu tarafı)
 
-1. SSE endpoint that re-emits Claude Code's stream-json per workspace
-2. `/api/workspaces` discovery endpoint with active workspace list
-3. Content truncation (500 char cap on tool inputs/outputs)
+1. Çalışma alanı başına Claude Code'un stream-json'unu yeniden yayayan SSE uç noktası
+2. Aktif çalışma alanı listesi ile `/api/workspaces` keşif uç noktası
+3. İçerik kesme (araç girdileri/çıktılarında 500 karakter sınırı)
 
-Estimated effort: ~100-200 LOC if Conductor already captures the Claude Code stream
-internally (which it does for its own UI rendering).
+Tahmini çaba: Conductor zaten Claude Code akışını kendi kullanıcı arayüzü
+render etme için dahili olarak yakalıyorsa ~100-200 SATIR.
 
-## Design decisions
+## Tasarım kararları
 
-| Decision | Choice | Rationale |
+| Karar | Seçim | Gerekçe |
 |----------|--------|-----------|
-| Transport | SSE (not WebSocket) | Unidirectional, auto-reconnect, simpler |
-| Format | Claude's stream-json | Conductor already parses this; no new schema |
-| Discovery | HTTP endpoint (not file) | Chrome extensions can't read filesystem |
-| Auth | None (localhost) | Same as browse server, CDP port, Claude Code |
-| Truncation | 500 chars | Side Panel is ~300px wide; long content useless |
+| Taşıyıcı | SSE (WebSocket değil) | Tek yönlü, otomatik yeniden bağlanma, daha basit |
+| Format | Claude'ın stream-json'u | Conductor bunu zaten ayrıştırıyor; yeni şema yok |
+| Keşif | HTTP uç noktası (dosya değil) | Chrome uzantıları dosya sistemini okuyamaz |
+| Kimlik doğrulama | Yok (yerel ana bilgisayar) | Tarama sunucusu, CDP portu, Claude Code ile aynı |
+| Kesme | 500 karakter | Yan Panel ~300px genişliğinde; uzun içerik işe yaramaz |

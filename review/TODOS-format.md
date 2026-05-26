@@ -1,62 +1,62 @@
-# TODOS.md Format Reference
+# TODOS.md Format Referansı
 
-Shared reference for the canonical TODOS.md format. Referenced by `/ship` (Step 5.5) and `/plan-ceo-review` (TODOS.md updates section) to ensure consistent TODO item structure.
+Kanonik TODOS.md formatı için paylaşılan referans. Tutarlı TODO öğe yapısını sağlamak için `/ship` (Adım 5.5) ve `/plan-ceo-review` (TODOS.md güncellemeleri bölümü) tarafından referans alınır.
 
 ---
 
-## File Structure
+## Dosya Yapısı
 
 ```markdown
 # TODOS
 
-## <Skill/Component>     ← e.g., ## Browse, ## Ship, ## Review, ## Infrastructure
-<items sorted P0 first, then P1, P2, P3, P4>
+## <Skill/Bileşen>     ← örn., ## Browse, ## Ship, ## Review, ## Infrastructure
+<öğeler önce P0, sonra P1, P2, P3, P4 olarak sıralanmış>
 
-## Completed
-<finished items with completion annotation>
+## Tamamlandı
+<bitiş açıklaması ile tamamlanmış öğeler>
 ```
 
-**Sections:** Organize by skill or component (`## Browse`, `## Ship`, `## Review`, `## QA`, `## Retro`, `## Infrastructure`). Within each section, sort items by priority (P0 at top).
+**Bölümler:** Skill veya bileşene göre düzenleyin (`## Browse`, `## Ship`, `## Review`, `## QA`, `## Retro`, `## Infrastructure`). Her bölümde öğeleri önceliğe göre sıralayın (en üstte P0).
 
 ---
 
-## TODO Item Format
+## TODO Öğe Formatı
 
-Each item is an H3 under its section:
+Her öğe bölümü altında bir H3'tür:
 
 ```markdown
-### <Title>
+### <Başlık>
 
-**What:** One-line description of the work.
+**Ne:** İşin tek satırlık açıklaması.
 
-**Why:** The concrete problem it solves or value it unlocks.
+**Neden:** Çözdüğü somut sorun veya açtığı değer.
 
-**Context:** Enough detail that someone picking this up in 3 months understands the motivation, the current state, and where to start.
+**Bağlam:** Birisi bunu 3 ay sonra ele aldığında motivasyonu, mevcut durumu ve nereden başlayacağını anlayacak kadar ayrıntı.
 
-**Effort:** S / M / L / XL
-**Priority:** P0 / P1 / P2 / P3 / P4
-**Depends on:** <prerequisites, or "None">
+**Çaba:** S / M / L / XL
+**Öncelik:** P0 / P1 / P2 / P3 / P4
+**Bağlıdır:** <önkoşullar veya "Yok">
 ```
 
-**Required fields:** What, Why, Context, Effort, Priority
-**Optional fields:** Depends on, Blocked by
+**Gerekli alanlar:** Ne, Neden, Bağlam, Çaba, Öncelik
+**İsteğe bağlı alanlar:** Bağlıdır, Engelleyen
 
 ---
 
-## Priority Definitions
+## Öncelik Tanımları
 
-- **P0** — Blocking: must be done before next release
-- **P1** — Critical: should be done this cycle
-- **P2** — Important: do when P0/P1 are clear
-- **P3** — Nice-to-have: revisit after adoption/usage data
-- **P4** — Someday: good idea, no urgency
+- **P0** — Engelleyici: bir sonraki sürümden önce yapılmalı
+- **P1** — Kritik: bu döngüde yapılmalı
+- **P2** — Önemli: P0/P1 bittiğinde yapılmalı
+- **P3** — Güzel-olur: benimsenme/kullanım verisinden sonra yeniden değerlendir
+- **P4** — Bir gün: iyi fikir, aciliyet yok
 
 ---
 
-## Completed Item Format
+## Tamamlanmış Öğe Formatı
 
-When an item is completed, move it to the `## Completed` section preserving its original content and appending:
+Bir öğe tamamlandığığda, orijinal içeriğini koruyarak `## Tamamlandı` bölümüne taşıyın ve şunu ekleyin:
 
 ```markdown
-**Completed:** vX.Y.Z (YYYY-MM-DD)
+**Tamamlandı:** vX.Y.Z (YYYY-AA-GG)
 ```

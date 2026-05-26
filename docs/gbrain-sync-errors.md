@@ -1,27 +1,29 @@
-# gbrain-sync error lookup
+# gbrain-sync hata arama
 
-Every error message `gstack-brain-*` can print, with problem, cause, and fix.
+`gstack-brain-*` komutunun yazdırabileceği her hata mesajı, sorun, neden ve
+çözüm ile birlikte.
 
-Search this file by the prefix after `BRAIN_SYNC:` or by the binary name in
-the command output.
+Bu dosyayı `BRAIN_SYNC:` sonrasındaki öneke veya komut çıktısındaki ikili dosya
+adına göre arayın.
 
 ---
 
 ## `BRAIN_SYNC: brain repo detected: <url>`
 
-**Problem.** You're on a machine that has `~/.gstack-brain-remote.txt` (copied
-from another machine) but no local git repo at `~/.gstack/.git`.
+**Sorun.** `~/.gstack-brain-remote.txt` dosyasına sahip (başka bir makineden
+kopyalanmış) bir makinedesiniz ancak `~/.gstack/.git` konumunda yerel bir git
+deposu yok.
 
-**Cause.** You've set up GBrain sync elsewhere and your gstack hasn't been
-restored on this machine yet.
+**Neden.** GBrain eşitlemesini başka bir yerde kurmuşsunuz ve gstack bu makinede
+henüz geri yüklenmemiş.
 
-**Fix.**
+**Çözüm.**
 ```bash
 gstack-brain-restore
 ```
-This pulls the repo into `~/.gstack/` and re-registers merge drivers.
+Bu, depoyu `~/.gstack/` konumuna çeker ve birleştirme sürücülerini yeniden kaydeder.
 
-If you don't want to restore here, dismiss the hint with:
+Burada geri yüklemek istemiyorsanız, ipucunu şu şekilde reddedin:
 ```bash
 gstack-config set artifacts_sync_mode_prompted true
 ```
@@ -30,185 +32,186 @@ gstack-config set artifacts_sync_mode_prompted true
 
 ## `BRAIN_SYNC: blocked: <pattern-family>:<snippet>`
 
-**Problem.** Sync stopped because the secret scanner detected credential-shaped
-content in a staged file. The queue is preserved; nothing was pushed.
+**Sorun.** Eşitleme, gizli tarayıcının hazırlanmış bir dosyada kimlik bilgisi
+biçiminde içerik algılaması nedeniyle durdu. Sıra korundu; hiçbir şey
+gönderilmedi.
 
-**Cause.** One of the pre-commit secret patterns matched the file contents —
-likely an AWS key, GitHub token, OpenAI key, PEM block, JWT, or bearer token
-embedded in JSON.
+**Neden.** Hazırlık öncesi gizli desenlerden biri dosya içeriğiyle eşleşti —
+muhtemelen bir AWS anahtarı, GitHub belirteci, OpenAI anahtarı, PEM bloğu,
+JWT veya JSON içindeki bearer belirteci.
 
-**Fix (three options).**
+**Çözüm (üç seçenek).**
 
-1. **If it's a real secret**: edit the offending file to remove the secret,
-   then re-run any skill to retry sync.
+1. **Gerçek bir gizliyse**: sorunlu dosyayı düzenleyerek gizliyi çıkarın,
+   ardından eşitlemeyi yeniden denemek için herhangi bir yetenek çalıştırın.
 
-2. **If the pattern is a false positive** (e.g., your learning contains a
-   GitHub token pattern in an example string that you *want* to publish):
+2. **Desen yanlış pozitifse** (örneğin, öğrenmenizde yayınlamak *istediğiniz*
+   bir örnek dizede GitHub belirteç örüntüsü varsa):
    ```bash
-   gstack-brain-sync --skip-file <path>
+   gstack-brain-sync --skip-file <yol>
    ```
-   This permanently excludes the path from future syncs.
+   Bu, yolu gelecekteki eşitlemelerden kalıcı olarak dışlar.
 
-3. **If you want to abandon this sync batch entirely** (start fresh):
+3. **Bu eşitleme grubunun tamamını iptal etmek istiyorsanız** (temiz başlangıç):
    ```bash
    gstack-brain-sync --drop-queue --yes
    ```
-   This clears the queue without committing. Future writes will re-populate
-   it normally.
+   Bu, sırayı commit yapmadan temizler. Gelecekteki yazmalar sırayı normal
+   şekilde yeniden doldurur.
 
 ---
 
 ## `BRAIN_SYNC: push failed: auth.`
 
-**Problem.** Git push was rejected because your auth with the remote expired
-or is missing.
+**Sorun.** Git push, uzak makineyle kimlik doğrulamanızın süresi dolduğu veya
+eksik olduğu için reddedildi.
 
-**Cause.** The remote is unreachable with current credentials.
+**Neden.** Uzak makine mevcut kimlik bilgileriyle erişilemez.
 
-**Fix.** Refresh auth based on your remote:
+**Çözüm.** Uak makinenize göre kimlik doğrulamayı yenileyin:
 
-- **GitHub**: `gh auth status` (then `gh auth refresh` if needed)
+- **GitHub**: `gh auth status` (ardından gerekirse `gh auth refresh`)
 - **GitLab**: `glab auth status`
-- **Other**: `git remote -v` + check SSH keys or credential helper
+- **Diğer**: `git remote -v` + SSH anahtarlarını veya kimlik bilgisi yardımcısını denetleyin
 
-After fixing auth, run any skill to retry sync automatically.
+Kimlik doğrulamayı düzelttikten sonra, eşitlemeyi otomatik olarak yeniden denemek için
+herhangi bir yetenek çalıştırın.
 
 ---
 
-## `BRAIN_SYNC: push failed: <first-line-of-error>`
+## `BRAIN_SYNC: push failed: <hatanın-ilk-satırı>`
 
-**Problem.** Push failed for a reason other than auth. The first line of
-git's error appears after the colon.
+**Sorun.** Push, kimlik doğrulama dışındaki bir nedenle başarısız oldu. Git
+hatasının ilk satırı iki noktadan sonra görünür.
 
-**Cause.** Could be network issue, rejected push (remote ahead), server 500,
-or repo access revoked.
+**Neden.** Ağ sorunu, reddedilen push (uzak makine önde), sunucu 500 veya depo
+erişiminin iptal edilmesi olabilir.
 
-**Fix.** Look at `~/.gstack/.brain-sync-status.json` for more detail, or run:
+**Çözüm.** Daha fazla ayrıntı için `~/.gstack/.brain-sync-status.json` dosyasına bakın
+veya şunu çalıştırın:
 ```bash
 cd ~/.gstack && git status && git push origin HEAD
 ```
-to see git's full error. The queue is cleared after any push attempt, but
-your local commit still exists — the next skill run will retry the push.
+git'in tam hatasını görmek için. Sıra herhangi bir push denemesinden sonra temizlenir,
+ancak yerel commitiniz hala var — sonraki yetenek çalıştırması push'u yeniden deneyecektir.
 
 ---
 
-## `gstack-brain-init: ~/.gstack/.git is already a git repo pointing at <url>`
+## `gstack-brain-init: ~/.gstack/.git zaten <url> konumuna işaret eden bir git deposu`
 
-**Problem.** You tried to init with a remote URL that doesn't match the
-existing one.
+**Sorun.** Var olanla eşleşmeyen bir uzak URL ile başlatmaya çalıştınız.
 
-**Cause.** You already ran `gstack-brain-init` with a different remote.
+**Neden.** `gstack-brain-init` komutunu zaten farklı bir uzak makineyle çalıştırdınız.
 
-**Fix.** Either:
+**Çözüm.** Şunlardan birini yapın:
 
-- Use the existing remote: run `gstack-brain-init` without `--remote`, or
-  with the matching URL.
-- Switch remotes: `gstack-brain-uninstall` first, then re-init with the new
-  URL. This does not delete your data.
+- Var olan uzak makineyi kullanın: eşleşen URL ile `gstack-brain-init` komutunu
+  `--remote` olmadan çalıştırın.
+- Uak makineyi değiştirin: önce `gstack-brain-uninstall`, ardından yeni URL ile
+  yeniden başlatın. Bu, verilerinizi silmez.
 
 ---
 
 ## `Remote not reachable: <url>`
 
-**Problem.** Init couldn't reach the git remote to verify connectivity.
+**Sorun.** Başlatma, bağlantıyı doğrulamak için git uzak makinesine erişemedi.
 
-**Cause.** Wrong URL, missing auth, network issue.
+**Neden.** Yanlış URL, eksik kimlik doğrulama, ağ sorunu.
 
-**Fix.** Test manually:
+**Çözüm.** El ile test edin:
 ```bash
 git ls-remote <url>
 ```
-If that fails, check:
-- URL spelling
+Bu başarısız olursa, şunları denetleyin:
+- URL yazımı
 - GitHub: `gh auth status`
 - GitLab: `glab auth status`
-- Private network / VPN / DNS
+- Özel ağ / VPN / DNS
 
 ---
 
-## `gstack-brain-init: failed to create or find '<name>'`
+## `gstack-brain-init: '<name>' oluşturulamadı veya bulunamadı`
 
-**Problem.** Auto-repo-creation via `gh repo create` failed and the repo
-isn't discoverable via `gh repo view` either.
+**Sorun.** `gh repo create` ile otomatik depo oluşturma başarısız oldu ve depo
+`gh repo view` ile de bulunamıyor.
 
-**Cause.** `gh` is unauthenticated, a repo with that name already exists
-owned by someone else, or your GitHub account hit a quota.
+**Neden.** `gh` kimliği doğrulanmamış, o isimde bir depo zaten başka biriye ait
+veya GitHub hesabınız kota sınırına ulaştı.
 
-**Fix.**
+**Çözüm.**
 ```bash
 gh auth status
 ```
-If unauth'd, run `gh auth login`. If the repo name collides, pass a different
-name:
+Kimlik doğrulamasızsa, `gh auth login` çalıştırın. Depo adı çakışıyorsa, farklı bir
+isim geçirin:
 ```bash
-gstack-brain-init --remote git@github.com:YOURUSER/custom-name.git
+gstack-brain-init --remote git@github.com:KULLANICI/custom-name.git
 ```
 
 ---
 
-## `gstack-brain-restore: ~/.gstack/.git already points at <url>`
+## `gstack-brain-restore: ~/.gstack/.git zaten <url> konumuna işaret ediyor`
 
-**Problem.** You tried to restore from a URL that doesn't match the existing
-git config.
+**Sorun.** Var olan git yapılandırmasıyla eşleşmeyen bir URL'den geri yüklemeye
+çalıştınız.
 
-**Cause.** Stale `.git` from a previous init with a different remote.
+**Neden.** Farklı bir uzak makineyle önceki bir başlatmadan kalan eski `.git`.
 
-**Fix.** `gstack-brain-uninstall`, then re-run `gstack-brain-restore <url>`.
-
----
-
-## `gstack-brain-restore: ~/.gstack/ has existing allowlisted files that would be clobbered`
-
-**Problem.** You're trying to restore, but `~/.gstack/` already contains
-learnings or plans that would be overwritten.
-
-**Cause.** Either (a) this machine has accumulated state from a pre-sync
-gstack session, or (b) a previous failed restore left partial state.
-
-**Fix (three options).**
-
-1. **If this machine's state should become the new truth**: run
-   `gstack-brain-init` instead of restore — this creates a brand-new brain
-   repo from this machine's state.
-
-2. **If you want to adopt the remote and discard this machine's state**:
-   back up `~/.gstack/projects/` first, then remove the offending files and
-   re-run restore.
-
-3. **If you want to merge**: there's no automatic merge for this. Manually
-   copy learnings from `~/.gstack/` into your running gstack on a machine
-   with sync already on, then restore here.
+**Çözüm.** `gstack-brain-uninstall`, ardından `gstack-brain-restore <url>` komutunu
+yeniden çalıştırın.
 
 ---
 
-## `gstack-brain-restore: <url> does not look like a gstack-brain repo`
+## `gstack-brain-restore: ~/.gstack/ dizininde üzerine yazılacak izin verilen dosyalar var`
 
-**Problem.** The clone succeeded but the repo is missing `.brain-allowlist`
-and `.gitattributes`.
+**Sorun.** Geri yüklemeye çalışıyorsunuz ancak `~/.gstack/` dizininde zaten üzerine
+yazılacak öğrenmeler veya planlar var.
 
-**Cause.** You pointed restore at a random git repo, or someone deleted the
-canonical config files from the brain repo.
+**Neden.** Ya (a) bu makine eşitleme öncesi bir gstack oturumundan durum biriktirmiş
+veya (b) önceki başarısız bir geri yükleme kısmi durum bırakmış.
 
-**Fix.** Verify the URL. If it's correct, run `gstack-brain-init --remote
-<url>` to re-seed the canonical config.
+**Çözüm (üç seçenek).**
+
+1. **Bu makinenin durumu yeni gerçek olmalıysa**: `gstack-brain-init` komutunu
+   çalıştırın — bu, bu makinenin durumundan yepyeni bir brain deposu oluşturur.
+
+2. **Uak makineyi benimsemek ve bu makinenin durumunu atmak istiyorsanız**:
+   önce `~/.gstack/projects/` dizinini yedekleyin, ardından sorunlu dosyaları kaldırın
+   ve geri yüklemeyi yeniden çalıştırın.
+
+3. **Birleştirmek istiyorsanız**: bunun için otomatik birleştirme yoktur. Öğrenmeleri
+   `~/.gstack/` dizininden zaten eşitlemenin açık olduğu bir makinedeki çalışan gstack'e
+   el ile kopyalayın, ardından burada geri yükleyin.
 
 ---
 
-## Nothing is syncing but I expect it to
+## `gstack-brain-restore: <url> bir gstack-brain deposu gibi görünmüyor`
 
-**Not an error, but a common gotcha.** Check in order:
+**Sorun.** Klonlama başarılı oldu ancak depoda `.brain-allowlist` ve
+`.gitattributes` eksik.
 
-1. `gstack-brain-sync --status` — is mode `off`?
-2. `~/.gstack/.git` exists?
-3. `gstack-config get artifacts_sync_mode` — should be `full` or `artifacts-only`.
-4. The file you expect to sync — is it in the allowlist?
+**Neden.** Geri yüklemeyi rastgele bir git deposuna yönlendirdiniz veya biri brain
+deposundan kanonik yapılandırma dosyalarını silmiş.
+
+**Çözüm.** URL'yi doğrulayın. Doğruysa, kanonik yapılandırmayı yeniden tohumlamak
+için `gstack-brain-init --remote <url>` çalıştırın.
+
+---
+
+## Hiçbir şey eşitlenmiyor ama etmesini bekliyorum
+
+**Bir hata değil, ama yaygın bir tuzak.** Şu sırayla denetleyin:
+
+1. `gstack-brain-sync --status` — mod `off` mu?
+2. `~/.gstack/.git` var mı?
+3. `gstack-config get artifacts_sync_mode` — `full` veya `artifacts-only` olmalı.
+4. Eşitlemesini beklediğiniz dosya — izin verilenler listesinde mi?
    `cat ~/.gstack/.brain-allowlist`
-5. Privacy class filter — if mode is `artifacts-only`, behavioral files
-   (timelines, developer-profile) are intentionally skipped.
+5. Gizlilik sınıfı filtresi — mod `artifacts-only` ise, davranışsal dosyalar
+   (zaman çizelgeleri, geliştirici profili) bilerek atlanır.
 
-If all those look right, run:
+Hepsi doğru görünüyorsa, bir boşaltımı zorlamak için şunu çalıştırın:
 ```bash
 gstack-brain-sync --discover-new
 gstack-brain-sync --once
 ```
-to force a drain.

@@ -3,16 +3,16 @@ name: benchmark
 preamble-tier: 1
 version: 1.0.0
 description: |
-  Performance regression detection using the browse daemon. Establishes
-  baselines for page load times, Core Web Vitals, and resource sizes.
-  Compares before/after on every PR. Tracks performance trends over time.
-  Use when: "performance", "benchmark", "page speed", "lighthouse", "web vitals",
-  "bundle size", "load time". (gstack)
-  Voice triggers (speech-to-text aliases): "speed test", "check performance".
+  Browse daemon'ı kullanarak performans gerileme algılama. Sayfa yükleme süreleri,
+  Core Web Vitals ve kaynak boyutları için temel çizgiler oluşturur. Her PR'da
+  önce/sonra karşılaştırması yapar. Performans eğilimlerini zaman içinde takip eder.
+  "performans", "benchmark", "sayfa hızı", "lighthouse", "web vitals",
+  "bundle boyutu", "yükleme süresi" isteklerinde kullanılır. (gstack)
+  Ses tetikleyicileri (konuşmadan metne takma adlar): "hız testi", "performansı kontrol et".
 triggers:
-  - performance benchmark
-  - check page speed
-  - detect performance regression
+  - performans benchmark
+  - sayfa hızını kontrol et
+  - performans gerilemesini algıla
 allowed-tools:
   - Bash
   - Read
@@ -20,10 +20,10 @@ allowed-tools:
   - Glob
   - AskUserQuestion
 ---
-<!-- AUTO-GENERATED from SKILL.md.tmpl — do not edit directly -->
-<!-- Regenerate: bun run gen:skill-docs -->
+<!-- AUTO-GENERATED from SKILL.md.tmpl — doğrudan düzenlemeyin -->
+<!-- Yeniden oluştur: bun run gen:skill-docs -->
 
-## Preamble (run first)
+## Önsöz (önce çalıştır)
 
 ```bash
 _UPD=$(~/.claude/skills/gstack/bin/gstack-update-check 2>/dev/null || .claude/skills/gstack/bin/gstack-update-check 2>/dev/null || true)
@@ -103,181 +103,180 @@ echo "CHECKPOINT_PUSH: $_CHECKPOINT_PUSH"
 [ -n "$OPENCLAW_SESSION" ] && echo "SPAWNED_SESSION: true" || true
 ```
 
-## Plan Mode Safe Operations
+## Plan Modu Güvenli İşlemleri
 
-In plan mode, allowed because they inform the plan: `$B`, `$D`, `codex exec`/`codex review`, writes to `~/.gstack/`, writes to the plan file, and `open` for generated artifacts.
+Plan modunda, planı bilgilendirdikleri için izinlidir: `$B`, `$D`, `codex exec`/`codex review`, `~/.gstack/` yazmaları, plan dosyasına yazmalar ve oluşturulan yapılar için `open`.
 
-## Skill Invocation During Plan Mode
+## Plan Modunda Skill Çağırma
 
-If the user invokes a skill in plan mode, the skill takes precedence over generic plan mode behavior. **Treat the skill file as executable instructions, not reference.** Follow it step by step starting from Step 0; the first AskUserQuestion is the workflow entering plan mode, not a violation of it. AskUserQuestion (any variant — `mcp__*__AskUserQuestion` or native; see "AskUserQuestion Format → Tool resolution") satisfies plan mode's end-of-turn requirement. If no variant is callable, the skill is BLOCKED — stop and report `BLOCKED — AskUserQuestion unavailable` per the AskUserQuestion Format rule. At a STOP point, stop immediately. Do not continue the workflow or call ExitPlanMode there. Commands marked "PLAN MODE EXCEPTION — ALWAYS RUN" execute. Call ExitPlanMode only after the skill workflow completes, or if the user tells you to cancel the skill or leave plan mode.
+Kullanıcı plan modunda bir skill çağırırsa, skill genel plan modu davranışına göre öncelik alır. **Skill dosyasını referans değil, çalıştırılabilir talimat olarak ele alın.** Adım 0'dan başlayarak adım adım izleyin; ilk AskUserQuestion, iş akışının plan moduna girmesidir, plan modunu ihlal değil. AskUserQuestion (herhangi bir varyant — `mcp__*__AskUserQuestion` veya yerel; "AskUserQuestion Format → Tool resolution" sayfasına bakın) plan modunun tur sonu gereksinimini karşılar. Çağrılabilir varyant yoksa, skill BLOCKED — AskUserQuestion Format kuralına göre `BLOCKED — AskUserQuestion unavailable` olarak raporlayın ve durun. STOP noktasında hemen durun. İş akışına devam etmeyin veya ExitPlanMode'u çağırmayın. "PLAN MODE EXCEPTION — ALWAYS RUN" olarak işaretlenen komutlar çalıştırılır. ExitPlanMode'u yalnızca skill iş akışı tamamlandıktan sonra veya kullanıcı skill'i iptal etmesini veya plan modundan çıkmasını söyledikten sonra çağırın.
 
-If `PROACTIVE` is `"false"`, do not auto-invoke or proactively suggest skills. If a skill seems useful, ask: "I think /skillname might help here — want me to run it?"
+Eğer `PROACTIVE` `"false"` ise, skill'leri otomatik olarak çağırmayın veya proaktif olarak önermeyin. Bir skill yararlı görünüyorsa, sorun: "Sanırım /skillname burada yardımcı olabilir — çalıştırmamı ister misiniz?"
 
-If `SKILL_PREFIX` is `"true"`, suggest/invoke `/gstack-*` names. Disk paths stay `~/.claude/skills/gstack/[skill-name]/SKILL.md`.
+Eğer `SKILL_PREFIX` `"true"` ise, `/gstack-*` adlarını öner/çağır. Disk yolları `~/.claude/skills/gstack/[skill-name]/SKILL.md` olarak kalır.
 
-If output shows `UPGRADE_AVAILABLE <old> <new>`: read `~/.claude/skills/gstack/gstack-upgrade/SKILL.md` and follow the "Inline upgrade flow" (auto-upgrade if configured, otherwise AskUserQuestion with 4 options, write snooze state if declined).
+Eğer çıktıda `UPGRADE_AVAILABLE <old> <new>` görünüyorsa: `~/.claude/skills/gstack/gstack-upgrade/SKILL.md` dosyasını okuyun ve "Satır içi yükseltme akışı"nı izleyin (yapılandırılmışsa otomatik yükselt, aksi takdirde 4 seçenekli AskUserQuestion, reddedilirse snooze durumu yaz).
 
-If output shows `JUST_UPGRADED <from> <to>`: print "Running gstack v{to} (just updated!)". If `SPAWNED_SESSION` is true, skip feature discovery.
+Eğer çıktıda `JUST_UPGRADED <from> <to>` görünüyorsa: "gstack v{to} çalıştırılıyor (az önce güncellendi!)" yazdır. Eğer `SPAWNED_SESSION` true ise, özellik keşfini atlayın.
 
-Feature discovery, max one prompt per session:
-- Missing `~/.claude/skills/gstack/.feature-prompted-continuous-checkpoint`: AskUserQuestion for Continuous checkpoint auto-commits. If accepted, run `~/.claude/skills/gstack/bin/gstack-config set checkpoint_mode continuous`. Always touch marker.
-- Missing `~/.claude/skills/gstack/.feature-prompted-model-overlay`: inform "Model overlays are active. MODEL_OVERLAY shows the patch." Always touch marker.
+Özellik keşfi, oturum başına en fazla bir istem:
+- `~/.claude/skills/gstack/.feature-prompted-continuous-checkpoint` eksik: Sürekli checkpoint otomatik commit'leri için AskUserQuestion. Kabul edilirse, `~/.claude/skills/gstack/bin/gstack-config set checkpoint_mode continuous` çalıştırın. Her zaman işaretleyiciyi dokunarak oluşturun.
+- `~/.claude/skills/gstack/.feature-prompted-model-overlay` eksik: "Model overlay'leri aktif. MODEL_OVERLAY yamayı gösterir." bilgisini verin. Her zaman işaretleyiciyi dokunarak oluşturun.
 
-After upgrade prompts, continue workflow.
+Yükseltme istemlerinden sonra iş akışına devam edin.
 
-If `WRITING_STYLE_PENDING` is `yes`: ask once about writing style:
+Eğer `WRITING_STYLE_PENDING` `yes` ise: yazım tarzı hakkında bir kez sorun:
 
-> v1 prompts are simpler: first-use jargon glosses, outcome-framed questions, shorter prose. Keep default or restore terse?
+> v1 istemleri daha basit: ilk kullanımda jargon tanımları, sonuç-çerçeveli sorular, daha kısa düzyazı. Varsayılanı koruyun mu yoksa terse geri dönelim mi?
 
-Options:
-- A) Keep the new default (recommended — good writing helps everyone)
-- B) Restore V0 prose — set `explain_level: terse`
+Seçenekler:
+- A) Yeni varsayılanı koru (önerilen — iyi yazım herkese yardımcı olur)
+- B) V0 düzyazısına geri dön — `explain_level: terse` ayarla
 
-If A: leave `explain_level` unset (defaults to `default`).
-If B: run `~/.claude/skills/gstack/bin/gstack-config set explain_level terse`.
+A ise: `explain_level` ayarını değiştirmeden bırakın (varsayılan `default` olur).
+B ise: `~/.claude/skills/gstack/bin/gstack-config set explain_level terse` çalıştırın.
 
-Always run (regardless of choice):
+Her zaman çalıştırın (seçimden bağımsız olarak):
 ```bash
 rm -f ~/.gstack/.writing-style-prompt-pending
 touch ~/.gstack/.writing-style-prompted
 ```
 
-Skip if `WRITING_STYLE_PENDING` is `no`.
+Eğer `WRITING_STYLE_PENDING` `no` ise atlayın.
 
-If `LAKE_INTRO` is `no`: say "gstack follows the **Boil the Lake** principle — do the complete thing when AI makes marginal cost near-zero. Read more: https://garryslist.org/posts/boil-the-ocean" Offer to open:
+Eğer `LAKE_INTRO` `no` ise: "gstack **Boil the Lake** ilkesini izler — AI marjinal maliyeti sıfıra yaklaştığında eksiksiz olanı yapın. Daha fazla: https://garryslist.org/posts/boil-the-ocean" deyin. Açmayı teklif edin:
 
 ```bash
 open https://garryslist.org/posts/boil-the-ocean
 touch ~/.gstack/.completeness-intro-seen
 ```
 
-Only run `open` if yes. Always run `touch`.
+`open` komutunu yalnızca evet ise çalıştırın. Her zaman `touch` çalıştırın.
 
-If `TEL_PROMPTED` is `no` AND `LAKE_INTRO` is `yes`: ask telemetry once via AskUserQuestion:
+Eğer `TEL_PROMPTED` `no` ise VE `LAKE_INTRO` `yes` ise: telemetriyi bir kez AskUserQuestion ile sorun:
 
-> Help gstack get better. Share usage data only: skill, duration, crashes, stable device ID. No code, file paths, or repo names.
+> gstack'in daha iyi olmasına yardımcı olun. Yalnızca kullanım verilerini paylaşın: skill, süre, çökmeler, kararlı cihaz kimliği. Kod, dosya yolu veya repo adı yok.
 
-Options:
-- A) Help gstack get better! (recommended)
-- B) No thanks
+Seçenekler:
+- A) gstack'in daha iyi olmasına yardımcı ol! (önerilen)
+- B) Hayır teşekkürler
 
-If A: run `~/.claude/skills/gstack/bin/gstack-config set telemetry community`
+A ise: `~/.claude/skills/gstack/bin/gstack-config set telemetry community` çalıştırın
 
-If B: ask follow-up:
+B ise: takip sorusu sorun:
 
-> Anonymous mode sends only aggregate usage, no unique ID.
+> Anonim mod yalnızca toplu kullanım gönderir, benzersiz kimlik yok.
 
-Options:
-- A) Sure, anonymous is fine
-- B) No thanks, fully off
+Seçenekler:
+- A) Tabii, anonim sorun değil
+- B) Hayır teşekkürler, tamamen kapalı
 
-If B→A: run `~/.claude/skills/gstack/bin/gstack-config set telemetry anonymous`
-If B→B: run `~/.claude/skills/gstack/bin/gstack-config set telemetry off`
+B→A ise: `~/.claude/skills/gstack/bin/gstack-config set telemetry anonymous` çalıştırın
+B→B ise: `~/.claude/skills/gstack/bin/gstack-config set telemetry off` çalıştırın
 
-Always run:
+Her zaman çalıştırın:
 ```bash
 touch ~/.gstack/.telemetry-prompted
 ```
 
-Skip if `TEL_PROMPTED` is `yes`.
+Eğer `TEL_PROMPTED` `yes` ise atlayın.
 
-If `PROACTIVE_PROMPTED` is `no` AND `TEL_PROMPTED` is `yes`: ask once:
+Eğer `PROACTIVE_PROMPTED` `no` ise VE `TEL_PROMPTED` `yes` ise: bir kez sorun:
 
-> Let gstack proactively suggest skills, like /qa for "does this work?" or /investigate for bugs?
+> gstack skill'leri proaktif olarak önersin mi, örneğin /qa "bu çalışıyor mu?" için veya /investigate hatalar için?
 
-Options:
-- A) Keep it on (recommended)
-- B) Turn it off — I'll type /commands myself
+Seçenekler:
+- A) Açık tut (önerilen)
+- B) Kapat — /komutları kendim yazacağım
 
-If A: run `~/.claude/skills/gstack/bin/gstack-config set proactive true`
-If B: run `~/.claude/skills/gstack/bin/gstack-config set proactive false`
+A ise: `~/.claude/skills/gstack/bin/gstack-config set proactive true` çalıştırın
+B ise: `~/.claude/skills/gstack/bin/gstack-config set proactive false` çalıştırın
 
-Always run:
+Her zaman çalıştırın:
 ```bash
 touch ~/.gstack/.proactive-prompted
 ```
 
-Skip if `PROACTIVE_PROMPTED` is `yes`.
+Eğer `PROACTIVE_PROMPTED` `yes` ise atlayın.
 
-If `HAS_ROUTING` is `no` AND `ROUTING_DECLINED` is `false` AND `PROACTIVE_PROMPTED` is `yes`:
-Check if a CLAUDE.md file exists in the project root. If it does not exist, create it.
+Eğer `HAS_ROUTING` `no` ise VE `ROUTING_DECLINED` `false` ise VE `PROACTIVE_PROMPTED` `yes` ise:
+Proje kökünde bir CLAUDE.md dosyası olup olmadığını kontrol edin. Yoksa, oluşturun.
 
-Use AskUserQuestion:
+AskUserQuestion kullanın:
 
-> gstack works best when your project's CLAUDE.md includes skill routing rules.
+> gstack, projenizin CLAUDE.md dosyası skill yönlendirme kuralları içerdiğinde en iyi şekilde çalışır.
 
-Options:
-- A) Add routing rules to CLAUDE.md (recommended)
-- B) No thanks, I'll invoke skills manually
+Seçenekler:
+- A) CLAUDE.md'ye yönlendirme kuralları ekle (önerilen)
+- B) Hayır teşekkürler, skill'leri manuel olarak çağıracağım
 
-If A: Append this section to the end of CLAUDE.md:
+A ise: Bu bölümü CLAUDE.md'nin sonuna ekleyin:
 
 ```markdown
 
 ## Skill routing
 
-When the user's request matches an available skill, invoke it via the Skill tool. When in doubt, invoke the skill.
+Kullanıcının isteği mevcut bir skill ile eşleştiğinde, Skill aracı üzerinden çağırın. Şüpheli olduğunuzda skill'i çağırın.
 
-Key routing rules:
-- Product ideas/brainstorming → invoke /office-hours
-- Strategy/scope → invoke /plan-ceo-review
-- Architecture → invoke /plan-eng-review
-- Design system/plan review → invoke /design-consultation or /plan-design-review
-- Full review pipeline → invoke /autoplan
-- Bugs/errors → invoke /investigate
-- QA/testing site behavior → invoke /qa or /qa-only
-- Code review/diff check → invoke /review
-- Visual polish → invoke /design-review
-- Ship/deploy/PR → invoke /ship or /land-and-deploy
-- Save progress → invoke /context-save
-- Resume context → invoke /context-restore
+Temel yönlendirme kuralları:
+- Ürün fikirleri/beyin fırtınası → /office-hours çağır
+- Strateji/kapsam → /plan-ceo-review çağır
+- Mimari → /plan-eng-review çağır
+- Tasarım sistemi/plan incelemesi → /design-consultation veya /plan-design-review çağır
+- Tam inceleme boru hattı → /autoplan çağır
+- Hatalar/hatalar → /investigate çağır
+- QA/test site davranışı → /qa veya /qa-only çağır
+- Kod incelemesi/diff kontrolü → /review çağır
+- Görsel cilalama → /design-review çağır
+- Gönder/dağıt/PR → /ship veya /land-and-deploy çağır
+- İlerlemeyi kaydet → /context-save çağır
+- Bağlamı geri yükle → /context-restore çağır
 ```
 
-Then commit the change: `git add CLAUDE.md && git commit -m "chore: add gstack skill routing rules to CLAUDE.md"`
+Ardından değişikliği commit edin: `git add CLAUDE.md && git commit -m "chore: gstack skill yönlendirme kurallarını CLAUDE.md'ye ekle"`
 
-If B: run `~/.claude/skills/gstack/bin/gstack-config set routing_declined true` and say they can re-enable with `gstack-config set routing_declined false`.
+B ise: `~/.claude/skills/gstack/bin/gstack-config set routing_declined true` çalıştırın ve `gstack-config set routing_declined false` ile yeniden etkinleştirebileceklerini söyleyin.
 
-This only happens once per project. Skip if `HAS_ROUTING` is `yes` or `ROUTING_DECLINED` is `true`.
+Bu proje başına yalnızca bir kez gerçekleşir. `HAS_ROUTING` `yes` veya `ROUTING_DECLINED` `true` ise atlayın.
 
-If `VENDORED_GSTACK` is `yes`, warn once via AskUserQuestion unless `~/.gstack/.vendoring-warned-$SLUG` exists:
+Eğer `VENDORED_GSTACK` `yes` ise, `~/.gstack/.vendoring-warned-$SLUG` mevcut değilse AskUserQuestion ile bir kez uyarın:
 
-> This project has gstack vendored in `.claude/skills/gstack/`. Vendoring is deprecated.
-> Migrate to team mode?
+> Bu projede gstack `.claude/skills/gstack/` içinde vendored olarak bulunuyor. Vendoring kullanımdan kaldırılmıştır.
+> Team moduna geçiş yapılsın mı?
 
-Options:
-- A) Yes, migrate to team mode now
-- B) No, I'll handle it myself
+Seçenekler:
+- A) Evet, şimdi team moduna geç
+- B) Hayır, kendim hallederim
 
-If A:
-1. Run `git rm -r .claude/skills/gstack/`
-2. Run `echo '.claude/skills/gstack/' >> .gitignore`
-3. Run `~/.claude/skills/gstack/bin/gstack-team-init required` (or `optional`)
-4. Run `git add .claude/ .gitignore CLAUDE.md && git commit -m "chore: migrate gstack from vendored to team mode"`
-5. Tell the user: "Done. Each developer now runs: `cd ~/.claude/skills/gstack && ./setup --team`"
+A ise:
+1. `git rm -r .claude/skills/gstack/` çalıştırın
+2. `echo '.claude/skills/gstack/' >> .gitignore` çalıştırın
+3. `~/.claude/skills/gstack/bin/gstack-team-init required` çalıştırın (veya `optional`)
+4. `git add .claude/ .gitignore CLAUDE.md && git commit -m "chore: gstack'i vendored modundan team moduna geçir"` çalıştırın
+5. Kullanıcıya şunu söyleyin: "Tamamlandı. Her geliştirici şimdi çalıştırıyor: `cd ~/.claude/skills/gstack && ./setup --team`"
 
-If B: say "OK, you're on your own to keep the vendored copy up to date."
+B ise: "Tamam, vendored kopyayı güncel tutmak size kalır." deyin.
 
-Always run (regardless of choice):
+Her zaman çalıştırın (seçimden bağımsız olarak):
 ```bash
 eval "$(~/.claude/skills/gstack/bin/gstack-slug 2>/dev/null)" 2>/dev/null || true
 touch ~/.gstack/.vendoring-warned-${SLUG:-unknown}
 ```
 
-If marker exists, skip.
+İşaretleyici mevcutsa atlayın.
 
-If `SPAWNED_SESSION` is `"true"`, you are running inside a session spawned by an
-AI orchestrator (e.g., OpenClaw). In spawned sessions:
-- Do NOT use AskUserQuestion for interactive prompts. Auto-choose the recommended option.
-- Do NOT run upgrade checks, telemetry prompts, routing injection, or lake intro.
-- Focus on completing the task and reporting results via prose output.
-- End with a completion report: what shipped, decisions made, anything uncertain.
+Eğer `SPAWNED_SESSION` `"true"` ise, bir AI orkestratörü (ör. OpenClaw) tarafından oluşturulan bir oturumda çalışıyorsunuz. Oluşturulan oturumlarda:
+- Etkileşimli istemler için AskUserQuestion KULLANMAYIN. Önerilen seçeneği otomatik olarak seçin.
+- Yükseltme kontrollerini, telemetri istemlerini, yönlendirme enjeksiyonunu veya lake girişini ÇALIŞTIRMAYIN.
+- Görevi tamamlamaya ve sonuçları düz metin çıktısı ile raporlamaya odaklanın.
+- Bir tamamlama raporu ile bitirin: ne gönderildi, alınan kararlar, belirsiz olan her şey.
 
-## Artifacts Sync (skill start)
+## Artifacts Sync (skill başlangıcı)
 
 ```bash
 _GSTACK_HOME="${GSTACK_HOME:-$HOME/.gstack}"
-# Prefer the v1.27.0.0 artifacts file; fall back to brain file for users
-# upgrading mid-stream before the migration script runs.
+# v1.27.0.0 artifacts dosyasını tercih et; geçiş betiği çalışmadan önce
+# ara sıra yükseltme yapan kullanıcılar için brain dosyasına geri dön.
 if [ -f "$HOME/.gstack-artifacts-remote.txt" ]; then
   _BRAIN_REMOTE_FILE="$HOME/.gstack-artifacts-remote.txt"
 else
@@ -286,12 +285,12 @@ fi
 _BRAIN_SYNC_BIN="~/.claude/skills/gstack/bin/gstack-brain-sync"
 _BRAIN_CONFIG_BIN="~/.claude/skills/gstack/bin/gstack-config"
 
-# /sync-gbrain context-load: teach the agent to use gbrain when it's available.
-# Per-worktree pin: post-spike redesign uses kubectl-style `.gbrain-source` in the
-# git toplevel to scope queries. Look for the pin in the worktree (not a global
-# state file) so that opening worktree B without a pin doesn't claim "indexed"
-# just because worktree A was synced. Empty string when gbrain is not
-# configured (zero context cost for non-gbrain users).
+# /sync-gbrain context-load: gbrain mevcut olduğunda aracın kullanmasını sağla.
+# Worktree başına pin: spike sonrası yeniden tasarım, sorguları kapsamlandırmak için
+# git toplevel'daki kubectl tarzı `.gbrain-source` kullanır. Pini worktree'de arayın
+# (global bir durum dosyasında değil), böylece pini olmayan B worktree'sini açmak "indexlenmiş"
+# iddiasında bulunmaz, çünkü A worktree'si senkronize edilmiştir. gbrain yapılandırılmadığında
+# boş dize (gbrain kullanmayan kullanıcılar için sıfır bağlam maliyeti).
 _GBRAIN_CONFIG="$HOME/.gbrain/config.json"
 if [ -f "$_GBRAIN_CONFIG" ] && command -v gbrain >/dev/null 2>&1; then
   _GBRAIN_VERSION_OK=$(gbrain --version 2>/dev/null | grep -c '^gbrain ' || echo 0)
@@ -316,10 +315,10 @@ fi
 
 _BRAIN_SYNC_MODE=$("$_BRAIN_CONFIG_BIN" get artifacts_sync_mode 2>/dev/null || echo off)
 
-# Detect remote-MCP mode (Path 4 of /setup-gbrain). Local artifacts sync is
-# a no-op in remote mode; the brain server pulls from GitHub/GitLab on its
-# own cadence. Read claude.json directly to keep this preamble fast (no
-# subprocess to claude CLI on every skill start).
+# Uzak-MCP modunu algıla (/setup-gbrain'in 4. Yolu). Yerel artifacts sync
+# uzak modda no-op'tur; brain sunucusu GitHub/GitLab'den kendi zamanlamasıyla çeker.
+# Bu önsözü hızlı tutmak için claude.json'ı doğrudan okuyun (her skill başlangıcında
+# claude CLI alt süreci yok).
 _GBRAIN_MCP_MODE="none"
 if command -v jq >/dev/null 2>&1 && [ -f "$HOME/.claude.json" ]; then
   _GBRAIN_MCP_TYPE=$(jq -r '.mcpServers.gbrain.type // .mcpServers.gbrain.transport // empty' "$HOME/.claude.json" 2>/dev/null)
@@ -354,8 +353,8 @@ if [ -d "$_GSTACK_HOME/.git" ] && [ "$_BRAIN_SYNC_MODE" != "off" ]; then
 fi
 
 if [ "$_GBRAIN_MCP_MODE" = "remote-http" ]; then
-  # Remote-MCP mode: local artifacts sync is a no-op (brain admin's server
-  # pulls from GitHub/GitLab). Show the user this is by design, not broken.
+  # Uzak-MCP modu: yerel artifacts sync no-op (brain yöneticisinin sunucusu
+  # GitHub/GitLab'den çeker). Kullanıcıya bunun tasarım gereği olduğunu, bozuk olmadığını göster.
   _GBRAIN_HOST=$(jq -r '.mcpServers.gbrain.url // empty' "$HOME/.claude.json" 2>/dev/null | sed -E 's|^https?://([^/:]+).*|\1|')
   echo "ARTIFACTS_SYNC: remote-mode (managed by brain server ${_GBRAIN_HOST:-remote})"
 elif [ -d "$_GSTACK_HOME/.git" ] && [ "$_BRAIN_SYNC_MODE" != "off" ]; then
@@ -371,26 +370,26 @@ fi
 
 
 
-Privacy stop-gate: if output shows `ARTIFACTS_SYNC: off`, `artifacts_sync_mode_prompted` is `false`, and gbrain is on PATH or `gbrain doctor --fast --json` works, ask once:
+Gizlilik durdurma kapısı: eğer çıktıda `ARTIFACTS_SYNC: off` görünüyorsa, `artifacts_sync_mode_prompted` `false` ise ve gbrain PATH'te veya `gbrain doctor --fast --json` çalışıyorsa, bir kez sorun:
 
-> gstack can publish your artifacts (CEO plans, designs, reports) to a private GitHub repo that GBrain indexes across machines. How much should sync?
+> gstack, yapıtlarınızı (CEO planları, tasarımlar, raporlar) makineler arası indeksleyen GBrain'e sahip özel bir GitHub reposuna yayınlayabilir. Ne kadar sync edilmeli?
 
-Options:
-- A) Everything allowlisted (recommended)
-- B) Only artifacts
-- C) Decline, keep everything local
+Seçenekler:
+- A) Her şey izin verilenler listesinde (önerilen)
+- B) Yalnızca yapıtlar
+- C) Reddet, her şeyi yerel tut
 
-After answer:
+Cevaptan sonra:
 
 ```bash
-# Chosen mode: full | artifacts-only | off
+# Seçilen mod: full | artifacts-only | off
 "$_BRAIN_CONFIG_BIN" set artifacts_sync_mode <choice>
 "$_BRAIN_CONFIG_BIN" set artifacts_sync_mode_prompted true
 ```
 
-If A/B and `~/.gstack/.git` is missing, ask whether to run `gstack-artifacts-init`. Do not block the skill.
+A/B ise ve `~/.gstack/.git` eksikse, `gstack-artifacts-init` çalıştırılıp çalıştırılmayacağını sorun. Skill'i engellemeyin.
 
-At skill END before telemetry:
+Skill SONUNDA telemetriden önce:
 
 ```bash
 "~/.claude/skills/gstack/bin/gstack-brain-sync" --discover-new 2>/dev/null || true
@@ -398,72 +397,77 @@ At skill END before telemetry:
 ```
 
 
-## Model-Specific Behavioral Patch (claude)
+## Modele Özel Davranış Yaması (claude)
 
-The following nudges are tuned for the claude model family. They are
-**subordinate** to skill workflow, STOP points, AskUserQuestion gates, plan-mode
-safety, and /ship review gates. If a nudge below conflicts with skill instructions,
-the skill wins. Treat these as preferences, not rules.
+Aşağıdaki düzeltmeler claude model ailesi için ayarlanmıştır. Bunlar skill iş akışına,
+STOP noktalarına, AskUserQuestion kapılarına, plan modu güvenliğine ve /ship inceleme
+kapılarına **tabidir**. Aşağıdaki bir düzeltme skill talimatlarıyla çelişirse,
+skill kazanır. Bunları kurallar değil, tercihler olarak ele alın.
 
-**Todo-list discipline.** When working through a multi-step plan, mark each task
-complete individually as you finish it. Do not batch-complete at the end. If a task
-turns out to be unnecessary, mark it skipped with a one-line reason.
+**Yapılacaklar listesi disiplini.** Çok adımlı bir plan üzerinden çalışırken, her görevi
+tamamladıkça ayrı ayrı işaretleyin. Sonunda toplu olarak tamamlama yapmayın. Bir görevin
+gereksiz olduğu ortaya çıkarsa, tek satırlık bir nedenle atlandı olarak işaretleyin.
 
-**Think before heavy actions.** For complex operations (refactors, migrations,
-non-trivial new features), briefly state your approach before executing. This lets
-the user course-correct cheaply instead of mid-flight.
+**Ağır işlemlerden önce düşünün.** Karmaşık işlemler (yeniden düzenlemeler, geçişler,
+önemsiz olmayan yeni özellikler) için yaklaşımınızı çalıştırmadan önce kısaca belirtin.
+Bu, kullanıcının uçuş ortasında yerine düşük maliyetle düzeltme yapmasına olanak tanır.
 
-**Dedicated tools over Bash.** Prefer Read, Edit, Write, Glob, Grep over shell
-equivalents (cat, sed, find, grep). The dedicated tools are cheaper and clearer.
+**Bash yerine özel araçlar.** Read, Edit, Write, Glob, Grep araçlarını shell
+karşılıkları (cat, sed, find, grep) yerine tercih edin. Özel araçlar daha ucuz ve daha net.
 
-## Voice
+## Ses
 
-Direct, concrete, builder-to-builder. Name the file, function, command, and user-visible impact. No filler.
+Doğrudan, somut, yapıcıdan yapıcıya. Dosya, fonksiyon, komut ve kullanıcıya görünen
+etkiyi adlandırın. Dolgu yok.
 
-No em dashes. No AI vocabulary: delve, crucial, robust, comprehensive, nuanced, multifaceted. Never corporate or academic. Short paragraphs. End with what to do.
+Uzun tire yok. AI kelime dağarcığı yok: delve, crucial, robust, comprehensive, nuanced,
+multifaceted. Asla kurumsal veya akademik. Kısa paragraflar. Ne yapılması gerektiğiyle bitirin.
 
-The user has context you do not. Cross-model agreement is a recommendation, not a decision. The user decides.
+Kullanıcının sizin sahip olmadığınız bağlamı var. Modeller arası anlaşma bir öneridir, bir
+karar değil. Kullanıcı karar verir.
 
-## Completion Status Protocol
+## Tamamlama Durum Protokolü
 
-When completing a skill workflow, report status using one of:
-- **DONE** — completed with evidence.
-- **DONE_WITH_CONCERNS** — completed, but list concerns.
-- **BLOCKED** — cannot proceed; state blocker and what was tried.
-- **NEEDS_CONTEXT** — missing info; state exactly what is needed.
+Skill iş akışını tamamlarken, durumu şunlardan birini kullanarak raporlayın:
+- **DONE** — kanıtla tamamlandı.
+- **DONE_WITH_CONCERNS** — tamamlandı, ancak endişeleri listeleyin.
+- **BLOCKED** — devam edemiyor; engelleyiciyi ve deneneni belirtin.
+- **NEEDS_CONTEXT** — eksik bilgi; tam olarak neye ihtiyaç duyulduğunu belirtin.
 
-Escalate after 3 failed attempts, uncertain security-sensitive changes, or scope you cannot verify. Format: `STATUS`, `REASON`, `ATTEMPTED`, `RECOMMENDATION`.
+3 başarısız girişimden, belirsiz güvenliğe duarlı değişikliklerden veya doğrulayamadığınız
+kapsamdan sonra yükseltin. Format: `DURUM`, `NEDEN`, `DENENEN`, `ÖNERİ`.
 
-## Operational Self-Improvement
+## Operasyonel Kendini Geliştirme
 
-Before completing, if you discovered a durable project quirk or command fix that would save 5+ minutes next time, log it:
+Tamamlamadan önce, bir sonraki sefere 5+ dakika kazandıracak dayanıklı bir proje tuhaflığı
+veya komut düzeltmesi keşfettiyseniz, loglayın:
 
 ```bash
 ~/.claude/skills/gstack/bin/gstack-learnings-log '{"skill":"SKILL_NAME","type":"operational","key":"SHORT_KEY","insight":"DESCRIPTION","confidence":N,"source":"observed"}'
 ```
 
-Do not log obvious facts or one-time transient errors.
+Açık gerçekleri veya tek seferlik geçici hataları loglamayın.
 
-## Telemetry (run last)
+## Telemetri (son olarak çalıştır)
 
-After workflow completion, log telemetry. Use skill `name:` from frontmatter. OUTCOME is success/error/abort/unknown.
+İş akışı tamamlandıktan sonra telemetriyi loglayın. Frontmatter'daki skill `name:` değerini kullanın. OUTCOME: success/error/abort/unknown.
 
-**PLAN MODE EXCEPTION — ALWAYS RUN:** This command writes telemetry to
-`~/.gstack/analytics/`, matching preamble analytics writes.
+**PLAN MODE İSTİSNASI — HER ZAMAN ÇALIŞTIR:** Bu komut telemetriyi
+`~/.gstack/analytics/` dizinine yazar, önsöz analitik yazmalarıyla eşleşir.
 
-Run this bash:
+Bu bash'ı çalıştırın:
 
 ```bash
 _TEL_END=$(date +%s)
 _TEL_DUR=$(( _TEL_END - _TEL_START ))
 rm -f ~/.gstack/analytics/.pending-"$_SESSION_ID" 2>/dev/null || true
-# Session timeline: record skill completion (local-only, never sent anywhere)
+# Oturum zaman çizelgesi: skill tamamlanmasını kaydet (yalnızca yerel, hiçbir yere gönderilmez)
 ~/.claude/skills/gstack/bin/gstack-timeline-log '{"skill":"SKILL_NAME","event":"completed","branch":"'$(git branch --show-current 2>/dev/null || echo unknown)'","outcome":"OUTCOME","duration_s":"'"$_TEL_DUR"'","session":"'"$_SESSION_ID"'"}' 2>/dev/null || true
-# Local analytics (gated on telemetry setting)
+# Yerel analitik (telemetri ayarına bağlı)
 if [ "$_TEL" != "off" ]; then
 echo '{"skill":"SKILL_NAME","duration_s":"'"$_TEL_DUR"'","outcome":"OUTCOME","browse":"USED_BROWSE","session":"'"$_SESSION_ID"'","ts":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"}' >> ~/.gstack/analytics/skill-usage.jsonl 2>/dev/null || true
 fi
-# Remote telemetry (opt-in, requires binary)
+# Uzak telemetri (katılım esaslı, ikili gerektirir)
 if [ "$_TEL" != "off" ] && [ -x ~/.claude/skills/gstack/bin/gstack-telemetry-log ]; then
   ~/.claude/skills/gstack/bin/gstack-telemetry-log \
     --skill "SKILL_NAME" --duration "$_TEL_DUR" --outcome "OUTCOME" \
@@ -471,13 +475,13 @@ if [ "$_TEL" != "off" ] && [ -x ~/.claude/skills/gstack/bin/gstack-telemetry-log
 fi
 ```
 
-Replace `SKILL_NAME`, `OUTCOME`, and `USED_BROWSE` before running.
+Çalıştırmadan önce `SKILL_NAME`, `OUTCOME` ve `USED_BROWSE` değerlerini değiştirin.
 
-## Plan Status Footer
+## Plan Durumu Altbilgisi
 
-Skills that run plan reviews (`/plan-*-review`, `/codex review`) include the EXIT PLAN MODE GATE blocking checklist at the end of the skill, which verifies the plan file ends with `## GSTACK REVIEW REPORT` before ExitPlanMode is called. Skills that don't run plan reviews (operational skills like `/ship`, `/qa`, `/review`) typically don't operate in plan mode and have no review report to verify; this footer is a no-op for them. Writing the plan file is the one edit allowed in plan mode.
+Plan incelemeleri çalıştıran skill'ler (`/plan-*-review`, `/codex review`), skill'in sonundaki EXIT PLAN MODE GATE engelleme kontrol listesini içerir; bu liste, ExitPlanMode çağrılmadan önce plan dosyasının `## GSTACK REVIEW REPORT` ile bittiğini doğrular. Plan incelemeleri çalıştırmayan skill'ler (`/ship`, `/qa`, `/review` gibi operasyonel skill'ler) genellikle plan modunda çalışmaz ve doğrulanacak inceleme raporu yoktur; bu altbilgi onlar için no-op'tur. Plan dosyasını yazmak, plan modunda izin verilen tek düzenlemedir.
 
-## SETUP (run this check BEFORE any browse command)
+## KURULUM (herhangi bir browse komutundan ÖNCE bu kontrolü çalıştır)
 
 ```bash
 _ROOT=$(git rev-parse --show-toplevel 2>/dev/null)
@@ -491,10 +495,10 @@ else
 fi
 ```
 
-If `NEEDS_SETUP`:
-1. Tell the user: "gstack browse needs a one-time build (~10 seconds). OK to proceed?" Then STOP and wait.
-2. Run: `cd <SKILL_DIR> && ./setup`
-3. If `bun` is not installed:
+Eğer `NEEDS_SETUP` ise:
+1. Kullanıcıya şunu söyleyin: "gstack browse tek seferlik bir kurulum gerektiriyor (~10 saniye). Devam edeyim mi?" Ardından DURUN ve bekleyin.
+2. Çalıştırın: `cd <SKILL_DIR> && ./setup`
+3. Eğer `bun` kurulu değilse:
    ```bash
    if ! command -v bun >/dev/null 2>&1; then
      BUN_VERSION="1.3.10"
@@ -513,26 +517,31 @@ If `NEEDS_SETUP`:
    fi
    ```
 
-# /benchmark — Performance Regression Detection
+# /benchmark — Performans Gerileme Algılama
 
-You are a **Performance Engineer** who has optimized apps serving millions of requests. You know that performance doesn't degrade in one big regression — it dies by a thousand paper cuts. Each PR adds 50ms here, 20KB there, and one day the app takes 8 seconds to load and nobody knows when it got slow.
+Milyonlarca isteğe hizmet eden uygulamaları optimize etmiş bir **Performans Mühendisi**siniz.
+Performansın bir büyük gerilemede bozulmadığını — bin küçük kesinin ölümüne öldüğünü biliyorsunuz.
+Her PR buraya 50ms, oraya 20KB ekliyor ve bir gün uygulama 8 saniyede yükleniyor ve kimse
+ne zaman yavaşladığını bilmiyor.
 
-Your job is to measure, baseline, compare, and alert. You use the browse daemon's `perf` command and JavaScript evaluation to gather real performance data from running pages.
+Sizin işiniz ölçmek, temel çizgi oluşturmak, karşılaştırmak ve uyarmaktır. Gerçek performans
+verilerini çalışan sayfalardan toplamak için browse daemon'ın `perf` komutunu ve JavaScript
+değerlendirmesini kullanırsınız.
 
-## User-invocable
-When the user types `/benchmark`, run this skill.
+## Kullanıcı çağırma
+Kullanıcı `/benchmark` yazdığında, bu skill'i çalıştırın.
 
-## Arguments
-- `/benchmark <url>` — full performance audit with baseline comparison
-- `/benchmark <url> --baseline` — capture baseline (run before making changes)
-- `/benchmark <url> --quick` — single-pass timing check (no baseline needed)
-- `/benchmark <url> --pages /,/dashboard,/api/health` — specify pages
-- `/benchmark --diff` — benchmark only pages affected by current branch
-- `/benchmark --trend` — show performance trends from historical data
+## Argümanlar
+- `/benchmark <url>` — temel çizgi karşılaştırması ile tam performans denetimi
+- `/benchmark <url> --baseline` — temel çizgi yakala (değişiklik yapmadan önce çalıştırın)
+- `/benchmark <url> --quick` — tek geçişli zamanlama kontrolü (temel çizgi gerekmez)
+- `/benchmark <url> --pages /,/dashboard,/api/health` — sayfaları belirtin
+- `/benchmark --diff` — yalnızca mevcut daldan etkilenen sayfaları benchmark yapın
+- `/benchmark --trend` — geçmiş verilerden performans eğilimlerini gösterin
 
-## Instructions
+## Talimatlar
 
-### Phase 1: Setup
+### Aşama 1: Kurulum
 
 ```bash
 eval "$(~/.claude/skills/gstack/bin/gstack-slug 2>/dev/null || echo "SLUG=unknown")"
@@ -540,57 +549,57 @@ mkdir -p .gstack/benchmark-reports
 mkdir -p .gstack/benchmark-reports/baselines
 ```
 
-### Phase 2: Page Discovery
+### Aşama 2: Sayfa Keşfi
 
-Same as /canary — auto-discover from navigation or use `--pages`.
+`/canary` ile aynı — navigasyondan otomatik keşfedim veya `--pages` kullanın.
 
-If `--diff` mode:
+Eğer `--diff` modu ise:
 ```bash
 git diff $(gh pr view --json baseRefName -q .baseRefName 2>/dev/null || gh repo view --json defaultBranchRef -q .defaultBranchRef.name 2>/dev/null || echo main)...HEAD --name-only
 ```
 
-### Phase 3: Performance Data Collection
+### Aşama 3: Performans Veri Toplama
 
-For each page, collect comprehensive performance metrics:
+Her sayfa için kapsamlı performans metrikleri toplayın:
 
 ```bash
 $B goto <page-url>
 $B perf
 ```
 
-Then gather detailed metrics via JavaScript:
+Ardından JavaScript ile ayrıntılı metrikler toplayın:
 
 ```bash
 $B eval "JSON.stringify(performance.getEntriesByType('navigation')[0])"
 ```
 
-Extract key metrics:
-- **TTFB** (Time to First Byte): `responseStart - requestStart`
-- **FCP** (First Contentful Paint): from PerformanceObserver or `paint` entries
-- **LCP** (Largest Contentful Paint): from PerformanceObserver
+Temel metrikleri çıkarın:
+- **TTFB** (İlk Bayta Kadar Süre): `responseStart - requestStart`
+- **FCP** (İlk İçerikli Boyama): PerformanceObserver veya `paint` girdilerinden
+- **LCP** (En Büyük İçerikli Boyama): PerformanceObserver'dan
 - **DOM Interactive**: `domInteractive - navigationStart`
 - **DOM Complete**: `domComplete - navigationStart`
-- **Full Load**: `loadEventEnd - navigationStart`
+- **Tam Yükleme**: `loadEventEnd - navigationStart`
 
-Resource analysis:
+Kaynak analizi:
 ```bash
 $B eval "JSON.stringify(performance.getEntriesByType('resource').map(r => ({name: r.name.split('/').pop().split('?')[0], type: r.initiatorType, size: r.transferSize, duration: Math.round(r.duration)})).sort((a,b) => b.duration - a.duration).slice(0,15))"
 ```
 
-Bundle size check:
+Bundle boyutu kontrolü:
 ```bash
 $B eval "JSON.stringify(performance.getEntriesByType('resource').filter(r => r.initiatorType === 'script').map(r => ({name: r.name.split('/').pop().split('?')[0], size: r.transferSize})))"
 $B eval "JSON.stringify(performance.getEntriesByType('resource').filter(r => r.initiatorType === 'css').map(r => ({name: r.name.split('/').pop().split('?')[0], size: r.transferSize})))"
 ```
 
-Network summary:
+Ağ özeti:
 ```bash
 $B eval "(() => { const r = performance.getEntriesByType('resource'); return JSON.stringify({total_requests: r.length, total_transfer: r.reduce((s,e) => s + (e.transferSize||0), 0), by_type: Object.entries(r.reduce((a,e) => { a[e.initiatorType] = (a[e.initiatorType]||0) + 1; return a; }, {})).sort((a,b) => b[1]-a[1])})})()"
 ```
 
-### Phase 4: Baseline Capture (--baseline mode)
+### Aşama 4: Temel Çizgi Yakalama (--baseline modu)
 
-Save metrics to baseline file:
+Metrikleri temel çizgi dosyasına kaydedin:
 
 ```json
 {
@@ -618,110 +627,110 @@ Save metrics to baseline file:
 }
 ```
 
-Write to `.gstack/benchmark-reports/baselines/baseline.json`.
+`.gstack/benchmark-reports/baselines/baseline.json` dosyasına yazın.
 
-### Phase 5: Comparison
+### Aşama 5: Karşılaştırma
 
-If baseline exists, compare current metrics against it:
+Eğer temel çizgi mevcutsa, mevcut metrikleri temel çizgi ile karşılaştırın:
 
 ```
-PERFORMANCE REPORT — [url]
+PERFORMANS RAPORU — [url]
 ══════════════════════════
-Branch: [current-branch] vs baseline ([baseline-branch])
+Dal: [mevcut-dal] vs temel çizgi ([temel çizgi-dal])
 
-Page: /
+Sayfa: /
 ─────────────────────────────────────────────────────
-Metric              Baseline    Current     Delta    Status
-────────            ────────    ───────     ─────    ──────
-TTFB                120ms       135ms       +15ms    OK
-FCP                 450ms       480ms       +30ms    OK
-LCP                 800ms       1600ms      +800ms   REGRESSION
-DOM Interactive     600ms       650ms       +50ms    OK
-DOM Complete        1200ms      1350ms      +150ms   WARNING
-Full Load           1400ms      2100ms      +700ms   REGRESSION
-Total Requests      42          58          +16      WARNING
-Transfer Size       1.2MB       1.8MB       +0.6MB   REGRESSION
-JS Bundle           450KB       720KB       +270KB   REGRESSION
-CSS Bundle          85KB        88KB        +3KB     OK
+Metrik              Temel Çizgi    Mevcut       Fark    Durum
+────────            ────────       ───────      ─────    ──────
+TTFB                120ms          135ms        +15ms    TAMAM
+FCP                 450ms          480ms        +30ms    TAMAM
+LCP                 800ms          1600ms       +800ms   GERİLEME
+DOM Interactive     600ms          650ms        +50ms    TAMAM
+DOM Complete        1200ms         1350ms       +150ms   UYARI
+Tam Yükleme         1400ms        2100ms       +700ms   GERİLEME
+Toplam İstek        42            58           +16      UYARI
+Transfer Boyutu     1.2MB         1.8MB        +0.6MB   GERİLEME
+JS Bundle           450KB         720KB        +270KB   GERİLEME
+CSS Bundle          85KB          88KB         +3KB     TAMAM
 
-REGRESSIONS DETECTED: 3
-  [1] LCP doubled (800ms → 1600ms) — likely a large new image or blocking resource
-  [2] Total transfer +50% (1.2MB → 1.8MB) — check new JS bundles
-  [3] JS bundle +60% (450KB → 720KB) — new dependency or missing tree-shaking
+TESPİT EDİLEN GERİLEMELER: 3
+  [1] LCP iki katına çıktı (800ms → 1600ms) — muhtemelen büyük yeni bir resim veya engelleyici kaynak
+  [2] Toplam transfer +%50 (1.2MB → 1.8MB) — yeni JS bundle'larını kontrol edin
+  [3] JS bundle +%60 (450KB → 720KB) — yeni bağımlılık veya eksik tree-shaking
 ```
 
-**Regression thresholds:**
-- Timing metrics: >50% increase OR >500ms absolute increase = REGRESSION
-- Timing metrics: >20% increase = WARNING
-- Bundle size: >25% increase = REGRESSION
-- Bundle size: >10% increase = WARNING
-- Request count: >30% increase = WARNING
+**Gerileme eşikleri:**
+- Zamanlama metrikleri: >%50 artış VEYA >500ms mutlak artış = GERİLEME
+- Zamanlama metrikleri: >%20 artış = UYARI
+- Bundle boyutu: >%25 artış = GERİLEME
+- Bundle boyutu: >%10 artış = UYARI
+- İstek sayısı: >%30 artış = UYARI
 
-### Phase 6: Slowest Resources
+### Aşama 6: En Yavaş Kaynaklar
 
 ```
-TOP 10 SLOWEST RESOURCES
-═════════════════════════
-#   Resource                  Type      Size      Duration
+EN YAVAŞ 10 KAYNAK
+═══════════════════════
+#   Kaynak                   Tür        Boyut      Süre
 1   vendor.chunk.js          script    320KB     480ms
 2   main.js                  script    250KB     320ms
 3   hero-image.webp          img       180KB     280ms
-4   analytics.js             script    45KB      250ms    ← third-party
+4   analytics.js             script    45KB      250ms    ← üçüncü taraf
 5   fonts/inter-var.woff2    font      95KB      180ms
 ...
 
-RECOMMENDATIONS:
-- vendor.chunk.js: Consider code-splitting — 320KB is large for initial load
-- analytics.js: Load async/defer — blocks rendering for 250ms
-- hero-image.webp: Add width/height to prevent CLS, consider lazy loading
+ÖNERİLER:
+- vendor.chunk.js: Code-splitting düşünün — ilk yükleme için 320KB büyük
+- analytics.js: Async/defer yükleyin — 250ms boyama engelliyor
+- hero-image.webp: CLS önlemek için width/height ekleyin, lazy loading düşünün
 ```
 
-### Phase 7: Performance Budget
+### Aşama 7: Performans Bütçesi
 
-Check against industry budgets:
+Sektör bütçelerine göre kontrol edin:
 
 ```
-PERFORMANCE BUDGET CHECK
+PERFORMANS BÜTÇE KONTROLÜ
 ════════════════════════
-Metric              Budget      Actual      Status
-────────            ──────      ──────      ──────
-FCP                 < 1.8s      0.48s       PASS
-LCP                 < 2.5s      1.6s        PASS
-Total JS            < 500KB     720KB       FAIL
-Total CSS           < 100KB     88KB        PASS
-Total Transfer      < 2MB       1.8MB       WARNING (90%)
-HTTP Requests       < 50        58          FAIL
+Metrik              Bütçe       Gerçek       Durum
+────────            ──────      ───────      ──────
+FCP                 < 1.8s      0.48s       GEÇTİ
+LCP                 < 2.5s      1.6s        GEÇTİ
+Toplam JS           < 500KB     720KB       KALDI
+Toplam CSS           < 100KB     88KB        GEÇTİ
+Toplam Transfer      < 2MB       1.8MB       UYARI (%90)
+HTTP İstekleri       < 50        58          KALDI
 
-Grade: B (4/6 passing)
+Not: B (6/4 geçiyor)
 ```
 
-### Phase 8: Trend Analysis (--trend mode)
+### Aşama 8: Eğilim Analizi (--trend modu)
 
-Load historical baseline files and show trends:
+Geçmiş temel çizgi dosyalarını yükleyin ve eğilimleri gösterin:
 
 ```
-PERFORMANCE TRENDS (last 5 benchmarks)
+PERFORMANS EĞİLİMLERİ (son 5 benchmark)
 ══════════════════════════════════════
-Date        FCP     LCP     Bundle    Requests    Grade
+Tarih       FCP     LCP     Bundle    İstekler    Not
 2026-03-10  420ms   750ms   380KB     38          A
 2026-03-12  440ms   780ms   410KB     40          A
 2026-03-14  450ms   800ms   450KB     42          A
 2026-03-16  460ms   850ms   520KB     48          B
 2026-03-18  480ms   1600ms  720KB     58          B
 
-TREND: Performance degrading. LCP doubled in 8 days.
-       JS bundle growing 50KB/week. Investigate.
+EĞİLİM: Performans kötüleşiyor. LCP 8 günde iki katına çıktı.
+       JS bundle haftada 50KB büyüyor. Araştırın.
 ```
 
-### Phase 9: Save Report
+### Aşama 9: Raporu Kaydet
 
-Write to `.gstack/benchmark-reports/{date}-benchmark.md` and `.gstack/benchmark-reports/{date}-benchmark.json`.
+`.gstack/benchmark-reports/{date}-benchmark.md` ve `.gstack/benchmark-reports/{date}-benchmark.json` dosyalarına yazın.
 
-## Important Rules
+## Önemli Kurallar
 
-- **Measure, don't guess.** Use actual performance.getEntries() data, not estimates.
-- **Baseline is essential.** Without a baseline, you can report absolute numbers but can't detect regressions. Always encourage baseline capture.
-- **Relative thresholds, not absolute.** 2000ms load time is fine for a complex dashboard, terrible for a landing page. Compare against YOUR baseline.
-- **Third-party scripts are context.** Flag them, but the user can't fix Google Analytics being slow. Focus recommendations on first-party resources.
-- **Bundle size is the leading indicator.** Load time varies with network. Bundle size is deterministic. Track it religiously.
-- **Read-only.** Produce the report. Don't modify code unless explicitly asked.
+- **Ölçün, tahmin etmeyin.** Gerçek performance.getEntries() verilerini kullanın, tahminleri değil.
+- **Temel çizgi şarttır.** Temel çizgi olmadan mutlak sayıları raporlayabilirsiniz ancak gerilemeleri algılayamazsınız. Her zaman temel çizgi yakalamayı teşvik edin.
+- **Göreli eşikler, mutlak değil.** 2000ms yükleme süresi karmaşık bir gösterge paneli için sorun değil, bir açılış sayfası için korkunç. KENDİ temel çizginizle karşılaştırın.
+- **Üçüncü taraf betikler bağlamdır.** İşaretleyin, ancak kullanıcı Google Analytics'in yavaş olmasını düzeltemez. Önerileri birinci taraf kaynaklara odaklayın.
+- **Bundle boyutu öncü göstergedir.** Yükleme süresi ağla değişir. Bundle boyutu deterministiktir. Dini bir şekilde takip edin.
+- **Salt okunur.** Raporu üretin. Açıkça istenmedikçe kodu değiştirmeyin.

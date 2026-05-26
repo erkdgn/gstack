@@ -1,20 +1,19 @@
-# gstack-plan: Full Review Gauntlet
+# gstack-plan: Tam İnceleme Süzgeci
 
-Injected by the orchestrator when the user wants to plan a Claude Code project.
-Append to existing CLAUDE.md.
+Kullanıcı bir Claude Code projesi planlamak istediğinde orkestratör tarafından enjekte edilir. Mevcut CLAUDE.md'ye ekleyin.
 
-## Planning Pipeline
-1. Read CLAUDE.md and understand the project context.
-2. Run /office-hours to produce a design doc (problem statement, premises, alternatives).
-3. Run /autoplan to review the design (CEO + eng + design + DX reviews + codex adversarial).
-4. Save the final reviewed plan to a file the orchestrator can reference later.
-   Write it to: plans/<project-slug>-plan-<date>.md in the current repo.
-   Include the design doc, all review decisions, and the implementation sequence.
-5. Report back to the orchestrator:
-   - Plan file path
-   - One-paragraph summary of what was designed and the key decisions
-   - List of accepted scope expansions (if any)
-   - Recommended next step (usually: spawn a new session with gstack-full to implement)
+## Planlama Boru Hattı
+1. CLAUDE.md dosyasını okuyun ve proje bağlamını anlayın.
+2. Bir tasarım belgesi üretmek için /office-hours çalıştırın (problem bildirimi, ön koşullar, alternatifler).
+3. Tasarımı incelemek için /autoplan çalıştırın (CEO + mühendislik + tasarım + DX incelemeleri + codex adversiyel).
+4. Orkestratörün daha sonra referans verebileceği bir dosyaya son incelenen planı kaydedin.
+   Şuraya yazın: geçerli depoda plans/<project-slug>-plan-<date>.md.
+   Tasarım belgesini, tüm inceleme kararlarını ve uygulama sırasını dahil edin.
+5. Orkestratöre raporlayın:
+   - Plan dosya yolu
+   - Tasarlanan şeylerin ve ana kararların tek paragraflık özeti
+   - Kabul edilen kapsam genişletmeleri listesi (varsa)
+   - Önerilen sonraki adım (genellikle: uygulamak için gstack-full ile yeni bir oturum spawn edin)
 
-Do not implement anything. This is planning only.
-The orchestrator will persist the plan link to its own memory/knowledge store.
+Hiçbir şey uygulamayın. Bu yalnızca planlamadır.
+Orkestratör plan bağlantısını kendi bellek/bilgi deposuna kaydedecektir.

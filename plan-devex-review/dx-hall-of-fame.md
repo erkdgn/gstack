@@ -1,127 +1,127 @@
-# DX Hall of Fame Reference
+# DX Onur Listesi Referansı
 
-Read ONLY the section for the current review pass. Do NOT load the entire file.
+Yalnızca mevcut inceleme geçişi için olan bölümü okuyun. Dosyanın tamamını yüklemeyin.
 
-## Pass 1: Getting Started
+## Geçiş 1: Başlangıç
 
-**Gold standards:**
-- **Stripe**: 7 lines of code to charge a card. Docs pre-fill YOUR test API keys when logged in. Stripe Shell runs CLI inside docs page. No local install needed.
-- **Vercel**: `git push` = live site on global CDN with HTTPS. Every PR gets preview URL. One CLI command: `vercel`.
-- **Clerk**: `<SignIn />`, `<SignUp />`, `<UserButton />`. 3 JSX components, working auth with email, social, MFA out of the box.
-- **Supabase**: Create a Postgres table, auto-generates REST API + Realtime + self-documenting docs instantly.
-- **Firebase**: `onSnapshot()`. 3 lines for real-time sync across all clients with offline persistence built-in.
-- **Twilio**: Virtual Phone in console. Send/receive SMS without buying a number, no credit card. Result: 62% improvement in activation.
+**Altın standartlar:**
+- **Stripe**: Kartla ödeme almak için 7 satır kod. Belgeler, giriş yapınca SİZİN test API anahtarlarınızı önceden doldurur. Stripe Shell, belgeler sayfası içinde CLI çalıştırır. Yerel kurulum gerekmez.
+- **Vercel**: `git push` = HTTPS ile küresel CDN'de canlı site. Her PR önizleme URL'si alır. Tek CLI komutu: `vercel`.
+- **Clerk**: `<SignIn />`, `<SignUp />`, `<UserButton />`. 3 JSX bileşeni, kutudan çıkan e-posta, sosyal, MFA ile çalışan kimlik doğrulama.
+- **Supabase**: Bir Postgres tablosu oluşturun, anında REST API + Realtime + kendi-belgeli-belge oluşturur.
+- **Firebase**: `onSnapshot()`. Çevrimdışı kalıcılıkla tüm istemcilerde gerçek zamanlı senkronizasyon için 3 satır.
+- **Twilio**: Konsolda Sanal Telefon. Numara satın almadan, kredi kartı olmadan SMS gönder/al. Sonuç: Aktivasyonda %62 iyileşme.
 
-**Anti-patterns:**
-- Email verification before any value (breaks flow)
-- Credit card required before sandbox
-- "Choose your own adventure" with multiple paths (decision fatigue; one golden path wins)
-- API keys hidden in settings (Stripe pre-fills them into code examples)
-- Static code examples without language switching
-- Separate docs site from dashboard (context switching)
+**Anti-kalıplar:**
+- Herhangi bir değer sunmadan önce e-posta doğrulama (akışı keser)
+- Sandbox ortamı öncesinde kredi kartı zorunluluğu
+- Birden fazla yol içeren "kendi maceranı seç" (karar yorgunluğu; tek altın yol kazanır)
+- Ayarlarda gizli API anahtarları (Stripe bunları kod örneklerine önceden doldurur)
+- Dil değiştirme özelliği olmayan statik kod örnekleri
+- Panodan ayrı belgeler sitesi (bağlam değiştirme)
 
-## Pass 2: API/CLI/SDK Design
+## Geçiş 2: API/CLI/SDK Tasarımı
 
-**Gold standards:**
-- **Stripe prefixed IDs**: `ch_` for charges, `cus_` for customers. Self-documenting. Impossible to pass wrong ID type.
-- **Stripe expandable objects**: Default returns ID strings. `expand[]` gets full objects inline. Nested expansion up to 4 levels.
-- **Stripe idempotency keys**: Pass `Idempotency-Key` header on mutations. Safe retries. No "did I double-charge?" anxiety.
-- **Stripe API versioning**: First call pins account to that day's version. Test new versions per-request via `Stripe-Version` header.
-- **GitHub CLI**: Auto-detects terminal vs pipe. Human-readable in terminal, tab-delimited when piped. `gh pr <tab>` shows all PR actions.
-- **SwiftUI progressive disclosure**: `Button("Save") { save() }` to full customization, same API at every level.
-- **htmx**: HTML attributes replace JS. 14KB total. `hx-get="/search" hx-trigger="keyup changed delay:300ms"`. Zero build step.
-- **shadcn/ui**: Copy source code into your project. You own every line. No dependency, no version conflicts.
+**Altın standartlar:**
+- **Stripe önekli ID'ler**: Ücretler için `ch_`, müşteriler için `cus_`. Kendi-belgeli. Yanış ID türünü geçirmek imkansız.
+- **Stripe genişletilebilir nesneler**: Varsayılan olarak ID dizgileri döndürür. `expand[]` ile satır içi tam nesneleri alır. 4 seviyeye kadar iç içe genişletme.
+- **Stripe idempotency anahtarları**: Mutasyonlarda `Idempotency-Key` başlığını geçirin. Güvenli yeniden denemeler. "Çift mi ücretlendirdim?" endişesi yok.
+- **Stripe API sürümleme**: İlk çağrı hesabı o günün sürümüne sabitler. `Stripe-Version` başlığı ile istek başına yeni sürümleri test edin.
+- **GitHub CLI**: Terminal vs boru'yu otomatik algılar. Terminal'de insan-okunabilir, borulandığında sekme-ayrılmış. `gh pr <tab>` tüm PR eylemlerini gösterir.
+- **SwiftUI aşamalı açılım**: `Button("Kaydet") { kaydet() }`'dan tam özelleştirmeye, her seviyede aynı API.
+- **htmx**: JS yerine HTML nitelikleri. Toplam 14KB. `hx-get="/search" hx-trigger="keyup changed delay:300ms"`. Sıfır derleme adımı.
+- **shadcn/ui**: Kaynak kodunu projenize kopyalayın. Her satırın sahibi sizsiniz. Bağımlık yok, sürüm çakışması yok.
 
-**Anti-patterns:**
-- Chatty API: requiring 5 calls for one user-visible action
-- Inconsistent naming: `/users` (plural) vs `/user/123` (singular) vs `/create-order` (verb in URL)
-- Implicit failure: 200 OK with error nested in response body
-- God endpoint: 47 parameter combinations with different behavior per subset
-- Documentation-required API: 3 pages of docs before first call = too much ceremony
+**Anti-kalıplar:**
+- Chattiness: Bir kullanıcı-görünür eylem için 5 çağrı gerektiren API
+- Tutarsız adlandırma: `/users` (çoğul) vs `/user/123` (tekil) vs `/create-order` (URL'de fiil)
+- Örtük hata: Yanıt gövdesine gömülü hata ile 200 OK
+- Tanrı endpoint: Farklı davranış gösteren 47 parametre kombinasyonu
+- Belgelendirme-gerekli API: İlk çağrıdan önce 3 sayfa belge = fazla seremoni
 
-## Pass 3: Error Messages & Debugging
+## Geçiş 3: Hata Mesajları ve Hata Ayıklama
 
-**Three tiers of error quality:**
+**Hata kalitesinin üç seviyesi:**
 
-**Tier 1, Elm (Conversational Compiler):**
+**Seviye 1, Elm (Sohbet Derleyicisi):**
 ```
--- TYPE MISMATCH ---- src/Main.elm
-I cannot do addition with String values like this one:
-42|   "hello" + 1
+-- TÜR UYUMSUZLUĞU ---- src/Main.elm
+Şu String değerlerle toplama yapamam:
+42|   "merhaba" + 1
      ^^^^^^^
-Hint: To put strings together, use the (++) operator instead.
+İpucu: Dizgeleri birleştirmek için (++) operatörünü kullanın.
 ```
-First person, complete sentences, exact location, suggested fix, further reading.
+Birinci şahıs, tam cümleler, kesin konum, önerilen düzeltme, daha fazla okuma.
 
-**Tier 2, Rust (Annotated Source):**
+**Seviye 2, Rust (Açıklamalı Kaynak):**
 ```
-error[E0308]: mismatched types
+error[E0308]: tür uyumsuzluğu
  --> src/main.rs:4:20
-help: consider borrowing here
+yardım: burada ödünç almayı düşünün
   |
-4 |     let name: &str = &get_name();
+4 |     let isim: &str = &ismi_al();
   |                       +
 ```
-Error code links to tutorial. Primary + secondary labels. Help section shows exact edit.
+Hata kodu öğreticiye bağlantı verir. Birincil + ikincil etiketler. Yardım bölümü kesin düzenlemeyi gösterir.
 
-**Tier 3, Stripe API (Structured with doc_url):**
+**Seviye 3, Stripe API (doc_url ile Yapılandırılmış):**
 ```json
-{"error":{"type":"invalid_request_error","code":"resource_missing","message":"No such customer: 'cus_nonexistent'","param":"customer","doc_url":"https://stripe.com/docs/error-codes/resource-missing"}}
+{"error":{"type":"invalid_request_error","code":"resource_missing","message":"Böyle bir müşteri yok: 'cus_hicbiri'","param":"customer","doc_url":"https://stripe.com/docs/error-codes/resource-missing"}}
 ```
-Five fields, zero ambiguity.
+Beş alan, sıfır belirsizlik.
 
-**The formula:** What happened + Why + How to fix + Where to learn more + Actual values that caused it.
+**Formül:** Ne oldu + Neden + Nasıl düzeltilir + Nereden daha fazla öğrenilir + Buna neden olan gerçek değerler.
 
-**Anti-pattern:** TypeScript buries "Did you mean?" at the BOTTOM of long error chains. Most actionable info should appear FIRST.
+**Anti-kalıp:** TypeScript "Bunu mu demek istediniz?" önerisini UZUN hata zincirlerinin EN ALTINA gömer. En eyleme geçirilebilir bilgi İLK sırada yer almalıdır.
 
-## Pass 4: Documentation & Learning
+## Geçiş 4: Belgeler ve Öğrenme
 
-**Gold standards:**
-- **Stripe docs**: Three-column layout (nav / content / live code). API keys injected when logged in. Language switcher persists across ALL pages. Hover-to-highlight. Stripe Shell for in-browser API calls. Built and open-sourced Markdoc. Features don't ship until docs are finalized. Docs contributions affect performance reviews.
-- 52% of developers blocked by lack of documentation (Postman 2023)
-- Companies with world-class docs see 2.5x increase in adoption
-- "Docs as product": ships with the feature or the feature doesn't ship
+**Altın standartlar:**
+- **Stripe belgeleri**: Üç sütunlu düzen (navigasyon / içerik / canlı kod). Giriş yapınca API anahtarları enjekte edilir. Dil değiştirici TÜM sayfalarda kalıcı. Hover ile vurgulama. Tarayıcı içi API çağrıları için Stripe Shell. Oluşturulan ve açık kaynaklı Markdoc. Özellikler, belgeler tamamlanana kadar gönderilmez. Belge katkıları performans incelemelerini etkiler.
+- Geliştiricilerin %52'si belgelendirme eksikliği nedeniyle engelleniyor (Postman 2023)
+- Dünyaca üstün belgelere sahip şirketlerde benimsenmede 2.5 kat artış görülüyor
+- "Belgeler ürün olarak": Özellik ile birlikte gönderilir veya özellik gönderilmez
 
-## Pass 5: Upgrade & Migration Path
+## Geçiş 5: Yükseltme ve Geçiş Yolu
 
-**Gold standards:**
-- **Next.js**: `npx @next/codemod upgrade major`. One command upgrades Next.js, React, React DOM, runs all relevant codemods.
-- **AG Grid**: Every release from v31+ includes a codemod.
-- **Stripe API versioning**: One codebase internally. Version pinning per account. Breaking changes never surprise you.
-- **Martin Fowler's pipeline pattern**: Compose small, testable transformations rather than one monolithic codemod.
-- 21.9% of breaking changes in Maven Central were undocumented (Ochoa et al., 2021)
+**Altın standartlar:**
+- **Next.js**: `npx @next/codemod upgrade major`. Tek komut Next.js, React, React DOM'u yükseltir ve tüm ilgili codemod'ları çalıştırır.
+- **AG Grid**: v31+'den itibaren her sürüm bir codemod içerir.
+- **Stripe API sürümleme**: Dahili olarak tek kod tabanı. Hesap başına sürüm sabitleme. Bozucu değişiklikler sizi asla şaşırtmaz.
+- **Martin Fowler'ın boru hattı deseni**: Monolitik bir codemod yerine küçük, test edilebilir dönüşümlerden oluşan boru hattı.
+- Maven Central'daki bozucu değişikliklerin %21.9'u belgelenmemişti (Ochoa ve ark., 2021)
 
-## Pass 6: Developer Environment & Tooling
+## Geçiş 6: Geliştirici Ortamı ve Araçlar
 
-**Gold standards:**
-- **Bun**: 100x faster than npm install, 4x faster than Node.js runtime. Speed IS DX.
-- 87 interruptions per day average; 25 minutes to recover from each. Devs code only 2-4 hours/day.
-- Each 1-point DXI improvement = 13 minutes saved per developer per week.
-- **GitHub Copilot**: 55.8% faster task completion. PR time from 9.6 days to 2.4 days.
+**Altın standartlar:**
+- **Bun**: npm install'dan 100 kat daha hızlı, Node.js çalışma zamanından 4 kat daha hızlı. Hız = DX'dir.
+- Günde ortalama 87 kesinti; her birinden kurtulmak 25 dakika. Geliştiriciler günde sadece 2-4 saat kod yazıyor.
+- DXI'da her 1 puanlık iyileşme = geliştirici başına haftada 13 dakika tasarruf.
+- **GitHub Copilot**: %55.8 daha hızlı görev tamamlama. PR süresi 9.6 günden 2.4 güne.
 
-## Pass 7: Community & Ecosystem
+## Geçiş 7: Topluluk ve Ekosistem
 
-- Dev tools require ~14 exposures before purchase (Matt Biilmann, Netlify). Incompatible with quarterly OKR cycles.
-- 4-5x performance multiplier for teams with strong developer experience (DevEx framework).
+- Geliştirici araçları satın almadan önce ~14 maruziyet gerektirir (Matt Biilmann, Netlify). Üç aylık OKR döngüleriyle uyumsuz.
+- Güçlü geliştirici deneyimine sahip ekiplerde 4-5 kat performans çarpanı (DevEx çerçevesi).
 
-## Pass 8: DX Measurement
+## Geçiş 8: DX Ölçümü
 
-**Three academic frameworks:**
-1. **SPACE** (Microsoft Research, 2021): Satisfaction, Performance, Activity, Communication, Efficiency. Measure at least 3 dimensions.
-2. **DevEx** (ACM Queue, 2023): Feedback Loops, Cognitive Load, Flow State. Combine perceptual + workflow data.
-3. **Fagerholm & Munch** (IEEE, 2012): Cognition, Affect, Conation. The psychological "trilogy of mind."
+**Üç akademik çerçeve:**
+1. **SPACE** (Microsoft Research, 2021): Memnuniyet, Performans, Aktivite, İletişim, Verimlilik. En az 3 boyutu ölçün.
+2. **DevEx** (ACM Queue, 2023): Geri bildirim döngüleri, Bilişsel yük, Akış durumu. Algısal + iş akışı verilerini birleştirin.
+3. **Fagerholm & Munch** (IEEE, 2012): Biliş, Duygu, İrade. Psikolojik "zihin üçlemesi".
 
-## Claude Code Skill DX Checklist
+## Claude Code Beceri DX Kontrol Listesi
 
-Use when reviewing plans for Claude Code skills, MCP servers, or AI agent tools.
+Claude Code becerileri, MCP sunucuları veya AI ajan araçları için planları incelerken kullanın.
 
-- [ ] **AskUserQuestion design**: One issue per call. Re-ground context (project, branch, task). Browser handoff for visual feedback.
-- [ ] **State storage**: Global (~/.tool/) vs per-project ($SLUG/) vs per-session. Append-only JSONL for audit trails.
-- [ ] **Progressive consent**: One-time prompts with marker files. Never re-ask. Reversible.
-- [ ] **Auto-upgrade**: Version check with cache + snooze backoff. Migration scripts. Inline offer.
-- [ ] **Skill composition**: Benefits-from chains. Review chaining. Inline invocation with section skipping.
-- [ ] **Error recovery**: Resume from failure. Partial results preserved. Checkpoint-safe.
-- [ ] **Session continuity**: Timeline events. Compaction recovery. Cross-session learnings.
-- [ ] **Bounded autonomy**: Clear operational limits. Mandatory escalation for destructive actions. Audit trails.
+- [ ] **AskUserQuestion tasarımı**: Her çağrıda bir sorun. Bağlamı yeniden yerleştir (proje, dal, görev). Görsel geri bildirim için tarayıcı devri.
+- [ ] **Durum depolama**: Global (~/.tool/) vs proje-bazlı ($SLUG/) vs oturum-bazlı. Denetim izleri için salt-ekleme JSONL.
+- [ ] **Aşamalı onay**: İşaret dosyaları ile tek seferlik istemler. Asla tekrar sorma. Geri alınabilir.
+- [ ] **Otomatik yükseltme**: Önbellek + erteleme geri çekilmesi ile sürüm kontrolü. Geçiş betikleri. Satır içi teklif.
+- [ ] **Beceri birleştirme**: Fayda sağlayan zincirler. İnceleme zincirleme. Bölüm atlama ile satır içi çağırma.
+- [ ] **Hata kurtarma**: Arızadan devam. Kısmi sonuçlar korunur. Kontrol noktası güvenli.
+- [ ] **Oturum sürekliliği**: Zaman çizelgesi olayları. Sıkıştırma kurtarma. Oturumlar arası öğrenmeler.
+- [ ] **Sınırlı özerklik**: Açık operasyonel sınırlar. Yıkıcı eylemler için zorunlu yükseltme. Denetim izleri.
 
-Reference implementations: gstack's design-shotgun loop, auto-upgrade flow, progressive consent, hierarchical storage.
+Referans uygulamalar: gstack'in tasarım-silah döngüsü, otomatik yükseltme akışı, aşamalı onay, hiyerarşik depolama.

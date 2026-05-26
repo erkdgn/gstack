@@ -1,145 +1,146 @@
-# gstack x OpenClaw Integration
+# gstack x OpenClaw Entegrasyonu
 
-gstack integrates with OpenClaw as a methodology source, not a ported codebase.
-OpenClaw's ACP runtime spawns Claude Code sessions natively. gstack provides the
-planning discipline and methodology that makes those sessions better.
+gstack, OpenClaw ile taşınmış bir kod tabanı olarak değil, bir metodoloji kaynağı olarak
+entegre olur. OpenClaw'ın ACP çalışma zamanı, Claude Code oturumlarını yerel olarak
+başlatır. gstack, bu oturumları daha iyi kılan planlama disiplinini ve metodolojiyi sağlar.
 
-This is a lightweight protocol encoded as prompt text. No daemon. No JSON-RPC.
-No compatibility matrices. The prompt is the bridge.
+Bu, komut istemi metni olarak kodlanmış hafif bir protokoldür. Artalan süreci yok. JSON-RPC
+yok. Uyumluluk matrisleri yok. Komut istemi köprüdür.
 
-## Architecture
+## Mimari
 
 ```
-  OpenClaw                               gstack repo
+  OpenClaw                               gstack deposu
   ─────────────────────                    ──────────────
-  Orchestrator: messaging,                 Source of truth for
-  calendar, memory, EA                     methodology + planning
+  Orchestratör: mesajlaşma,                 Metodoloji + planlama için
+  takvim, bellek, EA                         gerçeklik kaynağı
        │                                        │
-       ├── Native skills (conversational)       ├── Generates native skills
-       │   office-hours, ceo-review,            │   via gen-skill-docs pipeline
+       ├── Yerel yetenekler (konuşmacı)          ├── gen-skill-docs ardışık düzeni
+       │   office-hours, ceo-review,            │   aracılığıyla yerel yetenekler üretir
        │   investigate, retro                   │
-       │                                        ├── Generates gstack-lite
-       ├── sessions_spawn(runtime: "acp")       │   (planning discipline)
+       │                                        ├── gstack-lite üretir
+       ├── sessions_spawn(runtime: "acp")       │   (planlama disiplini)
        │       │                                │
-       │       └── Claude Code                  ├── Generates gstack-full
-       │           └── gstack installed at      │   (complete pipeline)
+       │       └── Claude Code                  ├── gstack-full üretir
+       │           └── gstack şu konumda kurulu │   (tamamlanmış ardışık düzen)
        │               ~/.claude/skills/gstack  │
-       │                                        └── docs/OPENCLAW.md (this file)
-       └── Dispatch routing (AGENTS.md)
+       │                                        └── docs/OPENCLAW.md (bu dosya)
+       └── Gönderim yönlendirmesi (AGENTS.md)
 ```
 
-## Dispatch Routing
+## Gönderim Yönlendirmesi
 
-OpenClaw decides at spawn time which tier of gstack support to use:
+OpenClaw, başlatma zamanında hangi gstack destek katmanını kullanacağına karar verir:
 
-| Tier | When | Prompt prefix |
+| Katman | Ne zaman | Komut istemi öneki |
 |------|------|---------------|
-| **Simple** | One-file edits, typos, config changes | No gstack context injected |
-| **Medium** | Multi-file features, refactors | gstack-lite CLAUDE.md appended |
-| **Heavy** | Specific gstack skill needed | "Load gstack. Run /X" |
-| **Full** | Complete features, objectives, projects | gstack-full pipeline appended |
-| **Plan** | "Help me plan a Claude Code project" | gstack-plan pipeline appended |
+| **Basit** | Tek dosya düzenlemeler, yazım hataları, yapılandırma değişiklikleri | gstack bağlamı enjekte edilmez |
+| **Orta** | Çok dosyalı özellikler, yeniden düzenlemeler | gstack-lite CLAUDE.md eklenir |
+| **Ağır** | Belirli gstack yeteneği gerekli | "gstack'i yükle. /X çalıştır" |
+| **Tam** | Tam özellikler, hedefler, projeler | gstack-full ardışık düzen eklenir |
+| **Plan** | "Bana bir Claude Code projesi planlamama yardım et" | gstack-plan ardışık düzen eklenir |
 
-### Decision heuristic
+### Karar sezgisi
 
-- Can it be done in <10 lines of code? -> **Simple**
-- Does it touch multiple files but the approach is obvious? -> **Medium**
-- Does the user name a specific skill (/cso, /review, /qa)? -> **Heavy**
-- Is it a feature, project, or objective (not a task)? -> **Full**
-- Does the user want to PLAN something for Claude Code without implementing yet? -> **Plan**
+- <10 satır kodda yapılabilir mi? -> **Basit**
+- Birden fazla dosyaya dokunuyor ama yaklaşım bariz mi? -> **Orta**
+- Kullanıcı belirli bir yetenek adlandırıyor mu (/cso, /review, /qa)? -> **Ağır**
+- Bir özellik, proje veya hedef mi (görev değil)? -> **Tam**
+- Kullanıcı henüz uygulamadan Claude Code için bir şey PLANLAMAK mı istiyor? -> **Plan**
 
-### Dispatch routing guide (for AGENTS.md)
+### Gönderim yönlendirme kılavuzu (AGENTS.md için)
 
-The complete ready-to-paste section lives in `openclaw/agents-gstack-section.md`.
-Copy it into your OpenClaw AGENTS.md.
+Tamamı kopyalanmaya hazır bölüm `openclaw/agents-gstack-section.md` dosyasında yer alır.
+OpenClaw AGENTS.md dosyanıza kopyalayın.
 
-Key behavioral rules (these go ABOVE the dispatch tiers):
+Temel davranış kuralları (bunlar gönderim katmanlarının ÜSTÜNE gelir):
 
-1. **Always spawn, never redirect.** When the user asks to use ANY gstack skill,
-   ALWAYS spawn a Claude Code session. Never tell the user to open Claude Code.
-2. **Resolve the repo.** If the user names a repo, set the working directory. If
-   unknown, ask which repo.
-3. **Autoplan runs end-to-end.** Spawn, let it run the full pipeline, report back
-   in chat. User should never have to leave Telegram.
+1. **Her zaman başlat, asla yönlendirme.** Kullanıcı HERHANGİ bir gstack yeteneği kullanmayı
+   istediğinde, HER ZAMAN bir Claude Code oturumu başlatın. Kullanıcıya asla Claude Code'u
+   açmasını söylemeyin.
+2. **Depoyu çözün.** Kullanıcı bir depo adlandırırsa, çalışma dizinini ayarlayın. Bilinmiyorsa,
+   hangi depo olduğunu sorun.
+3. **Otomatik plan baştan sona çalışır.** Başlatın, tam ardışık düzeni çalıştırın, sohbette
+   rapor edin. Kullanıcının Telegram'dan ayrılması gerekmemeli.
 
-### CLAUDE.md collision handling
+### CLAUDE.md çakışma yönetimi
 
-When spawning Claude Code in a repo that already has a CLAUDE.md, APPEND
-gstack-lite/full as a new section. Do not replace the repo's existing instructions.
+Zaten bir CLAUDE.md dosyası olan bir depoda Claude Code başlatırken, gstack-lite/full'i
+yeni bir bölüm olarak EKLEYİN. Deponun mevcut talimatlarını değiştirmeyin.
 
-## What gstack generates for OpenClaw
+## gstack OpenClaw için ne üretir
 
-All artifacts live in the `openclaw/` directory and are generated by
-`bun run gen:skill-docs --host openclaw`:
+Tüm yapıtlar `openclaw/` dizininde bulunur ve `bun run gen:skill-docs --host openclaw`
+tarafından üretilir:
 
-### gstack-lite (Medium tier)
-`openclaw/gstack-lite-CLAUDE.md` — ~15 lines of planning discipline:
-1. Read every file before modifying
-2. Write a 5-line plan: what, why, which files, test case, risk
-3. Resolve ambiguity using decision principles
-4. Self-review before reporting done
-5. Completion report: what shipped, decisions made, anything uncertain
+### gstack-lite (Orta katman)
+`openclaw/gstack-lite-CLAUDE.md` — ~15 satırlık planlama disiplini:
+1. Değiştirmeden önce her dosyayı oku
+2. 5 satırlık bir plan yaz: ne, neden, hangi dosyalar, test durumu, risk
+3. Karar ilkellerini kullanarak belirsizliği çöz
+4. Tamamlandırmadan önce kendi kendini incele
+5. Tamamlanma raporu: ne gönderildi, verilen kararlar, belirsiz olan her şey
 
-A/B tested: 2x time, meaningfully better output.
+A/B test edildi: 2 kat zaman, anlamına gelen şekilde daha iyi çıktı.
 
-### gstack-full (Full tier)
-`openclaw/gstack-full-CLAUDE.md` — chains existing gstack skills:
-1. Read CLAUDE.md and understand the project
-2. Run /autoplan (CEO + eng + design review)
-3. Implement the approved plan
-4. Run /ship to create a PR
-5. Report back with PR URL and decisions
+### gstack-full (Tam katman)
+`openclaw/gstack-full-CLAUDE.md` — mevcut gstack yeteneklerini zincirler:
+1. CLAUDE.md'yi oku ve projeyi anla
+2. /autoplan çalıştır (CEO + mühendislik + tasarım incelemesi)
+3. Onaylanan planı uygula
+4. PR oluşturmak için /ship çalıştır
+5. PR URL'si ve kararlarla geri rapor et
 
-### gstack-plan (Plan tier)
-`openclaw/gstack-plan-CLAUDE.md` — full review gauntlet, no implementation:
-1. Run /office-hours to produce a design doc
-2. Run /autoplan (CEO + eng + design + DX reviews + codex adversarial)
-3. Save the reviewed plan to `plans/<project-slug>-plan-<date>.md`
-4. Report back: plan path, summary, key decisions, recommended next step
+### gstack-plan (Plan katmanı)
+`openclaw/gstack-plan-CLAUDE.md` — tam inceleme geçidi, uygulama yok:
+1. Bir tasarım belgesi üretmek için /office-hours çalıştır
+2. /autoplan çalıştır (CEO + mühendislik + tasarım + DX incelemeleri + codex sertlik)
+3. İncelenen planı `plans/<proje-kısa-adı>-plan-<tarih>.md` konumuna kaydet
+4. Geri rapor et: plan yolu, özet, kilit kararlar, önerilen sonraki adım
 
-The orchestrator persists the plan link to its own memory store (brain repo,
-knowledge base, or whatever is configured in AGENTS.md). When the user is
-ready to build, spawn a FULL session that references the saved plan.
+Orkestratör, plan bağlantısını kendi bellek deposuna (brain deposu, bilgi tabanı veya
+AGENTS.md'de yapılandırılmış her neyse) kalıcı hale getirir. Kullanıcı inşa etmeye
+hazır olduğunda, kaydedilen plana referans veren bir TAM oturum başlatır.
 
-### Native methodology skills
-Published to ClawHub. Install with `clawhub install`:
-- `gstack-openclaw-office-hours` — Product interrogation (6 forcing questions)
-- `gstack-openclaw-ceo-review` — Strategic challenge (10-section review, 4 modes)
-- `gstack-openclaw-investigate` — Operational debugging (4-phase methodology)
-- `gstack-openclaw-retro` — Operational retrospective (weekly review)
+### Yerel metodoloji yetenekleri
+ClawHub'da yayınlanır. `clawhub install` ile kurun:
+- `gstack-openclaw-office-hours` — Ürün sorgulaması (6 zorlayıcı soru)
+- `gstack-openclaw-ceo-review` — Stratejik meydan okuma (10 bölümlük inceleme, 4 mod)
+- `gstack-openclaw-investigate` — Operasyonel hata ayıklama (4 aşamalı metodoloji)
+- `gstack-openclaw-retro` — Operasyonel geriye bakış (haftalık inceleme)
 
-Source lives in `openclaw/skills/` in the gstack repo. These are hand-crafted
-adaptations of the gstack methodology for OpenClaw's conversational context.
-No gstack infrastructure (no browse, no telemetry, no preamble).
+Kaynak, gstack deposundaki `openclaw/skills/` dizininde yer alır. Bunlar, OpenClaw'ın
+konuşmacı bağlamı için gstack metodolojisinin el ile hazırlanmış uyarlamalarıdır.
+gstack altyapısı yok (browse yok, telemetri yok, önsöz yok).
 
-## Spawned session detection
+## Başlatılan oturum algılama
 
-When Claude Code runs inside a session spawned by OpenClaw, the `OPENCLAW_SESSION`
-environment variable should be set. gstack detects this and adjusts:
-- Skips interactive prompts (auto-chooses recommended options)
-- Skips upgrade checks and telemetry prompts
-- Focuses on task completion and prose reporting
+Claude Code, OpenClaw tarafından başlatılan bir oturum içinde çalıştığında, `OPENCLAW_SESSION`
+ortam değişkeni ayarlanmalıdır. gstack bunu algılar ve ayarlar:
+- Etkileşimli komut istemlerini atlar (önerilen seçenekleri otomatik olarak seçer)
+- Yükseltme denetimlerini ve telemetri komut istemlerini atlar
+- Görev tamamlama ve düzyazı raporlamaya odaklanır
 
-Set the env var in sessions_spawn: `env: { OPENCLAW_SESSION: "1" }`
+Ortam değişkenini sessions_spawn içinde ayarlayın: `env: { OPENCLAW_SESSION: "1" }`
 
-## Installation
+## Kurulum
 
-For OpenClaw users: tell your OpenClaw agent "install gstack for openclaw."
+OpenClaw kullanıcıları için: OpenClaw aracınıza "openclaw için gstack kur" deyin.
 
-The agent should:
-1. Install gstack-lite CLAUDE.md into its coding session templates
-2. Install the 4 native methodology skills
-3. Add dispatch routing to AGENTS.md
-4. Verify with a test spawn
+Aracı şunları yapmalıdır:
+1. gstack-lite CLAUDE.md dosyasını kodlama oturumu şablonlarına kurun
+2. 4 yerel metodoloji yeteneğini kurun
+3. Gönderim yönlendirmesini AGENTS.md dosyasına ekleyin
+4. Bir test başlatmasıyla doğrulayın
 
-For gstack developers: `./setup --host openclaw` outputs this documentation.
-The actual artifacts are generated by `bun run gen:skill-docs --host openclaw`.
+gstack geliştiricileri için: `./setup --host openclaw` bu belgelendirmeyi çıktılar.
+Gerçek yapıtlar `bun run gen:skill-docs --host openclaw` tarafından üretilir.
 
-## What we don't do
+## Yapmadığımız şeyler
 
-- No dispatch daemon (ACP handles session spawning)
-- No Clawvisor relay (no security layer needed)
-- No bidirectional learnings bridge (brain repo is the knowledge store)
-- No JSON schemas or protocol versioning
-- No SOUL.md from gstack (OpenClaw has its own)
-- No full skill porting (coding skills stay native to Claude Code)
+- Gönderim artalan süreci yok (ACP oturum başlatmayı yönetir)
+- Clawvisor geçişi yok (güvenlik katmanı gerekmez)
+- Çift yönlü öğrenmeler köprüsü yok (brain deposu bilgi deposudur)
+- JSON şemaları veya protokol sürümleme yok
+- gstack'ten SOUL.md yok (OpenClaw'ın kendi SOUL.md'si var)
+- Tam yetenek taşıma yok (kodlama yetenekleri Claude Code'a özgü kalır)

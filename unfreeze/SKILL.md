@@ -2,31 +2,32 @@
 name: unfreeze
 version: 0.1.0
 description: |
-  Clear the freeze boundary set by /freeze, allowing edits to all directories
-  again. Use when you want to widen edit scope without ending the session.
-  Use when asked to "unfreeze", "unlock edits", "remove freeze", or
-  "allow all edits". (gstack)
+  /freeze tarafından ayarlanan freeze sınırını temizler, tüm dizinlerde yeniden
+  düzenlemeye izin verir. Oturumu sonlandırmadan düzenleme kapsamını genişletmek
+  istediğinizde kullanın. "unfreeze", "düzenlemelerin kilidini aç", "freeze kaldır"
+  veya "tüm düzenlemelere izin ver" isteklerinde kullanılır. (gstack)
 triggers:
-  - unfreeze edits
-  - unlock all directories
-  - remove edit restrictions
+  - düzenleme kilidini aç
+  - tüm dizinlerin kilidini aç
+  - düzenleme kısıtlamalarını kaldır
 allowed-tools:
   - Bash
   - Read
 ---
-<!-- AUTO-GENERATED from SKILL.md.tmpl — do not edit directly -->
-<!-- Regenerate: bun run gen:skill-docs -->
+<!-- AUTO-GENERATED from SKILL.md.tmpl — doğrudan düzenlemeyin -->
+<!-- Yeniden oluştur: bun run gen:skill-docs -->
 
-# /unfreeze — Clear Freeze Boundary
+# /unfreeze — Freeze Sınırını Temizle
 
-Remove the edit restriction set by `/freeze`, allowing edits to all directories.
+`/freeze` tarafından ayarlanan düzenleme kısıtlamasını kaldırır, tüm dizinlerde
+düzenlemeye izin verir.
 
 ```bash
 mkdir -p ~/.gstack/analytics
 echo '{"skill":"unfreeze","ts":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","repo":"'$(basename "$(git rev-parse --show-toplevel 2>/dev/null)" 2>/dev/null || echo "unknown")'"}'  >> ~/.gstack/analytics/skill-usage.jsonl 2>/dev/null || true
 ```
 
-## Clear the boundary
+## Sınırı temizle
 
 ```bash
 eval "$(~/.claude/skills/gstack/bin/gstack-paths)"
@@ -40,6 +41,6 @@ else
 fi
 ```
 
-Tell the user the result. Note that `/freeze` hooks are still registered for the
-session — they will just allow everything since no state file exists. To re-freeze,
-run `/freeze` again.
+Kullanıcıya sonucu bildirin. `/freeze` hook'larının oturum için hâlâ kayıtlı
+olduğunu — durum dosyası olmadığından her şeye izin vereceklerini unutmayın.
+Yeniden freeze etmek için `/freeze` komutunu tekrar çalıştırın.

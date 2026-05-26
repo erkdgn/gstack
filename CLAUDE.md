@@ -1,882 +1,899 @@
-# gstack development
+# gstack geliştirme
 
-## Commands
-
-```bash
-bun install          # install dependencies
-bun test             # run free tests (browse + snapshot + skill validation)
-bun run test:evals   # run paid evals: LLM judge + E2E (diff-based, ~$4/run max)
-bun run test:evals:all  # run ALL paid evals regardless of diff
-bun run test:gate    # run gate-tier tests only (CI default, blocks merge)
-bun run test:periodic  # run periodic-tier tests only (weekly cron / manual)
-bun run test:e2e     # run E2E tests only (diff-based, ~$3.85/run max)
-bun run test:e2e:all # run ALL E2E tests regardless of diff
-bun run eval:select  # show which tests would run based on current diff
-bun run dev <cmd>    # run CLI in dev mode, e.g. bun run dev goto https://example.com
-bun run build        # gen docs + compile binaries
-bun run gen:skill-docs  # regenerate SKILL.md files from templates
-bun run skill:check  # health dashboard for all skills
-bun run dev:skill    # watch mode: auto-regen + validate on change
-bun run eval:list    # list all eval runs from ~/.gstack-dev/evals/
-bun run eval:compare # compare two eval runs (auto-picks most recent)
-bun run eval:summary # aggregate stats across all eval runs
-bun run slop          # full slop-scan report (all files)
-bun run slop:diff     # slop findings in files changed on this branch only
-```
-
-`test:evals` requires `ANTHROPIC_API_KEY`. Codex E2E tests (`test/codex-e2e.test.ts`)
-use Codex's own auth from `~/.codex/` config — no `OPENAI_API_KEY` env var needed.
-
-**Env keys in Conductor workspaces.** The `GSTACK_*` env-shim (v1.39.2.0+,
-`lib/conductor-env-shim.ts`) promotes `GSTACK_ANTHROPIC_API_KEY` /
-`GSTACK_OPENAI_API_KEY` to their canonical names inside gstack's TS binaries.
-Tests run through gstack entrypoints inherit this promotion automatically.
-Don't echo the key value to stdout, logs, or shell history. When passing to a
-test's Agent SDK, do NOT pass `env: {...}` to `runAgentSdkTest` — the SDK's
-auth pipeline doesn't pick up the key the same way when env is supplied as an
-object (confirmed failure mode). Mutate `process.env.ANTHROPIC_API_KEY`
-ambiently before the call and restore in `finally`.
-
-E2E tests stream progress in real-time (tool-by-tool via `--output-format stream-json
---verbose`). Results are persisted to `~/.gstack-dev/evals/` with auto-comparison
-against the previous run.
-
-**Diff-based test selection:** `test:evals` and `test:e2e` auto-select tests based
-on `git diff` against the base branch. Each test declares its file dependencies in
-`test/helpers/touchfiles.ts`. Changes to global touchfiles (session-runner, eval-store,
-touchfiles.ts itself) trigger all tests. Use `EVALS_ALL=1` or the `:all` script
-variants to force all tests. Run `eval:select` to preview which tests would run.
-
-**Two-tier system:** Tests are classified as `gate` or `periodic` in `E2E_TIERS`
-(in `test/helpers/touchfiles.ts`). CI runs only gate tests (`EVALS_TIER=gate`);
-periodic tests run weekly via cron or manually. Use `EVALS_TIER=gate` or
-`EVALS_TIER=periodic` to filter. When adding new E2E tests, classify them:
-1. Safety guardrail or deterministic functional test? -> `gate`
-2. Quality benchmark, Opus model test, or non-deterministic? -> `periodic`
-3. Requires external service (Codex, Gemini)? -> `periodic`
-
-## Testing
+## Komutlar
 
 ```bash
-bun test             # run before every commit — free, <2s
-bun run test:evals   # run before shipping — paid, diff-based (~$4/run max)
+bun install          # bağımlılıkları yükle
+bun test             # ücretsiz testleri çalıştır (browse + snapshot + skill doğrulama)
+bun run test:evals   # ücretli eval'leri çalıştır: LLM judge + E2E (diff tabanlı, ~$4/run max)
+bun run test:evals:all  # diff'den bağımsız TÜM ücretli eval'leri çalıştır
+bun run test:gate    # yalnızca gate-tier testlerini çalıştır (CI varsayılanı, merge'i engeller)
+bun run test:periodic  # yalnızca periodic-tier testlerini çalıştır (haftalık cron / manuel)
+bun run test:e2e     # yalnızca E2E testlerini çalıştır (diff tabanlı, ~$3.85/run max)
+bun run test:e2e:all # diff'den bağımsız TÜM E2E testlerini çalıştır
+bun run eval:select  # mevcut diff'e göre hangi testlerin çalışacağını göster
+bun run dev <cmd>    # CLI'yi dev modunda çalıştır, ör. bun run dev goto https://example.com
+bun run build        # dokümanları oluştur + binary'leri derle
+bun run gen:skill-docs  # SKILL.md dosyalarını şablonlardan yeniden oluştur
+bun run skill:check  # tüm skill'ler için sağlık paneli
+bun run dev:skill    # watch modu: değişiklikte otomatik yeniden oluşturma + doğrulama
+bun run eval:list    # ~/.gstack-dev/evals/ içindeki tüm eval çalıştırmalarını listele
+bun run eval:compare # iki eval çalıştırmasını karşılaştır (en yenileri otomatik seçilir)
+bun run eval:summary # tüm eval çalıştırmaları genelinde istatistikleri birleştir
+bun run slop          # tam slop-scan raporu (tüm dosyalar)
+bun run slop:diff     # yalnızca bu branch'te değişen dosyalardaki slop bulguları
 ```
 
-`bun test` runs skill validation, gen-skill-docs quality checks, and browse
-integration tests. `bun run test:evals` runs LLM-judge quality evals and E2E
-tests via `claude -p`. Both must pass before creating a PR.
+`test:evals` için `ANTHROPIC_API_KEY` gereklidir. Codex E2E testleri (`test/codex-e2e.test.ts`)
+Codex'in kendi auth'unu `~/.codex/` yapılandırmasından kullanır; `OPENAI_API_KEY` ortam değişkenine
+gerek yoktur.
 
-## Project structure
+**Conductor çalışma alanlarındaki ortam değişkenleri.** `GSTACK_*` ortam-shim'i (v1.39.2.0+,
+`lib/conductor-env-shim.ts`), `GSTACK_ANTHROPIC_API_KEY` /
+`GSTACK_OPENAI_API_KEY` değerlerini gstack'in TS binary'leri içindeki kanonik isimlerine
+promote eder. gstack giriş noktaları üzerinden çalışan testler bu promote işlemini otomatik olarak devralır.
+Anahtar değerini stdout'a, loglara veya shell geçmişine yazmayın. Bir testin
+Agent SDK'sine geçirirken, `runAgentSdkTest`'e `env: {...}` iletmeyin; SDK'nın
+auth pipeline'ı anahtarı ortam değişkeni nesnesi olarak verildiğinde aynı şekilde algılamaz
+(doğrulanmış hata modu). Çağrıdan önce `process.env.ANTHROPIC_API_KEY`'i
+ortama doğrudan mutate edin ve `finally` içinde eski haline getirin.
+
+E2E testleri ilerlemeyi gerçek zamanlı olarak akışla bildirir (araç-aracı, `--output-format stream-json
+--verbose` ile). Sonuçlar, önceki çalıştırmayla otomatik karşılaştırma ile birlikte
+`~/.gstack-dev/evals/` dizinine kalıcı olarak yazılır.
+
+**Diff tabanlı test seçimi:** `test:evals` ve `test:e2e`, temel branch'a karşı `git diff`
+temelinde testleri otomatik seçer. Her test dosya bağımlılıklarını
+`test/helpers/touchfiles.ts` içinde bildirir. Genel touchfile'larda yapılan değişiklikler
+(session-runner, eval-store, touchfiles.ts'in kendisi) tüm testleri tetikler.
+Tüm testleri zorlamak için `EVALS_ALL=1` veya `:all` script varyantlarını kullanın.
+Hangi testlerin çalışacağını önizlemek için `eval:select` komutunu çalıştırın.
+
+**İki katmanlı sistem:** Testler `E2E_TIERS` içinde (`test/helpers/touchfiles.ts`
+dosyasında) `gate` veya `periodic` olarak sınıflandırılır. CI yalnızca gate testlerini
+çalıştırır (`EVALS_TIER=gate`); periodic testleri haftalık cron ile veya manuel olarak
+çalıştırılır. Filtrelemek için `EVALS_TIER=gate` veya `EVALS_TIER=periodic` kullanın.
+Yeni E2E testleri eklerken, onları sınıflandırın:
+1. Güvenlik guardrail'i veya deterministik işlevsel test mi? -> `gate`
+2. Kalite kıyaslaması, Opus model testi veya deterministik olmayan mı? -> `periodic`
+3. Harici hizmet gerektiriyor mu (Codex, Gemini)? -> `periodic`
+
+## Test
+
+```bash
+bun test             # her commit'ten önce çalıştır — ücretsiz, <2s
+bun run test:evals   # göndermeden önce çalıştır — ücretli, diff tabanlı (~$4/run max)
+```
+
+`bun test` skill doğrulaması, gen-skill-docs kalite kontrolleri ve browse
+entegrasyon testlerini çalıştırır. `bun run test:evals`, LLM-judge kalite eval'lerini ve E2E
+testlerini `claude -p` üzerinden çalıştırır. PR oluşturmadan önce ikisinin de geçmesi gerekir.
+
+## Proje yapısı
 
 ```
 gstack/
-├── browse/          # Headless browser CLI (Playwright)
-│   ├── src/         # CLI + server + commands
-│   │   ├── commands.ts  # Command registry (single source of truth)
-│   │   └── snapshot.ts  # SNAPSHOT_FLAGS metadata array
-│   ├── test/        # Integration tests + fixtures
-│   └── dist/        # Compiled binary
-├── hosts/           # Typed host configs (one per AI agent)
-│   ├── claude.ts    # Primary host config
-│   ├── codex.ts, factory.ts, kiro.ts  # Existing hosts
-│   ├── opencode.ts, slate.ts, cursor.ts, openclaw.ts  # IDE hosts
-│   ├── hermes.ts, gbrain.ts  # Agent runtime hosts
-│   └── index.ts     # Registry: exports all, derives Host type
-├── scripts/         # Build + DX tooling
-│   ├── gen-skill-docs.ts  # Template → SKILL.md generator (config-driven)
-│   ├── host-config.ts     # HostConfig interface + validator
-│   ├── host-config-export.ts  # Shell bridge for setup script
-│   ├── host-adapters/     # Host-specific adapters (OpenClaw tool mapping)
-│   ├── resolvers/   # Template resolver modules (preamble, design, review, gbrain, etc.)
-│   ├── skill-check.ts     # Health dashboard
-│   └── dev-skill.ts       # Watch mode
-├── test/            # Skill validation + eval tests
+├── browse/          # Headless tarayıcı CLI'si (Playwright)
+│   ├── src/         # CLI + sunucu + komutlar
+│   │   ├── commands.ts  # Komut kayıt defteri (tek doğru kaynak)
+│   │   └── snapshot.ts  # SNAPSHOT_FLAGS metadata dizisi
+│   ├── test/        # Entegrasyon testleri + fixture'lar
+│   └── dist/        # Derlenmiş binary
+├── hosts/           # Tiplenmiş host yapılandırmaları (her AI ajanı için bir tane)
+│   ├── claude.ts    # Birincil host yapılandırması
+│   ├── codex.ts, factory.ts, kiro.ts  # Mevcut host'lar
+│   ├── opencode.ts, slate.ts, cursor.ts, openclaw.ts  # IDE host'ları
+│   ├── hermes.ts, gbrain.ts  # Ajan çalışma zamanı host'ları
+│   └── index.ts     # Kayıt defteri: tümünü dışa aktarır, Host tipini türetir
+├── scripts/         # Build + DX araçları
+│   ├── gen-skill-docs.ts  # Şablondan SKILL.md oluşturucu (yapılandırma güdümlü)
+│   ├── host-config.ts     # HostConfig arayüzü + doğrulayıcı
+│   ├── host-config-export.ts  # Kurulum script'i için shell köprüsü
+│   ├── host-adapters/     # Host'a özel bağdaştırıcılar (OpenClaw araç eşlemesi)
+│   ├── resolvers/   # Şablo çözücü modülleri (preamble, design, review, gbrain vb.)
+│   ├── skill-check.ts     # Sağlık paneli
+│   └── dev-skill.ts       # Watch modu
+├── test/            # Skill doğrulama + eval testleri
 │   ├── helpers/     # skill-parser.ts, session-runner.ts, llm-judge.ts, eval-store.ts
-│   ├── fixtures/    # Ground truth JSON, planted-bug fixtures, eval baselines
-│   ├── skill-validation.test.ts  # Tier 1: static validation (free, <1s)
-│   ├── gen-skill-docs.test.ts    # Tier 1: generator quality (free, <1s)
-│   ├── skill-llm-eval.test.ts   # Tier 3: LLM-as-judge (~$0.15/run)
-│   └── skill-e2e-*.test.ts       # Tier 2: E2E via claude -p (~$3.85/run, split by category)
-├── qa-only/         # /qa-only skill (report-only QA, no fixes)
-├── plan-design-review/  # /plan-design-review skill (report-only design audit)
-├── design-review/    # /design-review skill (design audit + fix loop)
-├── ship/            # Ship workflow skill
-├── review/          # PR review skill
-├── plan-ceo-review/ # /plan-ceo-review skill
-├── plan-eng-review/ # /plan-eng-review skill
-├── autoplan/        # /autoplan skill (auto-review pipeline: CEO → design → eng)
-├── benchmark/       # /benchmark skill (performance regression detection)
-├── canary/          # /canary skill (post-deploy monitoring loop)
-├── codex/           # /codex skill (multi-AI second opinion via OpenAI Codex CLI)
-├── land-and-deploy/ # /land-and-deploy skill (merge → deploy → canary verify)
-├── office-hours/    # /office-hours skill (YC Office Hours — startup diagnostic + builder brainstorm)
-├── investigate/     # /investigate skill (systematic root-cause debugging)
-├── retro/           # Retrospective skill (includes /retro global cross-project mode)
-├── bin/             # CLI utilities (gstack-repo-mode, gstack-slug, gstack-config, etc.)
-├── document-release/ # /document-release skill (post-ship doc updates + Diataxis coverage map)
-├── document-generate/ # /document-generate skill (Diataxis doc generator: tutorial/how-to/reference/explanation)
-├── cso/             # /cso skill (OWASP Top 10 + STRIDE security audit)
-├── design-consultation/ # /design-consultation skill (design system from scratch)
-├── design-shotgun/  # /design-shotgun skill (visual design exploration)
-├── open-gstack-browser/  # /open-gstack-browser skill (launch GStack Browser)
-├── connect-chrome/  # symlink → open-gstack-browser (backwards compat)
-├── design/          # Design binary CLI (GPT Image API)
-│   ├── src/         # CLI + commands (generate, variants, compare, serve, etc.)
-│   ├── test/        # Integration tests
-│   └── dist/        # Compiled binary
-├── extension/       # Chrome extension (side panel + activity feed + CSS inspector)
-├── lib/             # Shared libraries (worktree.ts)
-├── docs/designs/    # Design documents
-├── setup-deploy/    # /setup-deploy skill (one-time deploy config)
-├── .github/         # CI workflows + Docker image
-│   ├── workflows/   # evals.yml (E2E on Ubicloud), skill-docs.yml, actionlint.yml
-│   └── docker/      # Dockerfile.ci (pre-baked toolchain + Playwright/Chromium)
-├── contrib/         # Contributor-only tools (never installed for users)
-│   └── add-host/    # /gstack-contrib-add-host skill
-├── setup            # One-time setup: build binary + symlink skills
-├── SKILL.md         # Generated from SKILL.md.tmpl (don't edit directly)
-├── SKILL.md.tmpl    # Template: edit this, run gen:skill-docs
-├── ETHOS.md         # Builder philosophy (Boil the Lake, Search Before Building)
-└── package.json     # Build scripts for browse
+│   ├── fixtures/    # Gerçek değer JSON'ları, yerleştirilmiş hata fixture'ları, eval referans değerleri
+│   ├── skill-validation.test.ts  # Katman 1: statik doğrulama (ücretsiz, <1s)
+│   ├── gen-skill-docs.test.ts    # Katman 1: oluşturucu kalitesi (ücretsiz, <1s)
+│   ├── skill-llm-eval.test.ts   # Katman 3: LLM-as-judge (~$0.15/run)
+│   └── skill-e2e-*.test.ts       # Katman 2: claude -p ile E2E (~$3.85/run, kategoriye göre ayrılmış)
+├── qa-only/         # /qa-only skill'i (yalnızca raporlayan QA, düzeltme yok)
+├── plan-design-review/  # /plan-design-review skill'i (yalnızca raporlayan tasarım denetimi)
+├── design-review/    # /design-review skill'i (tasarım denetimi + düzeltme döngüsü)
+├── ship/            # Ship iş akışı skill'i
+├── review/          # PR inceleme skill'i
+├── plan-ceo-review/ # /plan-ceo-review skill'i
+├── plan-eng-review/ # /plan-eng-review skill'i
+├── autoplan/        # /autoplan skill'i (otomatik inceleme pipeline'ı: CEO → tasarım → mühendislik)
+├── benchmark/       # /benchmark skill'i (performans gerileme tespiti)
+├── canary/          # /canary skill'i (deploy sonrası izleme döngüsü)
+├── codex/           # /codex skill'i (OpenAI Codex CLI üzerinden çoklu-AI ikinci görüş)
+├── land-and-deploy/ # /land-and-deploy skill'i (merge → deploy → canary doğrulama)
+├── office-hours/    # /office-hours skill'i (YC Ofis Saatleri — startup teşhisi + yapıcı beyin fırtınası)
+├── investigate/     # /investigate skill'i (sistematik kök-neden hata ayıklama)
+├── retro/           # Retrospektif skill'i (/retro global çapraz-proje modunu içerir)
+├── bin/             # CLI araçları (gstack-repo-mode, gstack-slug, gstack-config vb.)
+├── document-release/ # /document-release skill'i (ship sonrası doküman güncellemeleri + Diataxis kapsama haritası)
+├── document-generate/ # /document-generate skill'i (Diataxis doküman oluşturucu: eğitim/nasıl yapılır/referans/açıklama)
+├── cso/             # /cso skill'i (OWASP Top 10 + STRIDE güvenlik denetimi)
+├── design-consultation/ # /design-consultation skill'i (sıfırdan tasarım sistemi)
+├── design-shotgun/  # /design-shotgun skill'i (görsel tasarım keşfi)
+├── open-gstack-browser/  # /open-gstack-browser skill'i (GStack Tarayıcı'yı başlat)
+├── connect-chrome/  # symlink → open-gstack-browser (geriye dönük uyumluluk)
+├── design/          # Tasarım binary CLI'si (GPT Image API)
+│   ├── src/         # CLI + komutlar (oluştur, varyantlar, karşılaştır, serve vb.)
+│   ├── test/        # Entegrasyon testleri
+│   └── dist/        # Derlenmiş binary
+├── extension/       # Chrome uzantısı (yan panel + etkinlik akışı + CSS denetçisi)
+├── lib/             # Paylaşılan kütüphaneler (worktree.ts)
+├── docs/designs/    # Tasarım dokümanları
+├── setup-deploy/    # /setup-deploy skill'i (tek seferlik deploy yapılandırması)
+├── .github/         # CI iş akışları + Docker imajı
+│   ├── workflows/   # evals.yml (Ubicloud üzerinde E2E), skill-docs.yml, actionlint.yml
+│   └── docker/      # Dockerfile.ci (önceden hazırlanmış araç zinciri + Playwright/Chromium)
+├── contrib/         # Yalnızca katkıda bulunanlar için araçlar (kullanıcılar için asla kurulmaz)
+│   └── add-host/    # /gstack-contrib-add-host skill'i
+├── setup            # Tek seferlik kurulum: binary oluştur + skill'leri symlink et
+├── SKILL.md         # SKILL.md.tmpl'den oluşturulur (doğrudan düzenlemeyin)
+├── SKILL.md.tmpl    # Şablon: bunu düzenleyin, gen:skill-docs çalıştırın
+├── ETHOS.md         # Yapıcı felsefesi (Boil the Lake, Search Before Building)
+└── package.json     # Browse için build script'leri
 ```
 
-## SKILL.md workflow
+## SKILL.md iş akışı
 
-SKILL.md files are **generated** from `.tmpl` templates. To update docs:
+SKILL.md dosyaları `.tmpl` şablonlarından **oluşturulur**. Dokümanları güncellemek için:
 
-1. Edit the `.tmpl` file (e.g. `SKILL.md.tmpl` or `browse/SKILL.md.tmpl`)
-2. Run `bun run gen:skill-docs` (or `bun run build` which does it automatically)
-3. Commit both the `.tmpl` and generated `.md` files
+1. `.tmpl` dosyasını düzenleyin (örn. `SKILL.md.tmpl` veya `browse/SKILL.md.tmpl`)
+2. `bun run gen:skill-docs` komutunu çalıştırın (veya bunu otomatik yapan `bun run build` komutunu)
+3. Hem `.tmpl` hem de oluşturulan `.md` dosyalarını commit edin
 
-To add a new browse command: add it to `browse/src/commands.ts` and rebuild.
-To add a snapshot flag: add it to `SNAPSHOT_FLAGS` in `browse/src/snapshot.ts` and rebuild.
+Yeni bir browse komutu eklemek için: `browse/src/commands.ts` dosyasına ekleyin ve yeniden oluşturun.
+Yeni bir snapshot bayrağı eklemek için: `browse/src/snapshot.ts` dosyasındaki `SNAPSHOT_FLAGS` dizisine ekleyin ve yeniden oluşturun.
 
-**Token ceiling:** Generated SKILL.md files trip a warning above 160KB (~40K tokens).
-This is a "watch for feature bloat" guardrail, not a hard gate. Modern flagship
-models have 200K-1M context windows, so 40K is 4-20% of window, and prompt caching
-makes the marginal cost of larger skills small. The ceiling exists to catch runaway
-preamble/resolver growth, not to force compression on carefully-tuned big skills
-(`ship`, `plan-ceo-review`, `office-hours` legitimately pack 25-35K tokens of
-behavior). If you blow past 40K, the right fix is usually: (1) look at WHAT grew,
-(2) if one resolver added 10K+ in a single PR, question whether it belongs inline
-or as a reference doc, (3) only compress carefully-tuned prose as a last resort —
-cuts to the coverage audit, review army, or voice directive have real quality cost.
+**Token sınırı:** Oluşturulan SKILL.md dosyaları 160KB (~40K token) üzerinde bir uyarı tetikler.
+Bu "özellik şişirmesine dikkat" koruma rail'idir, sert bir kapı değil. Modern amiral
+modelleri 200K-1M bağlam penceresine sahiptir, bu nedenle 40K pencerenin %4-20'sidir ve prompt önbellekleme
+daha büyük skill'lerin marjinal maliyetini küçük yapar. Sınır, kontrolsüz
+preamble/resolver büyümesini yakalamak için var, özenle ayarlanmış büyük skill'leri
+sıkıştırmaya zorlamak için değil (`ship`, `plan-ceo-review`, `office-hours` meşru olarak
+25-35K token davranış paketler). 40K'yi aşarsanız, doğru düzeltme genellikle şudur:
+(1) NEyin büyüdüğüne bakın, (2) tek bir resolver tek bir PR'da 10K+ eklediyse, bunun
+satır içi mi yoksa referans dokümanı olarak mı yer alması gerektiğini sorgulayın,
+(3) özenle ayarlanmış düzyazıyı sıkıştırmayı ancak son çare olarak yapın; kapsam
+denetimi, inceleme ordusu veya ses yönergesindeki kesimlerin gerçek kalite maliyeti vardır.
 
-**Merge conflicts on SKILL.md files:** NEVER resolve conflicts on generated SKILL.md
-files by accepting either side. Instead: (1) resolve conflicts on the `.tmpl` templates
-and `scripts/gen-skill-docs.ts` (the sources of truth), (2) run `bun run gen:skill-docs`
-to regenerate all SKILL.md files, (3) stage the regenerated files. Accepting one side's
-generated output silently drops the other side's template changes.
+**SKILL.md dosyalarında merge çakışmaları:** Oluşturulan SKILL.md dosyalarındaki çakışmaları
+ASLA herhangi bir tarafı kabul ederek çözün. Bunun yerine: (1) çakışmaları `.tmpl`
+şablonlarında ve `scripts/gen-skill-docs.ts` dosyasında (doğruluk kaynakları) çözün,
+(2) tüm SKILL.md dosyalarını yeniden oluşturmak için `bun run gen:skill-docs` çalıştırın,
+(3) yeniden oluşturulan dosyaları stage edin. Bir tarafın oluşturulan çıktısını kabul etmek,
+diğer tarafın şablon değişikliklerini sessizce düşürür.
 
-## Platform-agnostic design
+## Platformdan bağımsız tasarım
 
-Skills must NEVER hardcode framework-specific commands, file patterns, or directory
-structures. Instead:
+Skill'ler çerçeveye özgü komutları, dosya kalıplarını veya dizin
+yapılarını ASLA sabit kodlamamalıdır. Bunun yerine:
 
-1. **Read CLAUDE.md** for project-specific config (test commands, eval commands, etc.)
-2. **If missing, AskUserQuestion** — let the user tell you or let gstack search the repo
-3. **Persist the answer to CLAUDE.md** so we never have to ask again
+1. **CLAUDE.md dosyasını okuyun**; projeye özgü yapılandırma için (test komutları, eval komutları vb.)
+2. **Eksikse AskUserQuestion** — kullanıcıya bildirin veya gstack'in repoyu aramasına izin verin
+3. **Yanıtı CLAUDE.md dosyasına kalıcı olarak yazın** böylece bir daha sormak zorunda kalmazsınız
 
-This applies to test commands, eval commands, deploy commands, and any other
-project-specific behavior. The project owns its config; gstack reads it.
+Bu, test komutları, eval komutları, deploy komutları ve diğer tüm
+projeye özgü davranışlar için geçerlidir. Proje yapılandırmasının sahibi kendisidir; gstack onu okur.
 
-## Writing SKILL templates
+## SKILL şablonları yazma
 
-SKILL.md.tmpl files are **prompt templates read by Claude**, not bash scripts.
-Each bash code block runs in a separate shell — variables do not persist between blocks.
+SKILL.md.tmpl dosyaları **Claude tarafından okunan prompt şablonlarıdır**, bash script'leri değildir.
+Her bash kod bloğu ayrı bir shell'de çalışır; değişkenler bloklar arasında kalıcı değildir.
 
-Rules:
-- **Use natural language for logic and state.** Don't use shell variables to pass
-  state between code blocks. Instead, tell Claude what to remember and reference
-  it in prose (e.g., "the base branch detected in Step 0").
-- **Don't hardcode branch names.** Detect `main`/`master`/etc dynamically via
-  `gh pr view` or `gh repo view`. Use `{{BASE_BRANCH_DETECT}}` for PR-targeting
-  skills. Use "the base branch" in prose, `<base>` in code block placeholders.
-- **Keep bash blocks self-contained.** Each code block should work independently.
-  If a block needs context from a previous step, restate it in the prose above.
-- **Express conditionals as English.** Instead of nested `if/elif/else` in bash,
-  write numbered decision steps: "1. If X, do Y. 2. Otherwise, do Z."
+Kurallar:
+- **Mantık ve durum için doğal dil kullanın.** Kod blokları arasında durum taşımak için
+  shell değişkenleri kullanmayın. Bunun yerine, Claude'a neyi hatırlaması gerektiğini söyleyin ve
+  düzyazıda referans verin (örn., "0. Adımda algılanan temel branch").
+- **Branch isimlerini sabit kodlamayın.** `main`/`master`/vb.'yi `gh pr view` veya
+  `gh repo view` ile dinamik olarak algılayın. PR hedefleyen skill'ler için
+  `{{BASE_BRANCH_DETECT}}` kullanın. Düzyazıda "temel branch", kod bloğu yer tutucularında `<base>` kullanın.
+- **Bash bloklarını kendi başına yetkin tutun.** Her kod bloğu bağımsız olarak çalışabilmelidir.
+  Bir bloğun önceki bir adımdan bağlama ihtiyacı varsa, bunu yukarıdaki düzyazıda yeniden ifade edin.
+- **Koşulları İngilizce olarak ifade edin.** Bash'te iç içe `if/elif/else` yerine,
+  numaralandırılmış karar adımları yazın: "1. X ise, Y yap. 2. Aksi takdirde, Z yap."
 
-## Writing style (V1)
+## Yazım tarzı (V1)
 
-Default output from every tier-≥2 skill follows the Writing Style section in
-`scripts/resolvers/preamble.ts`: jargon glossed on first use (curated list in
-`scripts/jargon-list.json`, baked at gen-skill-docs time), questions framed in
-outcome terms ("what breaks for your users if...") not implementation terms,
-short sentences, decisions close with user impact. Power users who want the
-tighter V0 prose set `gstack-config set explain_level terse` (binary switch,
-no middle mode). See `docs/designs/PLAN_TUNING_V1.md` for the full design
-rationale. The review pacing overhaul that originally tried to ride alongside
-writing-style was extracted to V1.1 — see `docs/designs/PACING_UPDATES_V0.md`.
+Katman-≥2 her skill'in varsayılan çıktısı `scripts/resolvers/preamble.ts` dosyasındaki
+Yazım Tarzı bölümünü takip eder: ilk kullanımda jargon açıklanır (seçkili liste
+`scripts/jargon-list.json`, gen-skill-docs zamanında gömülür), sorular
+sonuç terimleriyle çerçevelenir ("kullanıcılarınız için ne bozulur..."), uygulama terimleriyle değil,
+kısa cümleler, kararlar kullanıcı etkisine yakın. Daha sıkı V0 düzyazısı isteyen
+güçlü kullanıcılar `gstack-config set explain_level terse` ayarını yapar (ikili anahtar,
+orta mod yok). Tam tasarım gerekçesi için `docs/designs/PLAN_TUNING_V1.md` dosyasına bakın.
+Yazım tarzıyla birlikte gitmeye çalışan inceleme hızlandırma yeniden düzenlemesi
+V1.1'e ayrıldı; `docs/designs/PACING_UPDATES_V0.md` dosyasına bakın.
 
-## Browser interaction
+## Tarayıcı etkileşimi
 
-When you need to interact with a browser (QA, dogfooding, cookie setup), use the
-`/browse` skill or run the browse binary directly via `$B <command>`. NEVER use
-`mcp__claude-in-chrome__*` tools — they are slow, unreliable, and not what this
-project uses.
+Bir tarayıcıyla etkileşim kurmanız gerektiğinde (QA, dogfooding, çerez kurulumu),
+`/browse` skill'ini kullanın veya browse binary'sini doğrudan `$B <komut>` ile çalıştırın.
+ASLA `mcp__claude-in-chrome__*` araçlarını kullanmayın; onlar yavaş, güvenilmez ve
+bu projenin kullandığı şey değil.
 
-**Sidebar architecture:** Before modifying `sidepanel.js`, `background.js`,
-`content.js`, `terminal-agent.ts`, or sidebar-related server endpoints,
-read `docs/designs/SIDEBAR_MESSAGE_FLOW.md`. The sidebar has one primary
-surface — the **Terminal** pane (interactive `claude` PTY) — with
-Activity / Refs / Inspector as debug overlays behind the footer's
-`debug` toggle. The chat queue path was ripped once the PTY proved out;
-`sidebar-agent.ts` and the `/sidebar-command` / `/sidebar-chat` /
-`/sidebar-agent/event` endpoints are gone. The doc covers the WS auth
-flow, dual-token model, and threat-model boundary — silent failures
-here usually trace to not understanding the cross-component flow.
+**Yan panel mimarisi:** `sidepanel.js`, `background.js`,
+`content.js`, `terminal-agent.ts` veya yan panelle ilgili sunucu uç noktalarını
+değiştirmeden önce `docs/designs/SIDEBAR_MESSAGE_FLOW.md` dosyasını okuyun. Yan panelin bir
+birincil yüzeyi vardır: **Terminal** bölmesi (etkileşimli `claude` PTY) ve bunun
+yanında Alıştırmalar / Referanslar / Denetçi, altbilginin `debug` anahtarı arkasında
+hata ayıklama katmanları olarak yer alır. Sohrot kuyruğu yolu, PTY kanıtladıktan sonra
+kaldırıldı; `sidebar-agent.ts` ve `/sidebar-command` / `/sidebar-chat` /
+`/sidebar-agent/event` uç noktaları kaldırılmıştır. Doküman, WS auth
+akışını, çift-token modelini ve tehdit-model sınırını kapsar; sessiz hatalar
+genellikle bileşenler arası akışın anlaşılmamasından kaynaklanır.
 
-**Embedder terminal-agent ownership** (v1.42.1.0+, identity-based kill v1.44.0.0+).
-`buildFetchHandler` in `browse/src/server.ts` accepts `ServerConfig.ownsTerminalAgent?:
-boolean` (default `true`). When `true`, factory shutdown runs the full teardown:
-identity-based kill via `killAgentByRecord(readAgentRecord(stateDir))` from
-`browse/src/terminal-agent-control.ts` plus `safeUnlinkQuiet` on
-`<stateDir>/terminal-port`, `<stateDir>/terminal-internal-token`, and
-`<stateDir>/terminal-agent-pid` (the per-boot agent record introduced in v1.44).
-Embedders (e.g. the gbrowser phoenix overlay) that pre-launch their own PTY
-server must pass `false` so their discovery files survive gstack teardown cycles.
-The flag is the third caller-owned teardown gate in `ServerConfig` (alongside
-`xvfb?` and `proxyBridge?`); polarity is inverted (explicit bool vs presence) and
-documented in the field's JSDoc. CLI `start()` always passes `true` explicitly —
-the static-grep test in `browse/test/server-embedder-terminal-port.test.ts` fails
-CI if a refactor drops it. Pre-v1.44 used `pkill -f terminal-agent\.ts` (regex
-match) which would kill sibling gstack sessions on the same host; the new
-`browse/test/terminal-agent-pid-identity.test.ts` static-grep tripwire fails CI
-if any source file re-introduces `pkill ... terminal-agent` or `spawnSync('pkill', ...)`.
+**Gömücü terminal-agent sahipliği** (v1.42.1.0+, kimlik tabanlı sonlandırma v1.44.0.0+).
+`browse/src/server.ts` dosyasındaki `buildFetchHandler`, `ServerConfig.ownsTerminalAgent?:
+boolean` değerini kabul eder (varsayılan `true`). `true` olduğunda, fabrika kapatılması
+tam sökümü çalıştırır: `browse/src/terminal-agent-control.ts` dosyasından
+`killAgentByRecord(readAgentRecord(stateDir))` ile kimlik tabanlı sonlandırma ve
+`<stateDir>/terminal-port`, `<stateDir>/terminal-internal-token` ve
+`<stateDir>/terminal-agent-pid` üzerinde `safeUnlinkQuiet` (v1.44'de tanıtılan,
+önyükleme başına ajan kaydı). Kendi PTY
+sunucusunu önceden başlatan gömücüler (örn. gbrowser phoenix katmanı), gstack söküm
+döngülerinde kendi keşif dosyalarının hayatta kalması için `false` geçmelidir.
+Bayrak, `ServerConfig` içindeki üçüncü arayan-sahibi söküm kapısıdır
+(`xvfb?` ve `proxyBridge?` yanında); polarite ters çevrilmiştir (varlık yerine açık bool)
+ve alanın JSDoc'unda belgelenmiştir. CLI `start()` her zaman açıkça `true` geçer;
+`browse/test/server-embedder-terminal-port.test.ts` dosyasındaki statik-grep test'i,
+bir yeniden düzenleme bunu düşürürse CI'da başarısız olur. v1.44 öncesi `pkill -f terminal-agent\.ts`
+(regex eşleşmesi) kullanıyordu ve aynı host'taki kardeş gstack oturumlarını öldürebilirdi;
+yeni `browse/test/terminal-agent-pid-identity.test.ts` statik-grep tripwire'ı, herhangi bir
+kaynak dosyası `pkill ... terminal-agent` veya `spawnSync('pkill', ...)` yeniden tanıtırsa
+CI'ı başarısız kılar.
 
-**WebSocket auth uses Sec-WebSocket-Protocol, not cookies.** Browsers
-can't set `Authorization` on a WebSocket upgrade, but they CAN set
-`Sec-WebSocket-Protocol` via `new WebSocket(url, [token])`. The agent
-reads it, validates against `validTokens`, and MUST echo the protocol
-back in the upgrade response — without the echo, Chromium closes the
-connection immediately. `Set-Cookie: gstack_pty=...` is kept as a
-fallback for non-browser callers (the cross-port `SameSite=Strict`
-cookie path doesn't survive from a chrome-extension origin).
+**WebSocket auth çerezleri değil Sec-WebSocket-Protocol kullanır.** Tarayıcılar
+bir WebSocket yükseltmesinde `Authorization` başlığını ayarlayamaz, ancak
+`new WebSocket(url, [token])` ile `Sec-WebSocket-Protocol` ayarlayabilir. Ajan
+bunu okur, `validTokens` ile doğrular ve yükseltme yanıtında protokolü geri
+yansıtmak ZORUNDADIR; yansıtma olmadan Chromium bağlantıyı hemen kapatır.
+`Set-Cookie: gstack_pty=...`, tarayıcı dışı arayanlar için geri dönüş olarak
+tutulur (çapraz-port `SameSite=Strict` çerez yolu, chrome-extension kökeninden
+kurtulamaz).
 
-**Cross-pane PTY injection.** The toolbar's Cleanup button and the
-Inspector's "Send to Code" action both pipe text into the live claude
-PTY via `window.gstackInjectToTerminal(text)`, exposed by
-`sidepanel-terminal.js`. No `/sidebar-command` POST — the live REPL is
-the only execution surface in the sidebar now.
+**Çapraz-bölme PTY enjeksiyonu.** Araç çubuğunun Temizle düğmesi ve
+Denetçi'nin "Koda Gönder" eylemi, her ikisi de `sidepanel-terminal.js` tarafından
+açığa çıkarılan `window.gstackInjectToTerminal(text)` üzerinden canlı claude
+PTY'sine metin gönderir. `/sidebar-command` POST yok; canlı REPL artık
+yan paneldeki tek yürütme yüzeyidir.
 
-**`/health` MUST NOT surface any shell-grant token.** It already leaks
-`AUTH_TOKEN` to localhost callers in headed mode (a v1.1+ TODO). Don't
-make that worse by adding the PTY session token there. PTY auth flows
-through `POST /pty-session` only.
+**`/health` HERHANGİ bir shell-grant token'ını ortaya çıkarmamalıdır.** Başlıklı modda
+zaten `AUTH_TOKEN`'ı localhost arayanlarına sızdırmaktadır (v1.1+ TODO'su). PTY
+oturum token'ını da oraya ekleyerek bunu daha kötüleştirmeyin. PTY auth yalnızca
+`POST /pty-session` üzerinden akar.
 
-**Transport-layer security** (v1.6.0.0+). When `pair-agent` starts an ngrok tunnel,
-the daemon binds two HTTP listeners: a local listener (127.0.0.1, full command
-surface, never forwarded) and a tunnel listener (locked allowlist: `/connect`,
-`/command` with a scoped token + 26-command browser-driving allowlist,
-`/sidebar-chat`). ngrok forwards only the tunnel port. Root tokens over the tunnel
-return 403. SSE endpoints use a 30-minute HttpOnly `gstack_sse` cookie minted via
-`POST /sse-session` (never valid against `/command`). Tunnel-surface rejections go
-to `~/.gstack/security/attempts.jsonl` via `tunnel-denial-log.ts`. Before editing
-`server.ts`, `sse-session-cookie.ts`, or `tunnel-denial-log.ts`, read
-[ARCHITECTURE.md](ARCHITECTURE.md#dual-listener-tunnel-architecture-v1600) —
-the module boundary (no imports from `token-registry.ts` into `sse-session-cookie.ts`)
-is load-bearing for scope isolation.
+**Aktarım katmanı güvenliği** (v1.6.0.0+). `pair-agent` bir ngrok tüneli başlattığında,
+daemon iki HTTP dinleyici bağlar: yerel dinleyici (127.0.0.1, tam komut
+yüzeyi, asla yönlendirilmez) ve tünel dinleyicisi (kilitli izin listesi: `/connect`,
+kapsamlı token + 26 komutluk tarayıcı-sürme izin listesi ile `/command`,
+`/sidebar-chat`). ngrok yalnızca tünel portunu yönlendirir. Tünel üzerinden root token'lar
+403 döndürür. SSE uç noktaları `POST /sse-session` üzerinden basılan 30 dakikalık HttpOnly
+`gstack_sse` çerezi kullanır (`/command` için asla geçerli değildir). Tünel yüzeyi
+reddetmeleri `tunnel-denial-log.ts` üzerinden `~/.gstack/security/attempts.jsonl`
+dosyasına gider. `server.ts`, `sse-session-cookie.ts` veya `tunnel-denial-log.ts`
+dosyalarını düzenlemeden önce [ARCHITECTURE.md](ARCHITECTURE.md#dual-listener-tunnel-architecture-v1600)
+okuyun; modül sınırı (`token-registry.ts`'den `sse-session-cookie.ts`'e içe aktarma yok)
+kapsam izolasyonu için yapısal öneme sahiptir.
 
-**Unicode sanitization at server egress** (v1.38.0.0+). Every server egress that
-ships page-content-derived strings MUST go through `JSON.stringify(payload,
-sanitizeReplacer)` for object payloads or `sanitizeLoneSurrogates(body)` for text
-bodies. Lone UTF-16 surrogate halves from CDP page content otherwise reach the
-Anthropic API as `\uD800`-style escapes and trigger a 400. Wired at four egress
-points today: `handleCommandInternal` (HTTP + batch via a sanitizing wrapper around
-`handleCommandInternalImpl`) and both SSE producers (`/activity/stream`,
-`/inspector/events`). Post-stringify regex is a no-op — `JSON.stringify` has
-already escaped the surrogate before regex could match, so the replacer must run
-inside the encoding pipeline. Before adding a new SSE/WebSocket writer or HTTP
-response in `server.ts`, read
-[ARCHITECTURE.md](ARCHITECTURE.md#unicode-sanitization-at-server-egress-v13800).
-`browse/test/server-sanitize-surrogates.test.ts` pins the wiring with invariant
-tests, so bypasses fail CI.
+**Sunucu çıkışında Unicode arıtma** (v1.38.0.0+). Sayfa içeriğinden türetilen dizeleri
+gönderen her sunucu çıkışı, nesne yükleri için `JSON.stringify(payload,
+sanitizeReplacer)` veya metin gövdeleri için `sanitizeLoneSurrogates(body)` üzerinden
+geçmek ZORUNDADIR. Aksi takdirde CDP sayfa içeriğindeki yalın UTF-16 vekil yarımları
+Anthropic API'ye `\uD800` tarzı kaçışlar olarak ulaşır ve 400 hatası tetikler. Bugün
+dört çıkış noktasına bağlanmıştır: `handleCommandInternal` (HTTP + sanitize sarmalayıcısı
+üzerinden batch, `handleCommandInternalImpl` etrafında) ve her iki SSE üreticisi
+(`/activity/stream`, `/inspector/events`). Stringify sonrası regex hiçbir şey yapmaz;
+`JSON.stringify` vekili regex eşleştirmeden önce kaçırılmıştır, bu nedenle replacer
+kodlama pipeline'ı içinde çalışmak zorundadır. `server.ts` dosyasında yeni bir
+SSE/WebSocket yazıcı veya HTTP yanıt eklemeden önce
+[ARCHITECTURE.md](ARCHITECTURE.md#unicode-sanitization-at-server-egress-v13800)
+okuyun. `browse/test/server-sanitize-surrogates.test.ts` değişmez testlerle
+bağlantıyı sabitler, bu nedenle baypaslar CI'ı başarısız kılar.
 
-**Setup symlink hardening** (v1.38.0.0+). Every link site in `setup` MUST route
-through the `_link_or_copy SRC DST` helper near the `IS_WINDOWS` detection. On
-Windows without Developer Mode, plain `ln -snf` produces frozen file copies that
-don't refresh on `git pull` — silent staleness across every host adapter. The
-helper preserves `ln -snf` on Unix and switches to `cp -R` / `cp -f` on Windows.
-`test/setup-windows-fallback.test.ts` enforces a static invariant: a single raw
-`ln` call outside the helper body fails CI. Windows users get a one-line note
-from `_print_windows_copy_note_once` reminding them to re-run `./setup` after
-every `git pull`.
+**Kurulum symlink sağlamlaştırma** (v1.38.0.0+). `setup` içindeki her bağlantı yeri,
+`IS_WINDOWS` algılamasının yanındaki `_link_or_copy SRC DST` yardımcısı üzerinden
+yönlendirilmek ZORUNDADIR. Geliştirici Modu olmayan Windows'ta, düz `ln -snf`
+donmuş dosya kopyaları üretir ve `git pull` sonrası yenilenmez; bu her host
+bağdaştırıcısında sessiz eskime anlamına gelir. Yardımcı Unix'te `ln -snf`'i korur
+ve Windows'ta `cp -R` / `cp -f`'e geçer. `test/setup-windows-fallback.test.ts`
+statik bir değişmez uygular: yardımcı gövdesi dışında tek bir ham `ln` çağrısı
+CI'ı başarısız kılar. Windows kullanıcıları her `git pull` sonrası `./setup`'ı
+yeniden çalıştırmayı hatırlatan `_print_windows_copy_note_once`'tan bir satırlık not alır.
 
-**Sidebar security stack** (layered defense against prompt injection):
+**Yan panel güvenlik yığını** (prompt enjeksiyonuna karşı katmanlı savunma):
 
-| Layer | Module | Lives in |
+| Katman | Modül | Yaşadığı yer |
 |-------|--------|----------|
-| L1-L3 | `content-security.ts` | both server and agent — datamarking, hidden element strip, ARIA regex, URL blocklist, envelope wrapping |
-| L4 | `security-classifier.ts` (TestSavantAI ONNX) | **sidebar-agent only** |
-| L4b | `security-classifier.ts` (Claude Haiku transcript) | **sidebar-agent only** |
-| L5 | `security.ts` (canary) | both — inject in compiled, check in agent |
-| L6 | `security.ts` (combineVerdict ensemble) | both |
+| L1-L3 | `content-security.ts` | hem sunucu hem ajan — veri işaretleme, gizli öğe çıkarma, ARIA regex, URL engelleme listesi, zarf sarmalama |
+| L4 | `security-classifier.ts` (TestSavantAI ONNX) | **yalnızca sidebar-agent** |
+| L4b | `security-classifier.ts` (Claude Haiku transkript) | **yalnızca sidebar-agent** |
+| L5 | `security.ts` (canary) | her ikisi — derlenmiş içine enjekte, ajanda kontrol |
+| L6 | `security.ts` (combineVerdict topluluk) | her ikisi |
 
-**Critical constraint:** `security-classifier.ts` CANNOT be imported from the
-compiled browse binary. `@huggingface/transformers` v4 requires `onnxruntime-node`
-which fails to `dlopen` from Bun compile's temp extract dir. Only `security.ts`
-(pure-string operations — canary, verdict combiner, attack log, status) is safe
-for `server.ts`. See `~/.gstack/projects/garrytan-gstack/ceo-plans/2026-04-19-prompt-injection-guard.md`
-§"Pre-Impl Gate 1 Outcome" for full architectural decision.
+**Kritik kısıtlama:** `security-classifier.ts` derlenmiş browse binary'sinden içe aktarılamaz.
+`@huggingface/transformers` v4, `onnxruntime-node` gerektirir ve bu da
+Bun compile'ın geçici çıkarma dizininden `dlopen` yapamaz. Yalnızca `security.ts`
+(saf dize işlemleri — canary, karar birleştirici, saldırı günlüğü, durum) `server.ts`
+için güvenlidir. Tam mimari karar için `~/.gstack/projects/garrytan-gstack/ceo-plans/2026-04-19-prompt-injection-guard.md`
+§"Pre-Impl Gate 1 Outcome" bölümüne bakın.
 
-**Thresholds** (in `security.ts`):
-- `BLOCK: 0.85` — single-layer score that would cause BLOCK if cross-confirmed
-- `WARN: 0.75` — cross-confirm threshold. When L4 AND L4b both >= 0.75 → BLOCK
-- `LOG_ONLY: 0.40` — gates transcript classifier (skip Haiku when all layers < 0.40)
-- `SOLO_CONTENT_BLOCK: 0.92` — single-layer threshold for label-less content classifiers
-  (testsavant, deberta). Intentionally higher than `BLOCK` because these layers can't
-  distinguish "this is an injection" from "this looks like phishing aimed at the user."
-  The transcript classifier keeps a separate, label-gated solo path at `BLOCK` (0.85).
+**Eşikler** (`security.ts` içinde):
+- `BLOCK: 0.85` — çapraz doğrulanırsa BLOCK'a neden olacak tek katmanlı skor
+- `WARN: 0.75` — çapraz doğrulama eşiği. L4 VE L4b her ikisi >= 0.75 olduğunda → BLOCK
+- `LOG_ONLY: 0.40` — transkript sınıflandırıcısını geçitler (tüm katmanlar < 0.40 olduğunda Haiku'yu atla)
+- `SOLO_CONTENT_BLOCK: 0.92` — etiketsiz içerik sınıflandırıcıları için tek katmanlı eşik
+  (testsavant, deberta). Kasıtlı olarak `BLOCK`'tan yüksektir çünkü bu katmanlar "bu bir
+  enjeksiyon" ile "bu kullanıcıya yönelik oltalama gibi görünüyor" arasındaki farkı
+  ayırt edemez. Transkript sınıflandırıcısı `BLOCK` (0.85) eşiğinde ayrı, etiket-geçitli
+  tek başına yol tutar.
 
-**Ensemble rule:** BLOCK only when the ML content classifier AND the transcript
-classifier both report >= WARN. Single-layer high confidence degrades to WARN —
-this is the Stack Overflow instruction-writing FP mitigation. Canary leak
-always BLOCKs (deterministic).
+**Topluluk kuralı:** BLOCK yalnızca ML içerik sınıflandırıcısı VE transkript
+sınıflandırıcısının her ikisi >= WARN bildirmesi durumunda gerçekleşir. Tek katmanlı
+yüksek güven WARN'e düşürülür; bu, Stack Overflow talimat-yazma FP azaltma önlemidir.
+Canary sızıntısı her zaman BLOCK'lar (deterministik).
 
-**Env knobs:**
-- `GSTACK_SECURITY_OFF=1` — emergency kill switch. Classifier stays off even if
-  warmed. Canary is still injected; just the ML scan is skipped.
-- `GSTACK_SECURITY_ENSEMBLE=deberta` — opt-in DeBERTa-v3 ensemble. Adds
-  ProtectAI DeBERTa-v3-base-injection-onnx as L4c classifier for cross-model
-  agreement. 721MB first-run download. With ensemble enabled, BLOCK requires
-  2-of-3 ML classifiers agreeing at >= WARN (testsavant, deberta, transcript).
-  Without ensemble (default), BLOCK requires testsavant + transcript at >= WARN.
-- Classifier model cache: `~/.gstack/models/testsavant-small/` (112MB, first run only)
-  plus `~/.gstack/models/deberta-v3-injection/` (721MB, only when ensemble enabled)
-- Attack log: `~/.gstack/security/attempts.jsonl` (salted sha256 + domain only,
-  rotates at 10MB, 5 generations)
-- Per-device salt: `~/.gstack/security/device-salt` (0600)
-- Session state: `~/.gstack/security/session-state.json` (cross-process, atomic)
+**Ortam değişkeni anahtarları:**
+- `GSTACK_SECURITY_OFF=1` — acil kapatma anahtarı. Sınıflandırıcı ısınmış olsa bile kapalı kalır.
+  Canary hala enjekte edilir; yalnızca ML taraması atlanır.
+- `GSTACK_SECURITY_ENSEMBLE=deberta` — katılımci DeBERTa-v3 topluluğu. L4c sınıflandırıcı olarak
+  ProtectAI DeBERTa-v3-base-injection-onnx ekler ve çapraz-model anlaşması sağlar.
+  İlk çalıştırmada 721MB indirme. Topluluk etkinken, BLOCK için 2/3 ML sınıflandırıcının
+  >= WARN'de anlaşması gerekir (testsavant, deberta, transkript). Topluluk olmadan
+  (varsayılan), BLOCK için testsavant + transkript'in >= WARN'de olması gerekir.
+- Sınıflandırıcı model önbelleği: `~/.gstack/models/testsavant-small/` (112MB, yalnızca ilk çalıştırma)
+  artı `~/.gstack/models/deberta-v3-injection/` (721MB, yalnızca topluluk etkinken)
+- Saldırı günlüğü: `~/.gstack/security/attempts.jsonl` (tuzlanmış sha256 + yalnızca alan adı,
+  10MB'da döndürülür, 5 nesil)
+- Cihaz başına tuz: `~/.gstack/security/device-salt` (0600)
+- Oturum durumu: `~/.gstack/security/session-state.json` (çapraz-süreç, atomik)
 
-## Dev symlink awareness
+## Geliştirme symlink farkındalığı
 
-When developing gstack, `.claude/skills/gstack` may be a symlink back to this
-working directory (gitignored). This means skill changes are **live immediately**,
-great for rapid iteration, risky during big refactors where half-written skills
-could break other Claude Code sessions using gstack concurrently.
+gstack geliştirilirken, `.claude/skills/gstack` bu çalışma dizinine geri
+symlink olabilir (gitignore edilmiş). Bu, skill değişikliklerinin **anında canlı**
+olduğu anlamına gelir; hızlı yineleme için harika, ancak yarı yazılmış skill'lerin
+eşzamanlı olarak gstack kullanan diğer Claude Code oturumlarını bozabileceği
+büyük yeniden düzenlemeler sırasında risklidir.
 
-**Check once per session:** Run `ls -la .claude/skills/gstack` to see if it's a
-symlink or a real copy. If it's a symlink to your working directory, be aware that:
-- Template changes + `bun run gen:skill-docs` immediately affect all gstack invocations
-- Breaking changes to SKILL.md.tmpl files can break concurrent gstack sessions
-- During large refactors, remove the symlink (`rm .claude/skills/gstack`) so the
-  global install at `~/.claude/skills/gstack/` is used instead
+**Oturum başına bir kez kontrol edin:** Symlink mi yoksa gerçek kopya mı görmek için
+`ls -la .claude/skills/gstack` komutunu çalıştırın. Çalışma dizininize bir symlink ise,
+şunların farkında olun:
+- Şablon değişiklikleri + `bun run gen:skill-docs` tüm gstack çağrılarını anında etkiler
+- SKILL.md.tmpl dosyalarındaki bozucu değişiklikler eşzamanlı gstack oturumlarını bozabilir
+- Büyük yeniden düzenlemeler sırasında, global kurulumun `~/.claude/skills/gstack/`
+  kullanılması için symlink'i kaldırın (`rm .claude/skills/gstack`)
 
-**Prefix setting:** Setup creates real directories (not symlinks) at the top level
-with a SKILL.md symlink inside (e.g., `qa/SKILL.md -> gstack/qa/SKILL.md`). This
-ensures Claude discovers them as top-level skills, not nested under `gstack/`.
-Names are either short (`qa`) or namespaced (`gstack-qa`), controlled by
-`skill_prefix` in `~/.gstack/config.yaml`. Pass `--no-prefix` or `--prefix` to
-skip the interactive prompt.
+**Önek ayarı:** Kurulum, üst düzeyde (gstack/ altında değil) içinde bir SKILL.md
+symlink'i olan gerçek dizinler (symlink'ler değil) oluşturur (örn., `qa/SKILL.md -> gstack/qa/SKILL.md`).
+Bu, Claude'un bunları gstack/ altında iç içe değil, üst düzey skill'ler olarak keşfetmesini sağlar.
+İsimler ya kısadır (`qa`) ya da ad alanlıdır (`gstack-qa`), `~/.gstack/config.yaml`
+dosyasındaki `skill_prefix` tarafından kontrol edilir. İnteraktif istemi atlamak için
+`--no-prefix` veya `--prefix` geçirin.
 
-**Note:** Vendoring gstack into a project's repo is deprecated. Use global install
-+ `./setup --team` instead. See README.md for team mode instructions.
+**Not:** gstack'i bir projenin reposuna vendor olarak eklemek kullanım dışıdır. Bunun yerine
+global kurulum + `./setup --team` kullanın. Takım modu talimatları için README.md dosyasına bakın.
 
-**For plan reviews:** When reviewing plans that modify skill templates or the
-gen-skill-docs pipeline, consider whether the changes should be tested in isolation
-before going live (especially if the user is actively using gstack in other windows).
+**Plan incelemeleri için:** Skill şablonlarını veya gen-skill-docs pipeline'ını
+değiştiren planları incelerken, değişikliklerin canlıya çıkmadan önce izole olarak
+test edilmesi gerekip gerekmediğini düşünün (özellikle kullanıcı gstack'i diğer
+pencerelerde aktif olarak kullanıyorsa).
 
-**Upgrade migrations:** When a change modifies on-disk state (directory structure,
-config format, stale files) in ways that could break existing user installs, add a
-migration script to `gstack-upgrade/migrations/`. Read CONTRIBUTING.md's "Upgrade
-migrations" section for the format and testing requirements. The upgrade skill runs
-these automatically after `./setup` during `/gstack-upgrade`.
+**Yükseltme geçişleri:** Bir değişiklik disk üzerindeki durumu (dizin yapısı,
+yapılandırma formatı, eski dosyalar) mevcut kullanıcı kurulumlarını bozabilecek
+şekilde değiştirdiğinde, `gstack-upgrade/migrations/` dizinine bir geçiş script'i ekleyin.
+Format ve test gereksinimleri için CONTRIBUTING.md'nin "Upgrade migrations" bölümünü okuyun.
+Yükseltme skill'i bunları `/gstack-upgrade` sırasında `./setup`'tan sonra otomatik olarak çalıştırır.
 
-## Compiled binaries — NEVER commit browse/dist/ or design/dist/
+## Derlenmiş binary'ler — browse/dist/ veya design/dist/ ASLA commit etmeyin
 
-The `browse/dist/` and `design/dist/` directories contain compiled Bun binaries
-(`browse`, `find-browse`, `design`, ~58MB each). These are Mach-O arm64 only — they
-do NOT work on Linux, Windows, or Intel Macs. The `./setup` script already builds
-from source for every platform, so the checked-in binaries are redundant. They are
-tracked by git due to a historical mistake and should eventually be removed with
-`git rm --cached`.
+`browse/dist/` ve `design/dist/` dizinleri derlenmiş Bun binary'leri içerir
+(`browse`, `find-browse`, `design`, her biri ~58MB). Bunlar yalnızca Mach-O arm64'tür;
+Linux, Windows veya Intel Mac'lerde çalışmazlar. `./setup` script'i zaten her
+platform için kaynaktan oluşturur, bu nedenle izlenen binary'ler gereksizdir. Bunlar
+geçmiş bir hata nedeniyle git tarafından izlenmektedir ve sonunda `git rm --cached`
+ile kaldırılmalıdır.
 
-**NEVER stage or commit these files.** They show up as modified in `git status`
-because they're tracked despite `.gitignore` — ignore them. When staging files,
-always use specific filenames (`git add file1 file2`) — never `git add .` or
-`git add -A`, which will accidentally include the binaries.
+**Bu dosyaları ASLA stage etmeyin veya commit etmeyin.** `.gitignore` olmalarına rağmen
+izlendikleri için `git status`'ta değiştirilmiş olarak görünürler; onları yok sayın.
+Dosyaları stage ederken, her zaman belirli dosya adları kullanın (`git add dosya1 dosya2`);
+asla `git add .` veya `git add -A` kullanmayın, çünkü bu binary'leri yanlışlıkla dahil eder.
 
-## Commit style
+## Commit tarzı
 
-**Always bisect commits.** Every commit should be a single logical change. When
-you've made multiple changes (e.g., a rename + a rewrite + new tests), split them
-into separate commits before pushing. Each commit should be independently
-understandable and revertable.
+**Her zaman bisect commit yapın.** Her commit tek bir mantıksal değişiklik olmalıdır.
+Birden fazla değişiklik yaptığınızda (örn., bir yeniden adlandırma + yeniden yazma + yeni testler),
+push etmeden önce bunları ayrı commit'lara bölün. Her commit bağımsız olarak anlaşılabilir
+ve geri alınabilir olmalıdır.
 
-Examples of good bisection:
-- Rename/move separate from behavior changes
-- Test infrastructure (touchfiles, helpers) separate from test implementations
-- Template changes separate from generated file regeneration
-- Mechanical refactors separate from new features
+İyi bisect örnekleri:
+- Yeniden adlandırma/taşıma, davranış değişikliklerinden ayrı
+- Test altyapısı (touchfiles, yardımcılar), test uygulamalarından ayrı
+- Şablon değişiklikleri, oluşturulan dosyaların yeniden oluşturulmasından ayrı
+- Mekanik yeniden düzenlemeler, yeni özelliklerden ayrı
 
-When the user says "bisect commit" or "bisect and push," split staged/unstaged
-changes into logical commits and push.
+Kullanıcı "bisect commit" veya "bisect and push" dediğinde, stage edilmiş/stage
+edilmemiş değişiklikleri mantıksal commit'lara bölün ve push edin.
 
-## Slop-scan: AI code quality, not AI code hiding
+## Slop-scan: AI kod kalitesi, AI kod gizleme değil
 
-We use [slop-scan](https://github.com/benvinegar/slop-scan) to catch patterns where
-AI-generated code is genuinely worse than what a human would write. We are NOT trying
-to pass as human code. We are AI-coded and proud of it. The goal is code quality.
+AI tarafından üretilen kodun insanın yazacağından gerçekten daha kötü olduğu
+kalıpları yakalamak için [slop-scan](https://github.com/benvinegar/slop-scan) kullanıyoruz.
+İnsan kodu gibi geçmeye ÇALIŞMIYORUZ. AI ile kodladığımız ve bununla gurur duyuyoruz.
+Amaç kod kalitesidir.
 
 ```bash
-npx slop-scan scan .          # human-readable report
-npx slop-scan scan . --json   # machine-readable for diffing
+npx slop-scan scan .          # insan tarafından okunabilir rapor
+npx slop-scan scan . --json   # makine tarafından okunabilir, diff için
 ```
 
-Config: `slop-scan.config.json` at repo root (currently excludes `**/vendor/**`).
+Yapılandırma: Repo kökündeki `slop-scan.config.json` (şu anda `**/vendor/**` hariç tutuyor).
 
-### What to fix (genuine quality improvements)
+### Düzelenecekler (gerçek kalite iyileştirmeleri)
 
-- **Empty catches around file ops** — use `safeUnlink()` (ignores ENOENT, rethrows
-  EPERM/EIO). A swallowed EPERM in cleanup means silent data loss.
-- **Empty catches around process kills** — use `safeKill()` (ignores ESRCH, rethrows
-  EPERM). A swallowed EPERM means you think you killed something you didn't.
-- **Redundant `return await`** — remove when there's no enclosing try block. Saves a
-  microtask, signals intent.
-- **Typed exception catches** — `catch (err) { if (!(err instanceof TypeError)) throw err }`
-  is genuinely better than `catch {}` when the try block does URL parsing or DOM work.
-  You know what error you expect, so say so.
+- **Dosya işlemleri etrafında boş catch'ler** — `safeUnlink()` kullanın (ENOENT'yi yok sayar, EPERM/EIO'yu yeniden fırlatır). Temizlikte yutulan bir EPERM sessiz veri kaybı anlamına gelir.
+- **Süreç sonlandırmaları etrafında boş catch'ler** — `safeKill()` kullanın (ESRCH'yi yok sayar, EPERM'yi yeniden fırlatır). Yutulan bir EPERM, bir şeyi öldürdüğünüzü sandığınız ama öldüremediğiniz anlamına gelir.
+- **Gereksiz `return await`** — sarmalayan try bloğu yoksa kaldırın. Bir microtask tasarruf eder, niyeti belirtir.
+- **Tiplenmiş istisna yakalamaları** — `catch (err) { if (!(err instanceof TypeError)) throw err }`,
+  try bloğu URL ayrıştırma veya DOM işlemi yaptığında `catch {}`'ten gerçekten daha iyidir.
+  Hangi hatayı beklediğinizi biliyorsunuz, o halde söyleyin.
 
-### What NOT to fix (linter gaming, not quality)
+### Düzeltilmeyecekler (linter oyunu, kalite değil)
 
-- **String-matching on error messages** — `err.message.includes('closed')` is brittle.
-  Playwright/Chrome can change wording anytime. If a fire-and-forget operation can fail
-  for ANY reason and you don't care, `catch {}` is the correct pattern.
-- **Adding comments to exempt pass-through wrappers** — "alias for active session" above
-  a method just to trip slop-scan's exemption rule is noise, not documentation.
-- **Converting extension catch-and-log to selective rethrow** — Chrome extensions crash
-  entirely on uncaught errors. If the catch logs and continues, that IS the right pattern
-  for extension code. Don't make it throw.
-- **Tightening best-effort cleanup paths** — shutdown, emergency cleanup, and disconnect
-  code should use `safeUnlinkQuiet()` (swallows ALL errors). A cleanup path that throws
-  on EPERM means the rest of cleanup doesn't run. That's worse.
+- **Hata mesajlarında dize eşleştirme** — `err.message.includes('closed')` kırılgandır.
+  Playwright/Chrome her zaman ifadeleri değiştirebilir. Bir fire-and-forget işlemi HERHANGİ bir
+  nedenle başarısız olabiliyorsa ve umursamıyorsanız, `catch {}` doğru kalıptır.
+- **Geçiş sarmalayıcılarını muaf tutmak için yorum eklemek** — slop-scan'in muafiyet kuralını
+  tetiklemek için bir metodun üstündeki "alias for active session" yorumu, dokümantasyon değil
+  gürültüdür.
+- **Uzantı catch-and-log'u seçici yeniden fırlatmaya dönüştürmek** — Chrome uzantıları
+  yakalanmamış hatalarda tamamen çöker. Catch logluyor ve devam ediyorsa, bu uzantı kodu
+  için DOĞRU kalıptır. Throw yaptırmayın.
+- **En iyi çaba temizlik yollarını sıkılaştırmak** — kapatma, acil durum temizliği ve bağlantı kesme
+  kodu `safeUnlinkQuiet()` kullanmalıdır (TÜM hataları yutar). EPERM'de throw yapan bir
+  temizlik yolu, geri kalan temizliğin çalışmaması anlamına gelir. Bu daha kötüdür.
 
-### Utilities in `browse/src/error-handling.ts`
+### `browse/src/error-handling.ts` içindeki yardımcılar
 
-| Function | Use when | Behavior |
+| İşlev | Kullanım durumu | Davranış |
 |----------|----------|----------|
-| `safeUnlink(path)` | Normal file deletion | Ignores ENOENT, rethrows others |
-| `safeUnlinkQuiet(path)` | Shutdown/emergency cleanup | Swallows all errors |
-| `safeKill(pid, signal)` | Sending signals | Ignores ESRCH, rethrows others |
-| `isProcessAlive(pid)` | Boolean process checks | Returns true/false, never throws |
+| `safeUnlink(path)` | Normal dosya silme | ENOENT'yi yok sayar, diğerlerini yeniden fırlatır |
+| `safeUnlinkQuiet(path)` | Kapatma/acil durum temizliği | Tüm hataları yutar |
+| `safeKill(pid, signal)` | Sinyal gönderme | ESRCH'yi yok sayar, diğerlerini yeniden fırlatır |
+| `isProcessAlive(pid)` | Boolean süreç kontrolleri | true/false döndürür, asla throw yapmaz |
 
-### Score tracking
+### Skor takibi
 
-Baseline (2026-04-09, before cleanup): 100 findings, 432.8 score, 2.38 score/file.
-After cleanup: 90 findings, 358.1 score, 1.96 score/file.
+Başlangıç (2026-04-09, temizlik öncesi): 100 bulgu, 432.8 skor, 2.38 skor/dosya.
+Temizlik sonrası: 90 bulgu, 358.1 skor, 1.96 skor/dosya.
 
-Don't chase the number. Fix patterns that represent actual code quality problems.
-Accept findings where the "sloppy" pattern is the correct engineering choice.
+Sayının peşine düşmeyin. Gerçek kod kalitesi sorunlarını temsil eden kalıpları düzeltin.
+"Dağınık" kalıbın doğru mühendislik tercihi olduğu bulguları kabul edin.
 
-## Community PR guardrails
+## Topluluk PR koruma rayları
 
-When reviewing or merging community PRs, **always AskUserQuestion** before accepting
-any commit that:
+Topluluk PR'larını incelerken veya birleştirirken, şu commit'leri kabul etmeden önce
+**her zaman AskUserQuestion** yapın:
 
-1. **Touches ETHOS.md** — this file is Garry's personal builder philosophy. No edits
-   from external contributors or AI agents, period.
-2. **Removes or softens promotional material** — YC references, founder perspective,
-   and product voice are intentional. PRs that frame these as "unnecessary" or
-   "too promotional" must be rejected.
-3. **Changes Garry's voice** — the tone, humor, directness, and perspective in skill
-   templates, CHANGELOG, and docs are not generic. PRs that rewrite voice to be
-   more "neutral" or "professional" must be rejected.
+1. **ETHOS.md'ye dokunuyor** — bu dosya Garry'nin kişisel yapıcı felsefesidir. Dış katkıda
+   bulananlardan veya AI ajanlarından düzenleme yok, istisnasız.
+2. **Promosyon materyallerini kaldırıyor veya yumuşatıyor** — YC referansları, kurucu perspektifi
+   ve ürün sesi kasıtlıdır. Bunları "gereksiz" veya "çok promosyonel" olarak çerçeveleyen
+   PR'lar reddedilmelidir.
+3. **Garry'nin sesini değiştiriyor** — skill şablonlarındaki, CHANGELOG'daki ve dokümanlardaki
+   ton, mizah, doğrudanlık ve perspektif genel değildir. Sesi daha "tarafsız" veya "profesyonel"
+   olacak şekilde yeniden yazan PR'lar reddedilmelidir.
 
-Even if the agent strongly believes a change improves the project, these three
-categories require explicit user approval via AskUserQuestion. No exceptions.
-No auto-merging. No "I'll just clean this up."
+Ajan bir değişikliğin projeyi iyileştirdiğine güçlü bir şekilde inansa bile, bu üç kategori
+AskUserQuestion aracılığıyla açık kullanıcı onayı gerektirir. İstisna yok.
+Otomatik birleştirme yok. "Bunu ben hallederim" yok.
 
-## Checking out PRs from garrytan-agents
+## garrytan-agents'ten PR'ları kontrol etme
 
-When the user says "check out <PR link>" and the PR is from `garrytan-agents/gstack`
-(or any other fork that is NOT a collaborator on `garrytan/gstack`), do NOT just
-`gh pr checkout`. Fork PRs don't receive base-repo secrets (`ANTHROPIC_API_KEY`,
-`OPENAI_API_KEY`, etc.), so the eval/E2E CI jobs fail with empty-env auth errors
-regardless of what's set on the base repo.
+Kullanıcı "check out <PR bağlantısı>" dediğinde ve PR `garrytan-agents/gstack`'ten
+(veya `garrytan/gstack` üzerinde işbirlikçi olmayan başka bir fork'tan) geliyorsa, sadece
+`gh pr checkout` yapmayın. Fork PR'leri temel repo sırlarını (`ANTHROPIC_API_KEY`,
+`OPENAI_API_KEY` vb.) alamaz, bu nedenle eval/E2E CI işleri temel repoda ne ayarlanmış
+olursa olsun boş-ortam auth hatalarıyla başarısız olur.
 
-**Workflow:** push the branch to `garrytan/gstack` (the base repo) and re-target
-the PR from there.
+**İş akışı:** Branch'ı `garrytan/gstack`'e (temel repo) push edin ve PR'ı oradan yeniden hedefleyin.
 
-Concretely, after `gh pr checkout <N>`:
+Somut olarak, `gh pr checkout <N>` komutundan sonra:
 
-1. Note the original PR number and head branch name.
-2. Push the same branch to the base repo: `git push origin HEAD:<branch-name>`
-   (origin = `garrytan/gstack`, since the worktree is set up with that remote).
-3. Close the fork PR (`gh pr close <N> --comment "moving to base-repo branch for secret access"`).
-4. Open a new PR from the base-repo branch: `gh pr create --base main --head <branch-name>`.
-5. New PR's workflows will get secrets automatically.
+1. Orijinal PR numarasını ve head branch adını not edin.
+2. Aynı branch'ı temel repoya push edin: `git push origin HEAD:<branch-adı>`
+   (origin = `garrytan/gstack`, worktree bu remote ile kurulduğu için).
+3. Fork PR'ı kapatın (`gh pr close <N> --comment "moving to base-repo branch for secret access"`).
+4. Temel repo branch'ından yeni bir PR açın: `gh pr create --base main --head <branch-adı>`.
+5. Yeni PR'nin iş akışları sırları otomatik olarak alacaktır.
 
-Why not fix it on the fork side? `garrytan-agents` isn't a collaborator on
-`garrytan/gstack`. Adding it as a collaborator (option A) or flipping the
-repo-wide "send secrets to fork PRs" toggle (option B) would let secrets reach
-fork PRs from anyone — broader blast radius than just moving this one branch.
-Option C (this section) keeps secret-distribution scope tight.
+Neden fork tarafında düzeltmeyesiniz? `garrytan-agents`, `garrytan/gstack` üzerinde
+işbirlikçi değil. İşbirlikçi olarak eklemek (seçenek A) veya repo genelinde "sırları
+fork PR'lerine gönder" anahtarını çevirmek (seçenek B), sırların herhangi birinin
+fork PR'lerine ulaşmasını sağlar; bu, sadece bu bir branch'ı taşımaktan daha geniş
+etki alanıdır. Seçenek C (bu bölüm) gizli dağıtım kapsamını sıkı tutar.
 
-If the user asks you to skip the move (e.g., "just leave it as a fork PR"),
-respect that — eval CI will fail with empty-env auth, but check-freshness,
-workflow-lint, and windows-tests will still pass on the fork PR.
+Kullanıcı taşımayı atlamayı istiyorsa (örn., "fork PR olarak bırak"), buna
+saygı gösterin; eval CI boş-ortam auth ile başarısız olur, ancak check-freshness,
+workflow-lint ve windows-tests fork PR'ında hala geçecektir.
 
-## CHANGELOG + VERSION style
+## CHANGELOG + VERSION tarzı
 
-**Versioning invariant (workspace-aware ship).** VERSION is a monotonic ordered
-release identifier, not a strict semver commitment. The bump level
-(major/minor/patch/micro) expresses intent at ship time. Queue-advancing past a
-claimed version within the same bump level is explicitly permitted — if branch A
-claims v1.7.0.0 as a MINOR and branch B is also a MINOR, B lands at v1.8.0.0
-(still a MINOR relative to main). Downstream consumers must NOT rely on
-"MINOR = feature-only, PATCH = fix-only" as a strict contract. This is why
-`bin/gstack-next-version` advances within the chosen bump level rather than
-repicking the level when collisions happen.
+**Sürümleme değişmezi (workspace-farkında ship).** VERSION monotonik sıralı bir
+yayın tanımlayıcısdır, katı bir semver taahhüdü değil. Yükseltme seviyesi
+(major/minor/patch/micro), ship zamanındaki niyeti ifade eder. Aynı yükseltme
+seviyesi içinde önceden talep edilmiş bir sürümü sıraya ilerletmek açıkça izinlidir;
+A branch v1.7.0.0'ı MINOR olarak talep ederse ve B branch da MINOR ise, B v1.8.0.0'da
+ulaşır (hala main'e göre bir MINOR). Aşağı akış tüketiciler, "MINOR = yalnızca özellik,
+PATCH = yalnızca düzeltme" konusunda katı bir sözleşme olarak DAYANMAMALIDIR. Bu yüzden
+`bin/gstack-next-version`, çarpışmalar olduğunda yükseltme seviyesini yeniden seçmek
+yerine seçilen yükseltme seviyesi içinde ilerler.
 
-**Scale-aware bumps — use common sense.** When the diff is big, bump MINOR (or
-MAJOR), not PATCH. PATCH is for bug fixes and small additions; MINOR is for
-substantial new capability or substantial reduction; MAJOR is for breaking
-changes. Rough guideposts (don't treat as rules, treat as smell-checks):
+**Ölçek-farkında yükseltmeler — sağduyu kullanın.** Diff büyükse, PATCH değil
+MINOR (veya MAJOR) yükseltin. PATCH hata düzeltmeleri ve küçük eklemeler içindir;
+MINOR önemli yeni yetenek veya önemli azalma içindir; MAJOR bozucu değişiklikler içindir.
+Kaba kılavuzlar (kurallar olarak değil, koku kontrolleri olarak düşünün):
 
-- **PATCH (X.Y.Z+1.0)**: bug fix, doc tweak, small additive change, single
-  test/file added. Net diff under ~500 lines, no new user-facing capability.
-- **MINOR (X.Y+1.0.0)**: new capability shipped (skill, harness, command, big
-  refactor), substantial code reduction (compression, migration), or coordinated
-  multi-file change. Net diff over ~2000 lines added/removed, OR a user-visible
-  feature you'd put in a tweet.
-- **MAJOR (X+1.0.0.0)**: breaking change to public surface (CLI flag rename,
-  skill removed, config format changed), OR a release big enough to be the
-  headline of a blog post.
+- **PATCH (X.Y.Z+1.0)**: hata düzeltme, doküman ince ayarı, küçük artan değişiklik, tek
+  test/dosya eklendi. Net diff ~500 satırın altında, yeni kullanıcıya dönük yetenek yok.
+- **MINOR (X.Y+1.0.0)**: yeni yetenek ship edildi (skill, harness, komut, büyük
+  yeniden düzenleme), önemli kod azaltma (sıkıştırma, geçiş) veya koordineli
+  çoklu dosya değişikliği. Net diff ~2000 satırın üzerinde eklendi/kaldırıldı, VEYA
+  bir tweet'te paylaşacağınız kullanıcıya görünür bir özellik.
+- **MAJOR (X+1.0.0.0)**: genel yüzeysel bozucu değişiklik (CLI bayrak yeniden adlandırma,
+  skill kaldırma, yapılandırma formatı değişti), VEYA bir blog yazısının manşeti olacak
+  kadar büyük bir yayın.
 
-If you find yourself debating "is 10K added + 24K removed really a PATCH?" — it
-isn't. Bump MINOR. Same for "this adds a whole new test harness with 6 new E2E
-tests + helper utilities" — MINOR. The bump level is communication to the user
-about what kind of release this is; don't undersell it.
+"10K eklenen + 24K kaldırılan gerçekten PATCH mı?" diye tartışıyorsanız — değildir.
+MINOR yükseltün. "Bu 6 yeni E2E testi + yardımcı araçlarla tamamen yeni bir test harness
+ekliyor" için de aynıı — MINOR. Yükseltme seviyesi, kullanıcıya bu yayının ne tür
+olduğuna dair iletişimdir; onu düşük satmayın.
 
-When merging origin/main brings a higher VERSION, re-evaluate the bump level
-against the SCALE of your branch's work, not just whether main moved forward.
-If main bumped MINOR and your branch is also a substantial change, you bump
-MINOR again on top (e.g., main at v1.14.0.0, your branch lands v1.15.0.0).
+origin/main'i birleştirmek daha yüksek bir VERSION getirdiğinde, yükseltme seviyesini
+sadece main'in ileriye taşındığına göre değil, branch'ınızın çalışmasının ÖLÇEĞİNE
+göre yeniden değerlendirin. Main MINOR yükseltildiyse ve branch'ınız da önemli bir
+değişiklikse, üzerine tekrar MINOR yükseltin (örn., main v1.14.0.0'da, branch'ınız v1.15.0.0'da ulaşır).
 
-**VERSION and CHANGELOG are branch-scoped.** Every feature branch that ships gets its
-own version bump and CHANGELOG entry. The entry describes what THIS branch adds —
-not what was already on main.
+**VERSION ve CHANGELOG branch kapsamlıdır.** Ship eden her özellik branch'ının kendi
+sürüm yükseltmesi ve CHANGELOG girdisi vardır. Girdi, BU branch'ın eklediğini açıklar;
+main'de zaten ne olduğundan değil.
 
-**The CHANGELOG entry is the diff between main and the shipping branch — what users
-get when they upgrade. NOT how the branch got there.** A reader landing on the entry
-should learn what they can do now that they couldn't before; they should not learn
-about the branch's internal version bumps, the bugs we caught and fixed mid-branch,
-the plan reviews we ran, or the commits we squashed. That is branch development
-narrative. It belongs in PR descriptions and commit messages, not CHANGELOG.
+**CHANGELOG girdisi, main ile shipping branch arasındaki farktır; kullanıcılar
+yükselttiğinde ne elde ettikleridir. Branch'in oraya nasıl ulaştığı DEĞİL.** Bir okuyucu
+girdiye geldiğinde, daha önce yapamadığı ama şimdi yapabildiği şeyi öğrenmelidir;
+branch'ın iç sürüm yükseltmelerini, branch geliştirme sırasında yakaladığımız ve
+düzelttiğimiz hataları, çalıştırdığımız plan incelemelerini veya ezediğimiz commit'leri
+öğrenmemelidir. Bu, branch geliştirme anlatısıdır. PR açıklamalarına ve commit mesajlarına
+aittir, CHANGELOG'a değil.
 
-**Never reference branch-internal versions in a CHANGELOG entry.** If your branch
-bumped VERSION from v1.5.0.0 → v1.5.1.0 → v1.6.0.0 during development and only the
-final v1.6.0.0 ships to main, the entry must read as if v1.5.1.0 never existed.
-Concretely, NEVER write:
-- "v1.5.1.0 had a bug that v1.6.0.0 fixes" — readers don't know about v1.5.1.0; it's
-  a branch-internal artifact.
-- "The shipping headline of v1.5.1.0 was broken because..." — same reason. From main's
-  perspective, v1.5.1.0 was never released.
-- "Pre-fix tests encoded the broken behavior" — that's a contributor's victory lap,
-  not a user benefit.
-- "Two surgical edits, both in the dispatch path" — micro-narrative of the patch.
+**Branch-içi sürümlere CHANGELOG girdisinde ASLA referans vermeyin.** Branch'ınız
+geliştirme sırasında VERSION'u v1.5.0.0 → v1.5.1.0 → v1.6.0.0 olarak yükselttiyse
+ve yalnızca son v1.6.0.0 main'e ship olduysa, girdi v1.5.1.0'ın hiç var olmamış gibi
+okunmalıdır. Somut olarak, ASLA şunu yazmayın:
+- "v1.5.1.0'da v1.6.0.0'ın düzelttiği bir hata vardı" — okuyucular v1.5.1.0'ı bilmiyor;
+  bu bir branch-içi eser.
+- "v1.5.1.0'ın ship manşeti bozuk çünkü..." — aynı neden. Main'in perspektifinden,
+  v1.5.1.0 hiç yayınlanmadı.
+- "Düzeltme öncesi testler bozuk davranışı kodladı" — bu katkıda bulunanın zafer turu,
+  kullanıcı yararı değil.
+- "İki cerrahi düzenleme, ikisi de dispatch yolunda" — yamanın mikro anlatısı.
 
-Instead, describe the released system: "Browser-skills run end-to-end with the
-expected tab-access semantics." If a property of the shipped system is worth calling
-out (e.g., "skill spawns get permissive tab access; pair-agent tunnel tokens require
-ownership"), document it as a property, not as a fix. The shipped system is what
-the user gets; the path to that system is invisible to them.
+Bunun yerine, ship edilen sistemi tanımlayın: "Tarayıcı-skill'leri beklenen sekme erişim
+anlamlarıyla uçtan uca çalışır." Ship edilen sistemin bir özelliği dikkate değer ise
+(örn., "skill spawn'ları izin verilen sekme erişimi alır; pair-agent tünel token'ları
+sahiplik gerektirir"), bunu bir düzeltme olarak değil bir özellik olarak belgeleyin.
+Ship edilen sistem kullanıcının elde ettiği şeydir; o sisteme giden yol onlar için
+görünmezdir.
 
-**When to write the CHANGELOG entry:**
-- At `/ship` time (Step 13), not during development or mid-branch.
-- The entry covers ALL commits on this branch vs the base branch.
-- Never fold new work into an existing CHANGELOG entry from a prior version that
-  already landed on main. If main has v0.10.0.0 and your branch adds features,
-  bump to v0.10.1.0 with a new entry — don't edit the v0.10.0.0 entry.
+**CHANGELOG girdisi ne zaman yazılır:**
+- `/ship` zamanında (13. Adım), geliştirme sırasında veya branch ortasında değil.
+- Girdi, bu branch üzerindeki temel branch'a karşı TÜM commit'leri kapsar.
+- Main'de zaten bulunan önceki bir sürümün CHANGELOG girdisine asla yeni iş katmayın.
+  Main v0.10.0.0'daysa ve branch'ınız özellikler ekliyorsa, yeni bir girdiyle v0.10.1.0'a
+  yükseltin; v0.10.0.0 girdisini düzenlemeyin.
 
-**Key questions before writing:**
-1. What branch am I on? What did THIS branch change?
-2. Is the base branch version already released? (If yes, bump and create new entry.)
-3. Does an existing entry on this branch already cover earlier work? (If yes, replace
-   it with one unified entry for the final version.)
+**Yazmadan önce temel sorular:**
+1. Hangi branch'tayım? BU branch ne değiştirdi?
+2. Temel branch sürümü zaten yayınlandı mı? (Evetse, yükselt ve yeni girdi oluştur.)
+3. Bu branch'ta mevcut bir girdi daha önceki çalışmayı kapsıyor mu? (Evetse, son sürüm
+   için birleşik bir girdiyle değiştirin.)
 
-**Merging main does NOT mean adopting main's version.** When you merge origin/main into
-a feature branch, main may bring new CHANGELOG entries and a higher VERSION. Your branch
-still needs its OWN version bump on top. If main is at v0.13.8.0 and your branch adds
-features, bump to v0.13.9.0 with a new entry. Never jam your changes into an entry that
-already landed on main. Your entry goes on top because your branch lands next.
+**Main'i birleştirmek, main'in sürümünü benimsemek DEĞİLDİR.** origin/main'i bir
+özellik branch'ına birleştirdiğinizde, main yeni CHANGELOG girdileri ve daha yüksek
+bir VERSION getirebilir. Branch'ınızın hala üzerinde kendi sürüm yükseltmesine
+ihtiyacı var. Main v0.13.8.0'daysa ve branch'ınız özellikler ekliyorsa, yeni bir
+girdiyle v0.13.9.0'a yükseltin. Değişikliklerinizi main'de zaten bulunan bir girdiye
+sıkıştırmayın. Branch'ınız sonra ulaştığı için girdiniz en üstte yer alır.
 
-**After merging main, always check:**
-- Does CHANGELOG have your branch's own entry separate from main's entries?
-- Is VERSION higher than main's VERSION?
-- Is your entry the topmost entry in CHANGELOG (above main's latest)?
-If any answer is no, fix it before continuing.
+**Main'i birleştirdikten sonra, her zaman kontrol edin:**
+- CHANGELOG'da branch'ınızın kendi girdisi, main'in girdilerinden ayrı mı?
+- VERSION, main'in VERSION'undan yüksek mü?
+- Girdiniz CHANGELOG'daki en üstteki girdi mi (main'in en yenisinin üstünde)?
+Herhangi bir yanıt hayırsa, devam etmeden önce düzeltin.
 
-**After any CHANGELOG edit that moves, adds, or removes entries,** immediately run
-`grep "^## \[" CHANGELOG.md` to verify no duplicates and a sensible reverse-chronological
-order. Gaps between version numbers are fine. A branch that ships at v1.6.4.0 without
-a prior v1.5.2.0 or v1.5.3.0 entry on main is correct — those were branch-internal
-version numbers that never landed. Do not back-fill gaps with placeholder entries.
+**CHANGELOG girdilerini taşıyan, ekleyen veya kaldıran her CHANGELOG düzenlemesinden sonra,**
+hemen `grep "^## \[" CHANGELOG.md` komutunu çalıştırarak yinelenen olmadığını ve mantıklı bir
+ters kronolojik sıra olduğunu doğrulayın. Sürüm numaraları arasındaki boşluklar sorun değil.
+v1.5.2.0 veya v1.5.3.0 girdisi olmadan v1.6.4.0'ta ship olan bir branch doğrudur;
+bunlar main'de hiç yer almayan branch-içi sürüm numaralarıydı. Boşlukları yer tutucu
+girdilerle geri doldurmayın.
 
-**Never orphan branch-internal versions.** If your branch bumped VERSION several times
-during development (v1.5.1.0 → v1.5.2.0 → v1.6.4.0, say) and those earlier entries were
-never released to main, the final ship consolidates ALL of them into a single entry at
-the final version (v1.6.4.0). Collapse them — delete the old entries and move their
-content into the final entry, re-version table columns accordingly. Readers see one
-release, not a branch diary. Gaps are fine (v1.6.3.0 → v1.6.4.0 with no v1.5.x
-in between on main is correct).
+**Branch-içi sürümleri asla yetim bırakmayın.** Branch'ınız geliştirme sırasında
+VERSION'u birkaç kez yükselttiyse (örn., v1.5.1.0 → v1.5.2.0 → v1.6.4.0) ve bu önceki
+girdiler hiçbir zaman main'e yayınlanmadıysa, son ship TÜMÜNÜ son sürümde (v1.6.4.0)
+tek bir girdide birleştirir. Eski girdileri silin ve içeriklerini son girdiye taşıyın,
+sürüm tablosu sütunlarını buna göre güncelleyin. Okuyucular bir yayın görür,
+branch günlüğü değil. Boşluklar sorun değil (main'de v1.5.x arası olmadan v1.6.3.0 → v1.6.4.0
+doğrudur).
 
-CHANGELOG.md is **for users**, not contributors. Write it like product release notes:
+CHANGELOG.md **kullanıcılar içindir**, katkıda bulunanlar için değil. Ürün sürüm notları
+gibi yazın:
 
-- Lead with what the user can now **do** that they couldn't before. Sell the feature.
-- Use plain language, not implementation details. "You can now..." not "Refactored the..."
-- **Never mention TODOS.md, internal tracking, eval infrastructure, or contributor-facing
-  details.** These are invisible to users and meaningless to them.
-- Put contributor/internal changes in a separate "For contributors" section at the bottom.
-- Every entry should make someone think "oh nice, I want to try that."
-- No jargon: say "every question now tells you which project and branch you're in" not
-  "AskUserQuestion format standardized across skill templates via preamble resolver."
+- Kullanıcının şimdi yapabildiği ama daha önce yapamadığı şeyle başlayın. Özelliği satın.
+- Düz yazı kullanın, uygulama detaylarını değil. "Artık yapabilirsiniz..." "Yeniden düzenlendi..." değil.
+- **ASLA TODOS.md, iç izleme, eval altyapısı veya katkıda bulunan-yönelik detaylardan bahsetmeyin.**
+  Bunlar kullanıcılar için görünmez ve onlar için anlamsızdır.
+- Katkıda bulunan/iç değişiklikleri altta ayrı bir "Katkıda bulunanlar için" bölümüne koyun.
+- Her girdi birinin "oh güzel, bunu denemek istiyorum" düşünmesini sağlamalıdır.
+- Jargon yok: "Her soru artık hangi projede ve hangi branch'ta olduğunuzu söylüyor" deyin,
+  "AskUserQuestion formatı preamble resolver üzerinden skill şablonlarında standartlaştırıldı" demeyin.
 
-**Only document what shipped between main and this change.** Readers do not care how
-we got here. Keep out of the CHANGELOG, always:
+**Yalnızca main ile bu değişiklik arasında ship edilenleri belgeleyin.** Okuyucular
+orasına nasıl geldiğimizi umursamıyor. CHANGELOG'dan her zaman çıkarın:
 
-- Branch resyncs, merge commits with main, rebase activity.
-- Plan approvals, review outcomes (CEO / eng / design / outside-voice / codex findings),
-  AskUserQuestion decisions, scope negotiations.
-- "Work queued," "plan approved," "in-progress," "will ship later" — the CHANGELOG
-  documents what DID ship, not what MIGHT ship.
-- Version-bump housekeeping when no user-facing work actually landed.
+- Branch yeniden senkronizasyonları, main ile merge commit'leri, rebase etkinliği.
+- Plan onayları, inceleme sonuçları (CEO / mühendislik / tasarım / dış-ses / codex bulguları),
+  AskUserQuestion kararları, kapsam müzakereleri.
+- "İş sıraya alındı", "plan onaylandı", "devam ediyor", "daha sonra ship edilecek" — CHANGELOG
+  ship EDİLENİ belgeler, ship EDİLEBİLECEĞİni değil.
+- Kullanıcıya dönük hiçbir iş gerçekten yerleşmediğinde sürüm yükseltme evrak işi.
 
-If the diff between the base branch version and this version has no user-facing change
-(only merges, only CHANGELOG edits, only placeholder work), the honest entry is one
-sentence: "Version bump for branch-ahead discipline. No user-facing changes yet." Stop
-there. Do not pad. Do not explain the plan that will ship eventually. Do not narrate
-the branch's history. When real work lands, the entry will replace this at /ship time.
+Temel branch sürümü ile bu sürüm arasındaki diff'te kullanıcıya dönük değişiklik yoksa
+(yalnızca merge'ler, yalnızca CHANGELOG düzenlemeleri, yalnızca yer tutucu iş), dürüst
+girdi bir cümledir: "Branch-önde disiplini için sürüm yükseltme. Henüz kullanıcıya
+dönük değişiklik yok." Orada durun. Doldurmayın. Sonunda ship edecek planı açıklamayın.
+Branch'ın geçmişini anlatmayın. Gerçek iş yerleştiğinde, girdi /ship zamanında bunun
+yerini alacaktır.
 
-### Release-summary format (every `## [X.Y.Z]` entry)
+### Yayın-özet formatı (her `## [X.Y.Z]` girdisi)
 
-Every version entry in `CHANGELOG.md` MUST start with a release-summary section in
-the GStack/Garry voice, one viewport's worth of prose + tables that lands like a
-verdict, not marketing. The itemized changelog (subsections, bullets, files) goes
-BELOW that summary, separated by a `### Itemized changes` header.
+`CHANGELOG.md`'deki her sürüm girdisi, GStack/Garry sesinde bir yayın-özet bölümüyle
+başlamak ZORUNDADIR; bir görüş penceresi değerinde düzyazı + tablolar, pazarlama değil
+bir karar gibi gelmelidir. Maddelik CHANGELOG (alt bölümler, madde işaretleri, dosyalar)
+bunun ALTINDA gelir, bir `### Maddelik değişiklikler` başlığıyla ayrılır.
 
-The release-summary section gets read by humans, by the auto-update agent, and by
-anyone deciding whether to upgrade. The itemized list is for agents that need to
-know exactly what changed.
+Yayın-özet bölümü insanlar, otomatik güncelleme ajanı ve yükseltip yükseltmeyeceğine
+karar veren herkes tarafından okunur. Maddelik liste, tam olarak neyin değiştiğini
+bilmesi gereken ajanlar içindir.
 
-Structure for the top of every `## [X.Y.Z]` entry:
+Her `## [X.Y.Z]` girdisinin en üstündeki yapı:
 
-1. **Two-line bold headline** (10-14 words total). Should land like a verdict, not
-   marketing. Sound like someone who shipped today and cares whether it works.
-2. **Lead paragraph** (3-5 sentences). What shipped, what changed for the user.
-   Specific, concrete, no AI vocabulary, no em dashes, no hype.
-3. **A "The X numbers that matter" section** with:
-   - One short setup paragraph naming the source of the numbers (real production
-     deployment OR a reproducible benchmark, name the file/command to run).
-   - A table of 3-6 key metrics with BEFORE / AFTER / Δ columns.
-   - A second optional table for per-category breakdown if relevant.
-   - 1-2 sentences interpreting the most striking number in concrete user terms.
-4. **A "What this means for [audience]" closing paragraph** (2-4 sentences) tying
-   the metrics to a real workflow shift. End with what to do.
+1. **İki satırlık kalın manşet** (toplam 10-14 kelime). Bir karar gibi gelmeli,
+   pazarlama değil. Bugün ship eden ve çalışıp çalışmadığını önemseyen biri gibi konuşun.
+2. **Başlangıç paragrafı** (3-5 cümle). Ne ship edildi, kullanıcı için ne değişti.
+   Somut, belirgin, AI kelime dağarcığı yok, em dash yok, abartı yok.
+3. **"Önemli olan X sayı" bölümü** ile:
+   - Sayıların kaynağını belirten kısa bir kurulum paragrafı (gerçek üretim
+     dağıtımı VEYA yeniden üretilebilir kıyaslama, dosya/komut adını belirtin).
+   - ÖNCE / SONRA / Δ sütunlarıyla 3-6 temel ölçüm tablosu.
+   - İlgiliyse kategori başına döküm için isteğe bağlı ikinci tablo.
+   - En çarpıcı sayıyı somut kullanıcı terimleriyle yorumlayan 1-2 cümle.
+4. **"Bu [izleyici] için ne anlama gelir" kapanış paragrafı** (2-4 cümle)
+   ölçümleri gerçek bir iş akışı kaymasına bağlar. Ne yapılması gerektiğiyle bitirin.
 
-Voice rules for the release summary:
-- No em dashes (use commas, periods, "...").
-- No AI vocabulary (delve, robust, comprehensive, nuanced, fundamental, etc.) or
-  banned phrases ("here's the kicker", "the bottom line", etc.).
-- Real numbers, real file names, real commands. Not "fast" but "~30s on 30K pages."
-- Short paragraphs, mix one-sentence punches with 2-3 sentence runs.
-- Connect to user outcomes: "the agent does ~3x less reading" beats "improved precision."
-- Be direct about quality. "Well-designed" or "this is a mess." No dancing.
+Yayın özeti için ses kuralları:
+- Em dash yok (virgül, nokta, "..." kullanın).
+- AI kelime dağarcığı (delve, robust, comprehensive, nuanced, fundamental vb.) veya
+  yasaklı ifadeler ("işin can alıcı noktası", "alt çizgi" vb.) yok.
+- Gerçek sayılar, gerçek dosya adları, gerçek komutlar. "Hızlı" değil, "30K sayfada ~30s."
+- Kısa paragraflar, tek cümlelik vurguları 2-3 cümlelik akışlarla karıştırın.
+- Kullanıcı sonuçlarına bağlayın: "ajan ~3x daha az okuyor", "iyileştirilmiş hassasiyet"ten daha iyi.
+- Kalite hakkında doğrudan olun. "İyi tasarlanmış" veya "bu bir karmaşa." Dans etmeyin.
 
-Source material:
-- CHANGELOG previous entry for prior context.
-- Benchmark files or `/retro` output for headline numbers.
-- Recent commits (`git log <prev-version>..HEAD --oneline`) for what shipped.
-- Don't make up numbers. If a metric isn't in a benchmark or production data,
-  don't include it. Say "no measurement yet" if asked.
+Kaynak malzeme:
+- Önceki bağlam için CHANGELOG önceki girdisi.
+- Başlık sayıları için kıyaslama dosyaları veya `/retro` çıktısı.
+- Ne ship edildiğini görmek için son commit'ler (`git log <önceki-sürüm>..HEAD --oneline`).
+- Sayı uydurmayın. Bir ölçüm kıyaslama veya üretim verisinde yoksa,
+  dahil etmeyin. Sorulursa "henüz ölçüm yok" deyin.
 
-Target length: ~250-350 words for the summary. Should render as one viewport.
+Hedef uzunluk: Özet için ~250-350 kelime. Bir görüş penceresi olarak render olmalıdır.
 
-### Itemized changes (below the release summary)
+### Maddelik değişiklikler (yayın özetinin altında)
 
-Write `### Itemized changes` and continue with the detailed subsections (Added,
-Changed, Fixed, For contributors). Same rules as the user-facing voice guidance
-above, plus:
+`### Maddelik değişiklikler` yazın ve detaylı alt bölümlerle devam edin (Eklendi,
+Değiştirildi, Düzeltildi, Katkıda bulunanlar için). Yukarıdaki kullanıcıya dönük ses
+yönergeleriyle aynı kurallar, artı:
 
-- **Always credit community contributions.** When an entry includes work from a
-  community PR, name the contributor with `Contributed by @username`. Contributors
-  did real work. Thank them publicly every time, no exceptions.
+- **Topluluk katkılarına her zaman kredi verin.** Bir girdi bir topluluk PR'ından
+  iş içeriyorsa, katkıda bulunanı `Contributed by @username` ile adlandırın. Katkıda
+  bulunanlar gerçek iş yaptı. Onları her zaman her durumda açıkça teşekkür edin, istisnasız.
 
-## AI effort compression
+## AI çaba sıkıştırma
 
-When estimating or discussing effort, always show both human-team and CC+gstack time:
+Çabayı tahmin ederken veya tartışırken, her zaman insan ekibi ve CC+gstack süresini gösterin:
 
-| Task type | Human team | CC+gstack | Compression |
+| Görev türü | İnsan ekibi | CC+gstack | Sıkıştırma |
 |-----------|-----------|-----------|-------------|
-| Boilerplate / scaffolding | 2 days | 15 min | ~100x |
-| Test writing | 1 day | 15 min | ~50x |
-| Feature implementation | 1 week | 30 min | ~30x |
-| Bug fix + regression test | 4 hours | 15 min | ~20x |
-| Architecture / design | 2 days | 4 hours | ~5x |
-| Research / exploration | 1 day | 3 hours | ~3x |
+| Boilerplate / iskelet | 2 gün | 15 dk | ~100x |
+| Test yazma | 1 gün | 15 dk | ~50x |
+| Özellik uygulama | 1 hafta | 30 dk | ~30x |
+| Hata düzeltme + gerileme testi | 4 saat | 15 dk | ~20x |
+| Mimari / tasarım | 2 gün | 4 saat | ~5x |
+| Araştırma / keşif | 1 gün | 3 saat | ~3x |
 
-Completeness is cheap. Don't recommend shortcuts when the complete implementation
-is a "lake" (achievable) not an "ocean" (multi-quarter migration). See the
-Completeness Principle in the skill preamble for the full philosophy.
+Tamamlılık ucuzdur. Tam uygulama bir "göl" (başarılabilir) olduğunda, "okyanus"
+(çok-çeyrek geçiş) değil, kısayollar önermeyin. Tam felsefe için skill preamble'ındaki
+Tamamlılık İlkesine bakın.
 
-## Search before building
+## Yapmadan önce araştır
 
-Before designing any solution that involves concurrency, unfamiliar patterns,
-infrastructure, or anything where the runtime/framework might have a built-in:
+Eşzamanlılık, yabancı kalıplar, altyapı veya çalışma zamanı/çerçevenin yerleşik bir
+özelliği olabileceği herhangi bir şey içeren bir çözüm tasarlamadan önce:
 
-1. Search for "{runtime} {thing} built-in"
-2. Search for "{thing} best practice {current year}"
-3. Check official runtime/framework docs
+1. "{çalışma zamanı} {şey} yerleşik" araştırın
+2. "{şey} en iyi uygulama {geçerli yıl}" araştırın
+3. Resmi çalışma zamanı/çerçeve dokümanlarını kontrol edin
 
-Three layers of knowledge: tried-and-true (Layer 1), new-and-popular (Layer 2),
-first-principles (Layer 3). Prize Layer 3 above all. See ETHOS.md for the full
-builder philosophy.
+Bilginin üç katmanı: denenmiş-ve-doğru (Katman 1), yeni-ve-popüler (Katman 2),
+ilk-ilkeler (Katman 3). Her şeyden çok Katman 3'ü ödüllendirin. Tam yapıcı felsefe için
+ETHOS.md dosyasına bakın.
 
-## Local plans
+## Yerel planlar
 
-Contributors can store long-range vision docs and design documents in `~/.gstack-dev/plans/`.
-These are local-only (not checked in). When reviewing TODOS.md, check `plans/` for candidates
-that may be ready to promote to TODOs or implement.
+Katkıda bulunanlar uzun vadeli vizyon dokümanlarını ve tasarım dokümanlarını
+`~/.gstack-dev/plans/` dizininde saklayabilir. Bunlar yalnızca yereldir (işlenmez).
+TODOS.md'yi incelerken, TODO'lara terfi etmeye veya uygulamaya hazır olabilecek
+adaylar için `plans/` dizinini kontrol edin.
 
-## E2E eval failure blame protocol
+## E2E eval başarısızlığı suç protokolü
 
-When an E2E eval fails during `/ship` or any other workflow, **never claim "not
-related to our changes" without proving it.** These systems have invisible couplings —
-a preamble text change affects agent behavior, a new helper changes timing, a
-regenerated SKILL.md shifts prompt context.
+`/ship` veya başka bir iş akışı sırasında bir E2E eval başarısız olduğunda, **"değişikliklerimizle
+ilişkili değil" iddia etmeden önce bunu kanıtlayın.** Bu sistemlerin görünmez
+bağlantıları vardır; bir preamble metin değişikliği ajan davranışını etkiler,
+yeni bir yardımcı zamanlamayı değiştirir, yeniden oluşturulan bir SKILL.md prompt
+bağlamını kaydırır.
 
-**Required before attributing a failure to "pre-existing":**
-1. Run the same eval on main (or base branch) and show it fails there too
-2. If it passes on main but fails on the branch — it IS your change. Trace the blame.
-3. If you can't run on main, say "unverified — may or may not be related" and flag it
-   as a risk in the PR body
+**"Önceden var olan" olarak bir başarısızlığı atfetmeden önce gerekli:**
+1. Aynı eval'i main'de (veya temel branch'ta) çalıştırın ve orada da başarısız olduğunu gösterin
+2. Main'de geçer ama branch'ta başarısız olursa — bu SİZİN değişikliğinizdir. Suçu izleyin.
+3. Main'de çalışamıyorsanız, "doğrulanmamış — ilgili olabilir veya olmayabilir" deyin ve
+   PR gövdesinde bir risk olarak işaretleyin
 
-"Pre-existing" without receipts is a lazy claim. Prove it or don't say it.
+Makbuzsuz "önceden var olan" tembel bir iddiadır. Kanıtlayın veya söylemeyin.
 
-## Long-running tasks: don't give up
+## Uzun süre çalışan görevler: pes etmeyin
 
-When running evals, E2E tests, or any long-running background task, **poll until
-completion**. Use `sleep 180 && echo "ready"` + `TaskOutput` in a loop every 3
-minutes. Never switch to blocking mode and give up when the poll times out. Never
-say "I'll be notified when it completes" and stop checking — keep the loop going
-until the task finishes or the user tells you to stop.
+Eval'ler, E2E testleri veya herhangi bir uzun süre çalışan arka plan görevi çalıştırırken,
+**tamamlanana kadar yoklayın**. Her 3 dakikada bir `sleep 180 && echo "ready"` + `TaskOutput`
+kullanın. Yoklama zaman aşımına uğradığında asla engellemeli moda geçmeyin ve pes etmeyin.
+Asla "tamamlandığında bildirileceğim" demeyin ve kontrol etmeyi bırakmayın; görev
+bitene veya kullanıcı durmamı söyleyene kadar döngüye devam edin.
 
-The full E2E suite can take 30-45 minutes. That's 10-15 polling cycles. Do all of
-them. Report progress at each check (which tests passed, which are running, any
-failures so far). The user wants to see the run complete, not a promise that
-you'll check later.
+Tam E2E seti 30-45 dakika sürebilir. Bu 10-15 yoklama döngüsüdür. Hepsini yapın.
+Her kontrolde ilerlemeyi raporlayın (hangi testler geçti, hangileri çalışıyor, şimdiye kadar
+hangi başarısızlıklar var). Kullanıcı çalışmanın tamamlanmasını görmek ister, daha sonra
+kontrol edeceğime dair bir söz değil.
 
-## E2E test fixtures: extract, don't copy
+## E2E test fixture'ları: kopyalayın, değil kopyalamayın
 
-**NEVER copy a full SKILL.md file into an E2E test fixture.** SKILL.md files are
-1500-2000 lines. When `claude -p` reads a file that large, context bloat causes
-timeouts, flaky turn limits, and tests that take 5-10x longer than necessary.
+**Tam bir SKILL.md dosyasını ASLA bir E2E test fixture'ına kopyalamayın.** SKILL.md dosyaları
+1500-2000 satırdır. `claude -p` o kadar büyük bir dosyayı okuduğunda, bağlam şişirmesi
+zaman aşımlarına, dalgalı dönüş sınırlarına ve gerekenden 5-10x daha uzun süren testlere
+neden olur.
 
-Instead, extract only the section the test actually needs:
+Bunun yerine, yalnızca testin gerçekten ihtiyaç duyduğu bölümü çıkarın:
 
 ```typescript
-// BAD — agent reads 1900 lines, burns tokens on irrelevant sections
+// KÖTÜ — ajan 1900 satır okur, ilgili olmayan bölümlerde token harcar
 fs.copyFileSync(path.join(ROOT, 'ship', 'SKILL.md'), path.join(dir, 'ship-SKILL.md'));
 
-// GOOD — agent reads ~60 lines, finishes in 38s instead of timing out
+// İYİ — ajan ~60 satır okur, zaman aşımı yerine 38 saniyede tamamlanır
 const full = fs.readFileSync(path.join(ROOT, 'ship', 'SKILL.md'), 'utf-8');
 const start = full.indexOf('## Review Readiness Dashboard');
 const end = full.indexOf('\n---\n', start);
 fs.writeFileSync(path.join(dir, 'ship-SKILL.md'), full.slice(start, end > start ? end : undefined));
 ```
 
-Also when running targeted E2E tests to debug failures:
-- Run in **foreground** (`bun test ...`), not background with `&` and `tee`
-- Never `pkill` running eval processes and restart — you lose results and waste money
-- One clean run beats three killed-and-restarted runs
+Ayrıca başarısızlıkları ayıklamak için hedeflenmiş E2E testleri çalıştırırken:
+- **Ön planda** çalıştırın (`bun test ...`), `&` ve `tee` ile arka planda değil
+- Çalışan eval süreçlerini asla `pkill` yapıp yeniden başlatmayın — sonuçları kaybedersiniz ve para israf edersiniz
+- Bir temiz çalıştırma, üç öldürülüp-yeniden başlatılan çalıştırmadan iyidir
 
-## Publishing native OpenClaw skills to ClawHub
+## Yerel OpenClaw skill'lerini ClawHub'ta yayınlama
 
-Native OpenClaw skills live in `openclaw/skills/gstack-openclaw-*/SKILL.md`. These are
-hand-crafted methodology skills (not generated by the pipeline) published to ClawHub
-so any OpenClaw user can install them.
+Yerel OpenClaw skill'leri `openclaw/skills/gstack-openclaw-*/SKILL.md` içinde yer alır. Bunlar
+ClawHub'ta herhangi bir OpenClaw kullanıcısının kurabilmesi için yayınlanan el yapımı
+metodoloji skill'leridir (pipeline tarafından oluşturulmamış).
 
-**Publishing:** The command is `clawhub publish` (NOT `clawhub skill publish`):
+**Yayınlama:** Komut `clawhub publish`'dir (`clawhub skill publish` DEĞİL):
 
 ```bash
 clawhub publish openclaw/skills/gstack-openclaw-office-hours \
   --slug gstack-openclaw-office-hours --name "gstack Office Hours" \
-  --version 1.0.0 --changelog "description of changes"
+  --version 1.0.0 --changelog "değişikliklerin açıklaması"
 ```
 
-Repeat for each skill: `gstack-openclaw-ceo-review`, `gstack-openclaw-investigate`,
-`gstack-openclaw-retro`. Bump `--version` on each update.
+Her skill için tekrarlayın: `gstack-openclaw-ceo-review`, `gstack-openclaw-investigate`,
+`gstack-openclaw-retro`. Her güncellemede `--version`'ı yükseltin.
 
-**Auth:** `clawhub login` (opens browser for GitHub auth). `clawhub whoami` to verify.
+**Kimlik doğrulama:** `clawhub login` (GitHub auth için tarayıcı açar). Doğrulamak için `clawhub whoami`.
 
-**Updating:** Same `clawhub publish` command with a higher `--version` and `--changelog`.
+**Güncelleme:** Daha yüksek `--version` ve `--changelog` ile aynı `clawhub publish` komutu.
 
-**Verification:** `clawhub search gstack` to confirm they're live.
+**Doğrulama:** Canlı olduklarını onaylamak için `clawhub search gstack`.
 
-## Deploying to the active skill
+## Aktif skill'e deploy etme
 
-The active skill lives at `~/.claude/skills/gstack/`. After making changes:
+Aktif skill `~/.claude/skills/gstack/` dizininde yer alır. Değişiklikler yaptıktan sonra:
 
-1. Push your branch
-2. Fetch and reset in the skill directory: `cd ~/.claude/skills/gstack && git fetch origin && git reset --hard origin/main`
-3. Rebuild: `cd ~/.claude/skills/gstack && bun run build`
+1. Branch'ınızı push edin
+2. Skill dizininde getirin ve sıfırlayın: `cd ~/.claude/skills/gstack && git fetch origin && git reset --hard origin/main`
+3. Yeniden oluşturun: `cd ~/.claude/skills/gstack && bun run build`
 
-Or copy the binaries directly:
+Veya binary'leri doğrudan kopyalayın:
 - `cp browse/dist/browse ~/.claude/skills/gstack/browse/dist/browse`
 - `cp design/dist/design ~/.claude/skills/gstack/design/dist/design`
 
-## Skill routing
+## Skill yönlendirme
 
-When the user's request matches an available skill, invoke it via the Skill tool. When in doubt, invoke the skill.
+Kullanıcının isteği kullanılabilir bir skill ile eşleştiğinde, Skill aracı aracılığıyla çağırın.
+Şüpheye düştüğünüzde, skill'i çağırın.
 
-Key routing rules:
-- Product ideas/brainstorming → invoke /office-hours
-- Strategy/scope → invoke /plan-ceo-review
-- Architecture → invoke /plan-eng-review
-- Design system/plan review → invoke /design-consultation or /plan-design-review
-- Full review pipeline → invoke /autoplan
-- Bugs/errors → invoke /investigate
-- QA/testing site behavior → invoke /qa or /qa-only
-- Code review/diff check → invoke /review
-- Visual polish → invoke /design-review
-- Ship/deploy/PR → invoke /ship or /land-and-deploy
-- Save progress → invoke /context-save
-- Resume context → invoke /context-restore
+Temel yönlendirme kuralları:
+- Ürün fikirleri/beyin fırtınası → /office-hours
+- Strateji/kapsam → /plan-ceo-review
+- Mimari → /plan-eng-review
+- Tasarım sistemi/plan incelemesi → /design-consultation veya /plan-design-review
+- Tam inceleme pipeline'ı → /autoplan
+- Hatalar/hatalar → /investigate
+- QA/site davranışını test etme → /qa veya /qa-only
+- Kod incelemesi/diff kontrolü → /review
+- Görselcilik → /design-review
+- Ship/deploy/PR → /ship veya /land-and-deploy
+- İlerlemeyi kaydet → /context-save
+- Bağlamı devam ettir → /context-restore
 
-## GBrain Search Guidance (configured by /sync-gbrain)
+## GBrain Arama Kılavuzu (/sync-gbrain tarafından yapılandırılır)
 <!-- gstack-gbrain-search-guidance:start -->
 
-GBrain is set up and synced on this machine. The agent should prefer gbrain
-over Grep when the question is semantic or when you don't know the exact
-identifier yet.
+GBrain bu makinede kuruludur ve senkronize edilmiştir. Ajan, soru anlamsal olduğunda veya
+henüz tam tanımlayıcıyı bilmediğinde Grep yerine gbrain'ı tercih etmelidir.
 
-**This worktree is pinned to a worktree-scoped code source** via the
-`.gbrain-source` file in the repo root (kubectl-style context). Any
-`gbrain code-def`, `code-refs`, `code-callers`, `code-callees`, or `query`
-call from anywhere under this worktree routes to that source by default —
-no `--source` flag needed. Conductor sibling worktrees of the same repo
-each have their own pin and their own indexed pages, so semantic results
-match the actual code on disk in this worktree.
+**Bu worktree, repo kökündeki `.gbrain-source` dosyası aracılığıyla (kubectl tarzı bağlam)
+worktree-kapsamlı bir kod kaynağına sabitlenmiştir.** Bu worktree altındaki herhangi bir
+yerden yapılan `gbrain code-def`, `code-refs`, `code-callers`, `code-callees` veya `query`
+çağrısı varsayılan olarak o kaynağa yönlendirilir; `--source` bayrağı gerekmez. Aynı repo
+Conductor kardeş worktree'lerinin her birinin kendi sabitlemesi ve kendi dizinli sayfaları vardır,
+bu nedenle anlamsal sonuçlar bu worktree'deki diskteki gerçek kodla eşleşir.
 
-Two indexed corpora available via the `gbrain` CLI:
-- This worktree's code (auto-pinned via `.gbrain-source`).
-- `~/.gstack/` curated memory (registered as `gstack-brain-<user>` source via
-  the existing federation pipeline).
+`gbrain` CLI aracılığıyla kullanılabilen iki dizinli kaynak:
+- Bu worktree'nin kodu (`.gbrain-source` aracılığıyla otomatik sabitlenmiş).
+- `~/.gstack/` seçkili bellek (mevcut federasyon pipeline'ı üzerinden
+  `gstack-brain-<user>` kaynağı olarak kayıtlı).
 
-Prefer gbrain when:
-- "Where is X handled?" / semantic intent, no exact string yet:
-    `gbrain search "<terms>"` or `gbrain query "<question>"`
-- "Where is symbol Y defined?" / symbol-based code questions:
-    `gbrain code-def <symbol>` or `gbrain code-refs <symbol>`
-- "What calls Y?" / "What does Y depend on?":
-    `gbrain code-callers <symbol>` / `gbrain code-callees <symbol>`
-- "What did we decide last time?" / past plans, retros, learnings:
-    `gbrain search "<terms>" --source gstack-brain-<user>`
+gbrain'ı tercih edin:
+- "X nerede işleniyor?" / anlamsal niyet, henüz tam dize yok:
+    `gbrain search "<terimler>"` veya `gbrain query "<soru>"`
+- "Y sembolü nerede tanımlanmış?" / sembol tabanlı kod soruları:
+    `gbrain code-def <sembol>` veya `gbrain code-refs <sembol>`
+- "Y'yi ne çağırıyor?" / "Y neye bağımlı?":
+    `gbrain code-callers <sembol>` / `gbrain code-callees <sembol>`
+- "Geçen sefer ne karar verdik?" / geçmiş planlar, retrospektifler, öğrenimler:
+    `gbrain search "<terimler>" --source gstack-brain-<user>`
 
-Grep is still right for known exact strings, regex, multiline patterns, and
-file globs. Run `/sync-gbrain` after meaningful code changes; for ongoing
-auto-sync across all worktrees, run `gbrain autopilot --install` once per
-machine — gbrain's daemon handles incremental refresh on a schedule.
+Grep, bilinen tam dizeler, regex, çok satırlı kalıplar ve dosya globları için hala doğrudur.
+Anlamlı kod değişikliklerinden sonra `/sync-gbrain` çalıştırın; tüm worktree'lerde sürekli
+otomatik senkronizasyon için makine başına bir kez `gbrain autopilot --install` çalıştırın;
+gbrain'ın daemon'u bir planlamada artımlı yenileme gerçekleştirir.
 
 <!-- gstack-gbrain-search-guidance:end -->

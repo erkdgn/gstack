@@ -1,22 +1,22 @@
-# Greptile Comment Triage
+# Greptile Yorum Triyajı
 
-Shared reference for fetching, filtering, and classifying Greptile review comments on GitHub PRs. Both `/review` (Step 2.5) and `/ship` (Step 3.75) reference this document.
+GitHub PR'larında Greptile inceleme yorumlarını getirme, filtreleme ve sınıflandırma için paylaşılan referans. Hem `/review` (Adım 2.5) hem de `/ship` (Adım 3.75) bu belgeye referans verir.
 
 ---
 
-## Fetch
+## Getir
 
-Run these commands to detect the PR and fetch comments. Both API calls run in parallel.
+PR'yi algılamak ve yorumları getirmek için bu komutları çalıştırın. Her iki API çağrısı da paralel çalışır.
 
 ```bash
 REPO=$(gh repo view --json nameWithOwner --jq '.nameWithOwner' 2>/dev/null)
 PR_NUMBER=$(gh pr view --json number --jq '.number' 2>/dev/null)
 ```
 
-**If either fails or is empty:** Skip Greptile triage silently. This integration is additive — the workflow works without it.
+**Her ikisi de başarısız olursa veya boş olursa:** Greptile triyajını sessizce atlayın. Bu entegrasyon eklentidir — iş akışı onsuz çalışır.
 
 ```bash
-# Fetch line-level review comments AND top-level PR comments in parallel
+# Satır düzeyinde inceleme yorumlarını VE üst düzey PR yorumlarını paralel olarak getir
 gh api repos/$REPO/pulls/$PR_NUMBER/comments \
   --jq '.[] | select(.user.login == "greptile-apps[bot]") | select(.position != null) | {id: .id, path: .path, line: .line, body: .body, html_url: .html_url, source: "line-level"}' > /tmp/greptile_line.json &
 gh api repos/$REPO/issues/$PR_NUMBER/comments \
@@ -24,180 +24,180 @@ gh api repos/$REPO/issues/$PR_NUMBER/comments \
 wait
 ```
 
-**If API errors or zero Greptile comments across both endpoints:** Skip silently.
+**API hataları veya her iki uç noktada sıfır Greptile yorumu olursa:** Sessizce atlayın.
 
-The `position != null` filter on line-level comments automatically skips outdated comments from force-pushed code.
+Satır düzeyinde yorumlardaki `position != null` filtresi, zorla itilmiş koddan gelen eski yorumları otomatik olarak atlar.
 
 ---
 
-## Suppressions Check
+## Baskı Kontrolü
 
-Derive the project-specific history path:
+Proje özgü geçmiş yolunu türet:
 ```bash
 REMOTE_SLUG=$(browse/bin/remote-slug 2>/dev/null || ~/.claude/skills/gstack/browse/bin/remote-slug 2>/dev/null || basename "$(git rev-parse --show-toplevel 2>/dev/null || pwd)")
 PROJECT_HISTORY="$HOME/.gstack/projects/$REMOTE_SLUG/greptile-history.md"
 ```
 
-Read `$PROJECT_HISTORY` if it exists (per-project suppressions). Each line records a previous triage outcome:
+Mevcutsa `$PROJECT_HISTORY` dosyasını okuyun (proje özgü baskılar). Her satır önceki bir triyaj sonucunu kaydeder:
 
 ```
-<date> | <repo> | <type:fp|fix|already-fixed> | <file-pattern> | <category>
+<tarih> | <depo> | <tür:fp|fix|already-fixed> | <dosya-deseni> | <kategori>
 ```
 
-**Categories** (fixed set): `race-condition`, `null-check`, `error-handling`, `style`, `type-safety`, `security`, `performance`, `correctness`, `other`
+**Kategoriler** (sabit küme): `race-condition`, `null-check`, `error-handling`, `style`, `type-safety`, `security`, `performance`, `correctness`, `other`
 
-Match each fetched comment against entries where:
-- `type == fp` (only suppress known false positives, not previously fixed real issues)
-- `repo` matches the current repo
-- `file-pattern` matches the comment's file path
-- `category` matches the issue type in the comment
+Her getirilen yorumu şu kriterlere karşı eşleştirin:
+- `tür == fp` (yalnızca bilinen yanlış pozitifleri baskılar, önceden düzeltilmiş gerçek sorunları değil)
+- `depo` geçerli depoyla eşleşiyor
+- `dosya-deseni` yorumun dosya yoluyla eşleşiyor
+- `kategori` yorumdaki sorun türüyle eşleşiyor
 
-Skip matched comments as **SUPPRESSED**.
+Eşleşen yorumları **BASTIRILMIŞ** olarak atlayın.
 
-If the history file doesn't exist or has unparseable lines, skip those lines and continue — never fail on a malformed history file.
+Geçmiş dosyası mevcut değilse veya çözülemeyen satırlar içeriyorsa, bu satırları atlayın ve devam edin — asla bozuk bir geçmiş dosyasında başarısız olmayın.
 
 ---
 
-## Classify
+## Sınıflandır
 
-For each non-suppressed comment:
+Her bastırılmamış yorum için:
 
-1. **Line-level comments:** Read the file at the indicated `path:line` and surrounding context (±10 lines)
-2. **Top-level comments:** Read the full comment body
-3. Cross-reference the comment against the full diff (`git diff origin/main`) and the review checklist
-4. Classify:
-   - **VALID & ACTIONABLE** — a real bug, race condition, security issue, or correctness problem that exists in the current code
-   - **VALID BUT ALREADY FIXED** — a real issue that was addressed in a subsequent commit on the branch. Identify the fixing commit SHA.
-   - **FALSE POSITIVE** — the comment misunderstands the code, flags something handled elsewhere, or is stylistic noise
-   - **SUPPRESSED** — already filtered in the suppressions check above
+1. **Satır düzeyinde yorumlar:** Dosyayı belirtilen `path:line` ve çevresel bağlamda (±10 satır) okuyun
+2. **Üst düzey yorumlar:** Tam yorum gövdesini okuyun
+3. Yorumu tam dif (`git diff origin/main`) ve inceleme kontrol listesiyle çapraz referanslayın
+4. Sınıflandır:
+   - **GEÇERLİ & İŞLENEBİLİR** — mevcut kodda var olan gerçek bir hata, yarış durumu, güvenlik sorunu veya doğruluk sorunu
+   - **GEÇERLİ AMA ZATEN DÜZELTİLDİ** — daldaki sonraki bir commit'te ele alınmış gerçek bir sorun. Düzeltici commit SHA'sını belirleyin.
+   - **YANLIŞ POZİTİF** — yorum kodu yanlış anlıyor, başka bir yerde ele alınan bir şeyi işaret ediyor veya stilistik gürültü
+   - **BASTIRILMIŞ** — yukarıdaki baskılar kontrolünde zaten filtrelenmiş
 
 ---
 
-## Reply APIs
+## Yanıt API'leri
 
-When replying to Greptile comments, use the correct endpoint based on comment source:
+Greptile yorumlarına yanıt verirken, yorum kaynağına göre doğru uç noktayı kullanın:
 
-**Line-level comments** (from `pulls/$PR/comments`):
+**Satır düzeyinde yorumlar** (`pulls/$PR/comments`'dan):
 ```bash
 gh api repos/$REPO/pulls/$PR_NUMBER/comments/$COMMENT_ID/replies \
-  -f body="<reply text>"
+  -f body="<yanıt metni>"
 ```
 
-**Top-level comments** (from `issues/$PR/comments`):
+**Üst düzey yorumlar** (`issues/$PR/comments`'dan):
 ```bash
 gh api repos/$REPO/issues/$PR_NUMBER/comments \
-  -f body="<reply text>"
+  -f body="<yanıt metni>"
 ```
 
-**If a reply POST fails** (e.g., PR was closed, no write permission): warn and continue. Do not stop the workflow for a failed reply.
+**Bir yanıt POST'u başarısız olursa** (örn., PR kapatıldı, yazma izni yok): uyarın ve devam edin. Başarısız bir yanıt için iş akışını durdurmayın.
 
 ---
 
-## Reply Templates
+## Yanıt Şablonları
 
-Use these templates for every Greptile reply. Always include concrete evidence — never post vague replies.
+Her Greptile yanıtında bu şablonları kullanın. Her zaman somut kanıt ekleyin — asla belirsiz yanıtlar göndermeyin.
 
-### Tier 1 (First response) — Friendly, evidence-included
+### Kademe 1 (İlk yanıt) — Dostane, kanıt dahil
 
-**For FIXES (user chose to fix the issue):**
+**DÜZELTMELER için (kullanıcı sorunu düzeltmeyi seçti):**
 
 ```
-**Fixed** in `<commit-sha>`.
+**Düzeltildi** `<commit-sha>` commit'inde.
 
 \`\`\`diff
-- <old problematic line(s)>
-+ <new fixed line(s)>
+- <eski sorunlu satır(lar)>
++ <yeni düzeltilmiş satır(lar)>
 \`\`\`
 
-**Why:** <1-sentence explanation of what was wrong and how the fix addresses it>
+**Neden:** <neyin yanlış olduğu ve düzeltmenin bunu nasıl ele aldığına dair 1 cümlelik açıklama>
 ```
 
-**For ALREADY FIXED (issue addressed in a prior commit on the branch):**
+**ZATEN DÜZELTİLDİ için (sorun daldaki önceki bir commit'te ele alındı):**
 
 ```
-**Already fixed** in `<commit-sha>`.
+**Zaten düzeltildi** `<commit-sha>` commit'inde.
 
-**What was done:** <1-2 sentences describing how the existing commit addresses this issue>
+**Yapılan:** <mevcut commit'in bu sorunu nasıl ele aldığına dair 1-2 cümlelik açıklama>
 ```
 
-**For FALSE POSITIVES (the comment is incorrect):**
+**YANLIŞ POZİTİF için (yorum yanlış):**
 
 ```
-**Not a bug.** <1 sentence directly stating why this is incorrect>
+**Hata değil.** <bunun neden yanlış olduğu konusunda 1 cümle doğrudan belirtme>
 
-**Evidence:**
-- <specific code reference showing the pattern is safe/correct>
-- <e.g., "The nil check is handled by `ActiveRecord::FinderMethods#find` which raises RecordNotFound, not nil">
+**Kanıt:**
+- <desenin güvenli/doğru olduğunu gösteren belirli kod referansı>
+- <örn., "Null kontrolü `ActiveRecord::FinderMethods#find` tarafından ele alınıyor, bu nil değil RecordNotFound yükseltiyor">
 
-**Suggested re-rank:** This appears to be a `<style|noise|misread>` issue, not a `<what Greptile called it>`. Consider lowering severity.
+**Önerilen yeniden-sıralama:** Bu bir `<stil|gürültü|yanlış okuma>` sorunu olarak görünüyor, `<Greptile'in adlandırdığı şey>` değil. Şiddeti düşürmeyi düşünün.
 ```
 
-### Tier 2 (Greptile re-flags after prior reply) — Firm, overwhelming evidence
+### Kademe 2 (Greptile önceki yanıt sonrası yeniden işaretlerse) — Sıkı, ezici kanıt
 
-Use Tier 2 when escalation detection (below) identifies a prior GStack reply on the same thread. Include maximum evidence to close the discussion.
+Eskalasyon algılama (aşağıda) aynı konu üzerinde önceki bir GStack yanıtı belirlediğinde Kademe 2'yi kullanın. Tartışmayı kapatmak için maksimum kanıt ekleyin.
 
 ```
-**This has been reviewed and confirmed as [intentional/already-fixed/not-a-bug].**
+**Bu incelendi ve [kasıtlı/zaten-düzeltilmiş/hata-değil] olarak onaylandı.**
 
 \`\`\`diff
-<full relevant diff showing the change or safe pattern>
+<değişikliği veya güvenli deseni gösteren tam ilgili dif>
 \`\`\`
 
-**Evidence chain:**
-1. <file:line permalink showing the safe pattern or fix>
-2. <commit SHA where it was addressed, if applicable>
-3. <architecture rationale or design decision, if applicable>
+**Kanıt zinciri:**
+1. <güvenli deseni veya düzeltmeyi gösteren dosya:satır kalıcı bağlantı>
+2. <varsa ele alındığı commit SHA'sı>
+3. <varsa mimari gerekçe veya tasarım kararı>
 
-**Suggested re-rank:** Please recalibrate — this is a `<actual category>` issue, not `<claimed category>`. [Link to specific file change permalink if helpful]
+**Önerilen yeniden-sıralama:** Lütfen yeniden kalibre edin — bu bir `<gerçek kategori>` sorunu, `<iddia edilen kategori>` değil. [Yararlısa belirli dosya değişikliği kalıcı bağlantısına bağlayın]
 ```
 
 ---
 
-## Escalation Detection
+## Eskalasyon Algılama
 
-Before composing a reply, check if a prior GStack reply already exists on this comment thread:
+Yanıt oluşturmadan önce, bu yorum konuğunda önceki bir GStack yanıtının mevcut olup olmadığını kontrol edin:
 
-1. **For line-level comments:** Fetch replies via `gh api repos/$REPO/pulls/$PR_NUMBER/comments/$COMMENT_ID/replies`. Check if any reply body contains GStack markers: `**Fixed**`, `**Not a bug.**`, `**Already fixed**`.
+1. **Satır düzeyinde yorumlar için:** `gh api repos/$REPO/pulls/$PR_NUMBER/comments/$COMMENT_ID/replies` ile yanıtları getirin. Herhangi bir yanıt gövdesinde GStack işaretleri içerip içermediğini kontrol edin: `**Düzeltildi**`, `**Hata değil.**`, `**Zaten düzeltildi**`.
 
-2. **For top-level comments:** Scan the fetched issue comments for replies posted after the Greptile comment that contain GStack markers.
+2. **Üst düzey yorumlar için:** Getirilen sorun yorumlarında Greptile yorumundan sonra gönderilen ve GStack işaretlerini içeren yanıtları tarayın.
 
-3. **If a prior GStack reply exists AND Greptile posted again on the same file+category:** Use Tier 2 (firm) templates.
+3. **Önceki bir GStack yanıtı mevcutsa VE Greptile aynı dosya+kategori üzerinde yeniden gönderdiyse:** Kademe 2 (sıkı) şablonlarını kullanın.
 
-4. **If no prior GStack reply exists:** Use Tier 1 (friendly) templates.
+4. **Önceki bir GStack yanıtı mevcut değilse:** Kademe 1 (dostane) şablonlarını kullanın.
 
-If escalation detection fails (API error, ambiguous thread): default to Tier 1. Never escalate on ambiguity.
-
----
-
-## Severity Assessment & Re-ranking
-
-When classifying comments, also assess whether Greptile's implied severity matches reality:
-
-- If Greptile flags something as a **security/correctness/race-condition** issue but it's actually a **style/performance** nit: include `**Suggested re-rank:**` in the reply requesting the category be corrected.
-- If Greptile flags a low-severity style issue as if it were critical: push back in the reply.
-- Always be specific about why the re-ranking is warranted — cite code and line numbers, not opinions.
+Eskalasyon algılama başarısız olursa (API hatası, belirsiz konuk): varsayılan olarak Kademe 1. Belirsizlikte asla eskale etmeyin.
 
 ---
 
-## History File Writes
+## Şiddet Değerlendirmesi & Yeniden Sıralama
 
-Before writing, ensure both directories exist:
+Yorumları sınıflandırırken, Greptile'in ima edilen şiddetinin gerçeklikle eşleşip eşleşmediğini de değerlendirin:
+
+- Greptile bir şeyi **güvenlik/doğruluk/yarış-durumu** sorunu olarak işaretlerse ama aslında bir **stil/performans** nükranı ise: yanıtta kategorinin düzeltilmesini isteyen `**Önerilen yeniden-sıralama:**` ekleyin.
+- Greptile düşük şiddetli bir stil sorununu kritik olarak işaretlerse: yanıtta geri itin.
+- Yeniden sıralamanın neden gerekli olduğu hakkında her zaman spesifik olun — görüş değil, kod ve satır numaraları belirtin.
+
+---
+
+## Geçmiş Dosya Yazımları
+
+Yazmadan önce her iki dizinin mevcut olduğundan emin olun:
 ```bash
 REMOTE_SLUG=$(browse/bin/remote-slug 2>/dev/null || ~/.claude/skills/gstack/browse/bin/remote-slug 2>/dev/null || basename "$(git rev-parse --show-toplevel 2>/dev/null || pwd)")
 mkdir -p "$HOME/.gstack/projects/$REMOTE_SLUG"
 mkdir -p ~/.gstack
 ```
 
-Append one line per triage outcome to **both** files (per-project for suppressions, global for retro):
-- `~/.gstack/projects/$REMOTE_SLUG/greptile-history.md` (per-project)
-- `~/.gstack/greptile-history.md` (global aggregate)
+Her triyaj sonucunu **her iki dosyaya** bir satır ekleyin (baskılar için proje bazında, retrospektif için genel):
+- `~/.gstack/projects/$REMOTE_SLUG/greptile-history.md` (proje bazında)
+- `~/.gstack/greptile-history.md` (genel toplam)
 
 Format:
 ```
-<YYYY-MM-DD> | <owner/repo> | <type> | <file-pattern> | <category>
+<YYYY-AA-GG> | <owner/repo> | <tür> | <dosya-deseni> | <kategori>
 ```
 
-Example entries:
+Örnek girdiler:
 ```
 2026-03-13 | garrytan/myapp | fp | app/services/auth_service.rb | race-condition
 2026-03-13 | garrytan/myapp | fix | app/models/user.rb | null-check
@@ -206,15 +206,15 @@ Example entries:
 
 ---
 
-## Output Format
+## Çıktı Formatı
 
-Include a Greptile summary in the output header:
+Çıktı başlığında bir Greptile özeti ekleyin:
 ```
-+ N Greptile comments (X valid, Y fixed, Z FP)
++ N Greptile yorumu (X geçerli, Y düzeltildi, Z yanlış pozitif)
 ```
 
-For each classified comment, show:
-- Classification tag: `[VALID]`, `[FIXED]`, `[FALSE POSITIVE]`, `[SUPPRESSED]`
-- File:line reference (for line-level) or `[top-level]` (for top-level)
-- One-line body summary
-- Permalink URL (the `html_url` field)
+Her sınıflandırılmış yorum için şunu gösterin:
+- Sınıflandırma etiketi: `[GEÇERLİ]`, `[DÜZELTİLDİ]`, `[YANLIŞ POZİTİF]`, `[BASTIRILMIŞ]`
+- Dosya:satır referansı (satır düzeyinde için) veya `[üst-düzey]` (üst düzey için)
+- Tek satırlık gövde özeti
+- Kalıcı bağlantı URL'si (`html_url` alanı)

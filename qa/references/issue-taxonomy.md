@@ -1,85 +1,85 @@
-# QA Issue Taxonomy
+# QA Sorun Taksonomisi
 
-## Severity Levels
+## Ciddiyet Düzeyleri
 
-| Severity | Definition | Examples |
-|----------|------------|----------|
-| **critical** | Blocks a core workflow, causes data loss, or crashes the app | Form submit causes error page, checkout flow broken, data deleted without confirmation |
-| **high** | Major feature broken or unusable, no workaround | Search returns wrong results, file upload silently fails, auth redirect loop |
-| **medium** | Feature works but with noticeable problems, workaround exists | Slow page load (>5s), form validation missing but submit still works, layout broken on mobile only |
-| **low** | Minor cosmetic or polish issue | Typo in footer, 1px alignment issue, hover state inconsistent |
+| Ciddiyet | Tanım | Örnekler |
+|----------|-------|----------|
+| **kritik** | Temel bir iş akışını engeller, veri kaybına neden olur veya uygulamayı çökertir | Form gönderimi hata sayfasına yönlendirir, ödeme akışı bozuk, onay olmadan veri silinir |
+| **yüksek** | Önemli bir özellik bozuk veya kullanılamaz, geçici çözüm yok | Arama yanlış sonuçlar döndürür, dosya yükleme sessizce başarısız olur, kimlik doğrulama yönlendirme döngüsü |
+| **orta** | Özellik çalışıyor ancak belirgin sorunlar var, geçici çözüm mevcut | Yavaş sayfa yüklemesi (>5sn), form doğrulama eksik ancak gönderim hala çalışıyor, düzen yalnızca mobilde bozuk |
+| **düşük** | Küçük kozmetik veya cilalama sorunu | Altbilgide yazım hatası, 1px hizalama sorunu, üzerine gelme durumu tutarsız |
 
-## Categories
+## Kategoriler
 
-### 1. Visual/UI
-- Layout breaks (overlapping elements, clipped text, horizontal scrollbar)
-- Broken or missing images
-- Incorrect z-index (elements appearing behind others)
-- Font/color inconsistencies
-- Animation glitches (jank, incomplete transitions)
-- Alignment issues (off-grid, uneven spacing)
-- Dark mode / theme issues
+### 1. Görsel/Arayüz
+- Düzen bozulmaları (çakışan öğeler, kırpılmış metin, yatay kaydırma çubuğu)
+- Bozuk veya eksik görseller
+- Yanlış z-index (öğelerin arkasında görünmesi)
+- Yazı tipi/renk tutarsızlıkları
+- Animasyon sorunları (kasma, tamamlanmamış geçişler)
+- Hizalama sorunları (ızgara dışı, düzensiz aralık)
+- Karanlık mod / tema sorunları
 
-### 2. Functional
-- Broken links (404, wrong destination)
-- Dead buttons (click does nothing)
-- Form validation (missing, wrong, bypassed)
-- Incorrect redirects
-- State not persisting (data lost on refresh, back button)
-- Race conditions (double-submit, stale data)
-- Search returning wrong or no results
+### 2. İşlevsel
+- Bozuk bağlantılar (404, yanlış hedef)
+- Ölü düğmeler (tıklama hiçbir şey yapmaz)
+- Form doğrulama (eksik, yanlış, atlanabilir)
+- Yanlış yönlendirmeler
+- Durumun korunmaması (yenileme veya geri düğmesinde veri kaybı)
+- Yarış koşulları (çift gönderim, eski veri)
+- Arama yanlış veya hiç sonuç döndürmüyor
 
-### 3. UX
-- Confusing navigation (no breadcrumbs, dead ends)
-- Missing loading indicators (user doesn't know something is happening)
-- Slow interactions (>500ms with no feedback)
-- Unclear error messages ("Something went wrong" with no detail)
-- No confirmation before destructive actions
-- Inconsistent interaction patterns across pages
-- Dead ends (no way back, no next action)
+### 3. Kullanıcı Deneyimi
+- Kafa karıştırıcı gezinme (breadcrumb yok, çıkmaz sokaklar)
+- Eksik yükleme göstergeleri (kullanıcı bir şey olduğunu bilmiyor)
+- Yavaş etkileşimler (>500ms geri bildirim olmadan)
+- Belirsiz hata mesajları ("Bir şeyler ters gitti" detay yok)
+- Yıkıcı eylemlerden önce onay olmaması
+- Sayfalar arasında tutarsız etkileşim kalıpları
+- Çıkmaz sokaklar (geri dönme yolu yok, sonraki eylem yok)
 
-### 4. Content
-- Typos and grammar errors
-- Outdated or incorrect text
-- Placeholder / lorem ipsum text left in
-- Truncated text (cut off without ellipsis or "more")
-- Wrong labels on buttons or form fields
-- Missing or unhelpful empty states
+### 4. İçerik
+- Yazım ve dilbilgisi hataları
+- Güncel olmayan veya yanlış metin
+- Yer tutucu / lorem ipsum metni kalmış
+- Kırpılmış metin (üç nokta veya "daha fazla" olmadan kesilmiş)
+- Düğmelerde veya form alanlarında yanlış etiketler
+- Eksik veya yararsız boş durumlar
 
-### 5. Performance
-- Slow page loads (>3 seconds)
-- Janky scrolling (dropped frames)
-- Layout shifts (content jumping after load)
-- Excessive network requests (>50 on a single page)
-- Large unoptimized images
-- Blocking JavaScript (page unresponsive during load)
+### 5. Performans
+- Yavaş sayfa yüklemeleri (>3 saniye)
+- Kasmalı kaydırma (düşen kareler)
+- Düzen kaymaları (yüklemeden sonra içeriğin atlaması)
+- Aşırı ağ istekleri (tek sayfada >50)
+- Büyük optimize edilmemiş görseller
+- Engelleyen JavaScript (yükleme sırasında sayfa yanıt vermemez)
 
-### 6. Console/Errors
-- JavaScript exceptions (uncaught errors)
-- Failed network requests (4xx, 5xx)
-- Deprecation warnings (upcoming breakage)
-- CORS errors
-- Mixed content warnings (HTTP resources on HTTPS)
-- CSP violations
+### 6. Konsol/Hatalar
+- JavaScript istisnaları (yakalanmamış hatalar)
+- Başarısız ağ istekleri (4xx, 5xx)
+- Kullanımdan kaldırma uyarıları (yaklaşan kırılmalar)
+- CORS hataları
+- Karışık içerik uyarıları (HTTPS üzerinde HTTP kaynakları)
+- CSP ihlalleri
 
-### 7. Accessibility
-- Missing alt text on images
-- Unlabeled form inputs
-- Keyboard navigation broken (can't tab to elements)
-- Focus traps (can't escape a modal or dropdown)
-- Missing or incorrect ARIA attributes
-- Insufficient color contrast
-- Content not reachable by screen reader
+### 7. Erişilebilirlik
+- Görsellerde eksik alt metin
+- Etiketlenmemiş form girdileri
+- Klavye gezintisi bozuk (öğelere sekme ile ulaşılamıyor)
+- Odak tuzakları (modal veya dropdown'dan çıkılamıyor)
+- Eksik veya yanlış ARIA nitelikleri
+- Yetersiz renk kontrastı
+- Ekran okuyucu ile ulaşılamayan içerik
 
-## Per-Page Exploration Checklist
+## Sayfa Başına Keşif Kontrol Listesi
 
-For each page visited during a QA session:
+Bir QA oturumu sırasında ziyaret edilen her sayfa için:
 
-1. **Visual scan** — Take annotated screenshot (`snapshot -i -a -o`). Look for layout issues, broken images, alignment.
-2. **Interactive elements** — Click every button, link, and control. Does each do what it says?
-3. **Forms** — Fill and submit. Test empty submission, invalid data, edge cases (long text, special characters).
-4. **Navigation** — Check all paths in/out. Breadcrumbs, back button, deep links, mobile menu.
-5. **States** — Check empty state, loading state, error state, full/overflow state.
-6. **Console** — Run `console --errors` after interactions. Any new JS errors or failed requests?
-7. **Responsiveness** — If relevant, check mobile and tablet viewports.
-8. **Auth boundaries** — What happens when logged out? Different user roles?
+1. **Görsel tarama** — Açıklamalı ekran görüntüsü al (`snapshot -i -a -o`). Düzen sorunları, bozuk görseller, hizalama için kontrol et.
+2. **Etkileşimli öğeler** — Her düğmeye, bağlantıya ve kontrole tıkla. Her biri söylediği şeyi yapıyor mu?
+3. **Formlar** — Doldur ve gönder. Boş gönderim, geçersiz veri, uç durumlar (uzun metin, özel karakterler) test et.
+4. **Gezinme** — İçeri/dışarı tüm yolları kontrol et. Breadcrumb'lar, geri düğmesi, derin bağlantılar, mobil menü.
+5. **Durumlar** — Boş durum, yükleme durumu, hata durumu, dolu/taşkın durum kontrol et.
+6. **Konsol** — Etkileşimlerden sonra `console --errors` çalıştır. Yeni JS hataları veya başarısız istekler var mı?
+7. **Duyarlılık** — İlgiliyse, mobil ve tablet görünümlerini kontrol et.
+8. **Kimlik doğrulama sınırları** — Oturum kapatıldığında ne olur? Farklı kullanıcı rolleri?

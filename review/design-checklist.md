@@ -1,134 +1,134 @@
-# Design Review Checklist (Lite)
+# Tasarım İnceleme Kontrol Listesi (Lite)
 
-> **Subset of DESIGN_METHODOLOGY** — when adding items here, also update `generateDesignMethodology()` in `scripts/gen-skill-docs.ts`, and vice versa.
+> **DESIGN_METHODOLOGY'nin alt kümesi** — buraya öğe eklerken, aynı zamanda `scripts/gen-skill-docs.ts` dosyasındaki `generateDesignMethodology()` fonksiyonunu da güncelleyin ve bunun tersi de geçerli.
 
-## Instructions
+## Talimatlar
 
-This checklist applies to **source code in the diff** — not rendered output. Read each changed frontend file (full file, not just diff hunks) and flag anti-patterns.
+Bu kontrol listesi **difteki kaynak koduna** uygulanır — oluşturulan çıktıya değil. Değiştirilen her ön uç dosyasını (yalnızca dif parçalarını değil, tam dosyayı) okuyun ve anti-desenleri işaretleyin.
 
-**Trigger:** Only run this checklist if the diff touches frontend files. Use `gstack-diff-scope` to detect:
+**Tetikleyici:** Bu kontrol listesini yalnızca dif ön uç dosyalarına dokunuyorsa çalıştırın. Algılamak için `gstack-diff-scope` kullanın:
 
 ```bash
 source <(~/.claude/skills/gstack/bin/gstack-diff-scope <base> 2>/dev/null)
 ```
 
-If `SCOPE_FRONTEND=false`, skip the entire design review silently.
+`SCOPE_FRONTEND=false` ise, tüm tasarım incelemesini sessizce atlayın.
 
-**DESIGN.md calibration:** If `DESIGN.md` or `design-system.md` exists in the repo root, read it first. All findings are calibrated against the project's stated design system. Patterns explicitly blessed in DESIGN.md are NOT flagged. If no DESIGN.md exists, use universal design principles.
-
----
-
-## Confidence Tiers
-
-Each item is tagged with a detection confidence level:
-
-- **[HIGH]** — Reliably detectable via grep/pattern match. Definitive findings.
-- **[MEDIUM]** — Detectable via pattern aggregation or heuristic. Flag as findings but expect some noise.
-- **[LOW]** — Requires understanding visual intent. Present as: "Possible issue — verify visually or run /design-review."
+**DESIGN.md kalibrasyonu:** Depo kökünde `DESIGN.md` veya `design-system.md` varsa, önce onu okuyun. Tüm bulgular projenin belirtilen tasarım sistemine göre kalibre edilir. DESIGN.md'de açıkça kabul görmüş desenler işaretlenmez. DESIGN.md yoksa, evrensel tasarım ilkelerini kullanın.
 
 ---
 
-## Classification
+## Güven Seviyeleri
 
-**AUTO-FIX** (mechanical CSS fixes only — HIGH confidence, no design judgment needed):
-- `outline: none` without replacement → add `outline: revert` or `&:focus-visible { outline: 2px solid currentColor; }`
-- `!important` in new CSS → remove and fix specificity
-- `font-size` < 16px on body text → bump to 16px
+Her öğe bir algılama güven seviyesi ile etiketlenir:
 
-**ASK** (everything else — requires design judgment):
-- All AI slop findings, typography structure, spacing choices, interaction state gaps, DESIGN.md violations
-
-**LOW confidence items** → present as "Possible: [description]. Verify visually or run /design-review." Never AUTO-FIX.
+- **[YÜKSEK]** — Grep/desen eşleşmesi ile güvenilir şekilde algılanabilir. Kesin bulgular.
+- **[ORTA]** — Desen toplama veya buluşsal yöntemle algılanabilir. Bulgular olarak işaretleyin ancak biraz gürültü bekleyin.
+- **[DÜŞÜK]** — Görsel niyeti anlamayı gerektirir. Şöyle sunun: "Olası sorun — görsel olarak doğrulayın veya /design-review çalıştırın."
 
 ---
 
-## Output Format
+## Sınıflandırma
+
+**OTOMATİK-DÜZELT** (yalnızca mekanik CSS düzeltmeleri — YÜKSEK güven, tasarım yargısı gerekmez):
+- Değiştirmeden `outline: none` → `outline: revert` veya `&:focus-visible { outline: 2px solid currentColor; }` ekleyin
+- Yeni CSS'de `!important` → kaldırın ve özgüllüğü düzeltin
+- Gövde metninde `font-size` < 16px → 16px'ye yükseltin
+
+**SOR** (diğer her şey — tasarım yargısı gerektirir):
+- Tüm AI çöp bulguları, tipografi yapısı, boşluk seçimleri, etkileşim durumu boşlukları, DESIGN.md ihlalleri
+
+**DÜŞÜK güven öğeleri** → şöyle sunun: "Olası: [açıklama]. Görsel olarak doğrulayın veya /design-review çalıştırın." Asla OTOMATİK-DÜZELT yapmayın.
+
+---
+
+## Çıktı Formatı
 
 ```
-Design Review: N issues (X auto-fixable, Y need input, Z possible)
+Tasarım İncelemesi: N sorun (X otomatik-düzeltilebilir, Y girdi-gerekli, Z olası)
 
-**AUTO-FIXED:**
-- [file:line] Problem → fix applied
+**OTOMATİK-DÜZELTİLDİ:**
+- [dosya:satır] Sorun → düzeltme uygulandı
 
-**NEEDS INPUT:**
-- [file:line] Problem description
-  Recommended fix: suggested fix
+**GİRDİ-GEREKLİ:**
+- [dosya:satır] Sorun açıklaması
+  Önerilen düzeltme: önerilen düzeltme
 
-**POSSIBLE (verify visually):**
-- [file:line] Possible issue — verify with /design-review
+**OLASI (görsel olarak doğrulayın):**
+- [dosya:satır] Olası sorun — /design-review ile doğrulayın
 ```
 
-Optional: `test_stub` — skeleton test code for this finding using the project's test framework.
+İsteğe bağlı: `test_stub` — projenin test çerçevesini kullanarak bu bulgu için iskelet test kodu.
 
-If no issues found: `Design Review: No issues found.`
+Sorun bulunamazsa: `Tasarım İncelemesi: Sorun bulunamadı.`
 
-If no frontend files changed: skip silently, no output.
-
----
-
-## Categories
-
-### 1. AI Slop Detection (6 items) — highest priority
-
-These are the telltale signs of AI-generated UI that no designer at a respected studio would ship.
-
-- **[MEDIUM]** Purple/violet/indigo gradient backgrounds or blue-to-purple color schemes. Look for `linear-gradient` with values in the `#6366f1`–`#8b5cf6` range, or CSS custom properties resolving to purple/violet.
-
-- **[LOW]** The 3-column feature grid: icon-in-colored-circle + bold title + 2-line description, repeated 3x symmetrically. Look for a grid/flex container with exactly 3 children that each contain a circular element + heading + paragraph.
-
-- **[LOW]** Icons in colored circles as section decoration. Look for elements with `border-radius: 50%` + a background color used as decorative containers for icons.
-
-- **[HIGH]** Centered everything: `text-align: center` on all headings, descriptions, and cards. Grep for `text-align: center` density — if >60% of text containers use center alignment, flag it.
-
-- **[MEDIUM]** Uniform bubbly border-radius on every element: same large radius (16px+) applied to cards, buttons, inputs, containers uniformly. Aggregate `border-radius` values — if >80% use the same value ≥16px, flag it.
-
-- **[MEDIUM]** Generic hero copy: "Welcome to [X]", "Unlock the power of...", "Your all-in-one solution for...", "Revolutionize your...", "Streamline your workflow". Grep HTML/JSX content for these patterns.
-
-### 2. Typography (4 items)
-
-- **[HIGH]** Body text `font-size` < 16px. Grep for `font-size` declarations on `body`, `p`, `.text`, or base styles. Values below 16px (or 1rem when base is 16px) are flagged.
-
-- **[HIGH]** More than 3 font families introduced in the diff. Count distinct `font-family` declarations. Flag if >3 unique families appear across changed files.
-
-- **[HIGH]** Heading hierarchy skipping levels: `h1` followed by `h3` without an `h2` in the same file/component. Check HTML/JSX for heading tags.
-
-- **[HIGH]** Blacklisted fonts: Papyrus, Comic Sans, Lobster, Impact, Jokerman. Grep `font-family` for these names.
-
-### 3. Spacing & Layout (4 items)
-
-- **[MEDIUM]** Arbitrary spacing values not on a 4px or 8px scale, when DESIGN.md specifies a spacing scale. Check `margin`, `padding`, `gap` values against the stated scale. Only flag when DESIGN.md defines a scale.
-
-- **[MEDIUM]** Fixed widths without responsive handling: `width: NNNpx` on containers without `max-width` or `@media` breakpoints. Risk of horizontal scroll on mobile.
-
-- **[MEDIUM]** Missing `max-width` on text containers: body text or paragraph containers with no `max-width` set, allowing lines >75 characters. Check for `max-width` on text wrappers.
-
-- **[HIGH]** `!important` in new CSS rules. Grep for `!important` in added lines. Almost always a specificity escape hatch that should be fixed properly.
-
-### 4. Interaction States (3 items)
-
-- **[MEDIUM]** Interactive elements (buttons, links, inputs) missing hover/focus states. Check if `:hover` and `:focus` or `:focus-visible` pseudo-classes exist for new interactive element styles.
-
-- **[HIGH]** `outline: none` or `outline: 0` without a replacement focus indicator. Grep for `outline:\s*none` or `outline:\s*0`. This removes keyboard accessibility.
-
-- **[LOW]** Touch targets < 44px on interactive elements. Check `min-height`/`min-width`/`padding` on buttons and links. Requires computing effective size from multiple properties — low confidence from code alone.
-
-### 5. DESIGN.md Violations (3 items, conditional)
-
-Only apply if `DESIGN.md` or `design-system.md` exists:
-
-- **[MEDIUM]** Colors not in the stated palette. Compare color values in changed CSS against the palette defined in DESIGN.md.
-
-- **[MEDIUM]** Fonts not in the stated typography section. Compare `font-family` values against DESIGN.md's font list.
-
-- **[MEDIUM]** Spacing values outside the stated scale. Compare `margin`/`padding`/`gap` values against DESIGN.md's spacing scale.
+Ön uç dosyası değiştirilmemişse: sessizce atlayın, çıktı yok.
 
 ---
 
-## Suppressions
+## Kategoriler
 
-Do NOT flag:
-- Patterns explicitly documented in DESIGN.md as intentional choices
-- Third-party/vendor CSS files (node_modules, vendor directories)
-- CSS resets or normalize stylesheets
-- Test fixture files
-- Generated/minified CSS
+### 1. AI Çöpü Algılama (6 öğe) — en yüksek öncelik
+
+Bunlar, saygın bir stüdyodaki hiçbir tasarımcının göndermeyeceği AI tarafından oluşturulmuş UI'nin ayırt edici işaretleridir.
+
+- **[ORTA]** Mor/mor/çivit gradyan arka planlar veya mordan mor renk şemaları. `#6366f1`–`#8b5cf6` aralığındaki değerlere sahip `linear-gradient` veya mor/mor'a çözünen CSS özel özelliklerini arayın.
+
+- **[DÜŞÜK]** 3 sütunlu özellik ızgarası: renkli-dairedeki-simge + kalın başlık + 2 satırlık açıklama, simetrik olarak 3 kez tekrarlanan. Tam olarak 3 çocuk içeren ve her biri dairesel bir eleman + başlık + paragraf içeren bir grid/flex kabını arayın.
+
+- **[DÜŞÜK]** Bölüm dekorasyonu olarak renkli dairelerdeki simgeler. `border-radius: 50%` + simgeler için dekoratif kap olarak kullanılan bir arka plan rengine sahip elemanları arayın.
+
+- **[YÜKSEK]** Ortalanmış her şey: tüm başlıklarda, açıklamalarda ve kartlarda `text-align: center`. `text-align: center` yoğunluğu için grep yapın — metin kaplarının >%60'ı ortalamayı kullanıyorsa, işaretleyin.
+
+- **[ORTA]** Her elemanda tekdüze kabarık kenar-yarıçapı: kartlara, düğmelere, girdilere, kaplara aynı büyük yarıçap (16px+) tekdüze olarak uygulanmış. `border-radius` değerlerini toplayın — >%80'i aynı ≥16px değerini kullanıyorsa, işaretleyin.
+
+- **[ORTA]** Genel hero kopyası: "[X]'e Hoş Geldiniz", "...nın gücünü açın", "...için hepsi bir arada çözümünüz", "...nızı devrimleştirin", "...akışınızı kolaylaştırın". HTML/JSX içeriğinde bu desenleri grep'leyin.
+
+### 2. Tipografi (4 öğe)
+
+- **[YÜKSEK]** Gövde metninde `font-size` < 16px. `body`, `p`, `.text` veya temel stiller üzerinde `font-size` bildirimlerini grep'leyin. 16px'in altındaki (veya temel 16px olduğunda 1rem'in altındaki) değerler işaretlenir.
+
+- **[YÜKSEK]** Difte 3'ten fazla yazı tipi ailesi tanıtıldı. Ayrı `font-family` bildirimlerini sayın. Değiştirilen dosyalarda >3 benzersiz aile görünüyorsa işaretleyin.
+
+- **[YÜKSEK]** Başlık hiyerarşisi düzeyleri atlıyor: aynı dosya/bileşende `h2` olmadan `h1` ardından `h3`. Başlık etiketleri için HTML/JSX'i kontrol edin.
+
+- **[YÜKSEK]** Kara listedeki yazı tipleri: Papyrus, Comic Sans, Lobster, Impact, Jokerman. Bu isimler için `font-family` grep'leyin.
+
+### 3. Boşluk & Düzen (4 öğe)
+
+- **[ORTA]** DESIGN.md bir boşluk ölçeği belirttiğinde, 4px veya 8px ölçeğinde olmayan keyfi boşluk değerleri. `margin`, `padding`, `gap` değerlerini belirtilen ölçeğe karşı kontrol edin. Yalnızca DESIGN.md bir ölçek tanımladığında işaretleyin.
+
+- **[ORTA]** Duyarlı işlem olmaksızın sabit genişlikler: `max-width` veya `@media` kesme noktaları olmaksızın kaplar üzerinde `width: NNNpx`. Mobilde yatay kaydırma riski.
+
+- **[ORTA]** Metin kaplarında eksik `max-width`: satırların >75 karakter olmasına izin veren `max-width` ayarı olmayan gövde metni veya paragraf kapları. Metin sarmalayıcılarında `max-width` olup olmadığını kontrol edin.
+
+- **[YÜKSEK]** Yeni CSS kurallarında `!important`. Eklenen satırlarda `!important` grep'leyin. Neredeyse her zaman düzgün şekilde düzeltilmesi gereken bir özgüllük kaçış kapısıdır.
+
+### 4. Etkileşim Durumları (3 öğe)
+
+- **[ORTA]** Hover/focus durumları eksik olan etkileşimli elemanlar (düğmeler, bağlantılar, girdiler). Yeni etkileşimli eleman stilleri için `:hover` ve `:focus` veya `:focus-visible` pseudo-sınıflarının mevcut olup olmadığını kontrol edin.
+
+- **[YÜKSEK]** Değiştirme odak göstergesi olmaksızın `outline: none` veya `outline: 0`. `outline:\s*none` veya `outline:\s*0` grep'leyin. Bu klavye erişilebilirliğini kaldırır.
+
+- **[DÜŞÜK]** Etkileşimli elemanlarda < 44px dokunma hedefleri. Düğmeler ve bağlantılarda `min-height`/`min-width`/`padding` kontrol edin. Birden fazla özellikten etkili boyutu hesaplamayı gerektirir — yalnızca koddan düşük güven.
+
+### 5. DESIGN.md İhlalleri (3 öğe, koşullu)
+
+Yalnızca `DESIGN.md` veya `design-system.md` mevcutsa uygulayın:
+
+- **[ORTA]** Belirtilen palettte olmayan renkler. Değiştirilen CSS'teki renk değerlerini DESIGN.md'de tanımlanan paletle karşılaştırın.
+
+- **[ORTA]** Belirtilen tipografi bölümünde olmayan yazı tipleri. `font-family` değerlerini DESIGN.md'nin yazı tipi listesiyle karşılaştırın.
+
+- **[ORTA]** Belirtilen ölçekte olmayan boşluk değerleri. `margin`/`padding`/`gap` değerlerini DESIGN.md'nin boşluk ölçeğiyle karşılaştırın.
+
+---
+
+## Baskılar
+
+Bunları işaretlemeyin:
+- DESIGN.md'de bilinçli seçimler olarak açıkça belgelenen desenler
+- Üçüncü taraf/satıcı CSS dosyaları (node_modules, vendor dizinleri)
+- CSS sıfırlama veya normalize stil sayfaları
+- Test fikstür dosyaları
+- Oluşturulan/minify edilmiş CSS

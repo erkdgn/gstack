@@ -3,12 +3,12 @@ name: design-shotgun
 preamble-tier: 2
 version: 1.0.0
 description: |
-  Design shotgun: generate multiple AI design variants, open a comparison board,
-  collect structured feedback, and iterate. Standalone design exploration you can
-  run anytime. Use when: "explore designs", "show me options", "design variants",
-  "visual brainstorm", or "I don't like how this looks".
-  Proactively suggest when the user describes a UI feature but hasn't seen
-  what it could look like. (gstack)
+  Tasarım şalgamı: birden fazla AI tasarım çeşidi oluşturun, bir karşılaştırma panosu açın,
+  yapılandırılmış geri bildirim toplayın ve yineleyin. İstediğiniz zaman çalıştırabileceğiniz
+  bağımsız tasarım keşfi. Kullanım: "tasarımları keşfet", "seçenekleri göster",
+  "tasarım çeşitleri", "görsel beyin fırtınası" veya "bunun nasıl göründüğünü sevmiyorum".
+  Kullanıcı bir kullanıcı arayüzü özelliğini açıkladığında ama nasıl görünebileceğini
+  görmediğinde proaktif olarak önerin. (gstack)
 triggers:
   - explore design variants
   - show me design options
@@ -764,11 +764,11 @@ Replace `SKILL_NAME`, `OUTCOME`, and `USED_BROWSE` before running.
 
 Skills that run plan reviews (`/plan-*-review`, `/codex review`) include the EXIT PLAN MODE GATE blocking checklist at the end of the skill, which verifies the plan file ends with `## GSTACK REVIEW REPORT` before ExitPlanMode is called. Skills that don't run plan reviews (operational skills like `/ship`, `/qa`, `/review`) typically don't operate in plan mode and have no review report to verify; this footer is a no-op for them. Writing the plan file is the one edit allowed in plan mode.
 
-# /design-shotgun: Visual Design Exploration
+# /design-shotgun: Görsel Tasarım Keşfi
 
-You are a design brainstorming partner. Generate multiple AI design variants, open them
-side-by-side in the user's browser, and iterate until they approve a direction. This is
-visual brainstorming, not a review process.
+Bir tasarım beyin fırtınası ortakısınız. Birden fazla AI tasarım çeşidi oluşturun,
+kullanıcının tarayıcısında yan yana açın ve bir yön onaylayıncaya kadar yineleyin.
+Bu görsel beyin fırtınasıdır, bir inceleme süreci değil.
 
 ## DESIGN SETUP (run this check BEFORE any design mockup command)
 
@@ -898,9 +898,9 @@ Flat design can strip away useful visual information that signals interactivity.
 Prioritize ruthlessly: things needed in a hurry go close at hand, everything
 else a few taps away with an obvious path to get there.
 
-## Step 0: Session Detection
+## Adım 0: Oturum Algılama
 
-Check for prior design exploration sessions for this project:
+Bu proje için önceki tasarım keşif oturumlarını kontrol edin:
 
 ```bash
 eval "$(~/.claude/skills/gstack/bin/gstack-slug 2>/dev/null)"
@@ -910,27 +910,27 @@ _PREV=$(find ~/.gstack/projects/$SLUG/designs/ -name "approved.json" -maxdepth 2
 echo "$_PREV"
 ```
 
-**If `PREVIOUS_SESSIONS_FOUND`:** Read each `approved.json`, display a summary, then
-AskUserQuestion:
+**`PREVIOUS_SESSIONS_FOUND` ise:** Her `approved.json`'u okuyun, bir özet görüntüleyin, ardından
+AskUserQuestion kullanın:
 
-> "Previous design explorations for this project:
-> - [date]: [screen] — chose variant [X], feedback: '[summary]'
+> "Bu proje için önceki tasarım keşifleri:
+> - [tarih]: [ekran] — [X] çeşidini seçti, geri bildirim: '[özet]'
 >
-> A) Revisit — reopen the comparison board to adjust your choices
-> B) New exploration — start fresh with new or updated instructions
-> C) Something else"
+> A) Yeniden ziyaret et — seçimlerinizi ayarlamak için karşılaştırma panosunu yeniden açın
+> B) Yeni keşif — yeni veya güncellenmiş talimatlarla sıfırdan başlayın
+> C) Başka bir şey"
 
-If A: regenerate the board from existing variant PNGs, reopen, and resume the feedback loop.
-If B: proceed to Step 1.
+A ise: mevcut çeşidi PNG'lerinden panoyu yeniden oluşturun, yeniden açın ve geri bildirim döngüsüne devam edin.
+B ise: Adım 1'e geçin.
 
-**If `NO_PREVIOUS_SESSIONS`:** Show the first-time message:
+**`NO_PREVIOUS_SESSIONS` ise:** İlk kez mesajını gösterin:
 
-"This is /design-shotgun — your visual brainstorming tool. I'll generate multiple AI
-design directions, open them side-by-side in your browser, and you pick your favorite.
-You can run /design-shotgun anytime during development to explore design directions for
-any part of your product. Let's start."
+"Bu /design-shotgun — görsel beyin fırtınası aracınız. Birden fazla AI tasarım yönü
+oluşturacağım, tarayıcınızda yan yana açacağım ve en sevdiğinizi seçeceksiniz.
+/ design-shotgun'ı geliştirme sırasında herhangi bir zaman çalıştırarak ürününüzün herhangi
+bir parçası için tasarım yönlerini keşfedebilirsiniz. Başlayalım."
 
-## Step 1: Context Gathering
+## Adım 1: Bağlam Toplama
 
 When design-shotgun is invoked from plan-design-review, design-consultation, or another
 skill, the calling skill has already gathered context. Check for `$_DESIGN_BRIEF` — if
@@ -984,7 +984,7 @@ covering all gaps:
 
 Two rounds max of context gathering, then proceed with what you have and note assumptions.
 
-## Step 2: Taste Memory
+## Adım 2: Tat Hafızası
 
 Read both the persistent taste profile (cross-session) AND the per-session approved
 designs to bias generation toward the user's demonstrated taste.
@@ -1050,7 +1050,7 @@ variant, call `~/.claude/skills/gstack/bin/gstack-taste-update approved <variant
 explicitly reject a variant, call `~/.claude/skills/gstack/bin/gstack-taste-update rejected <variant-path>`.
 The CLI handles schema migration from approved.json, decay, and conflict flagging.
 
-## Step 3: Generate Variants
+## Adım 3: Çeşitler Oluşturma
 
 Set up the output directory:
 
@@ -1063,7 +1063,7 @@ echo "DESIGN_DIR: $_DESIGN_DIR"
 
 Replace `<screen-name>` with a descriptive kebab-case name from the context gathering.
 
-### Step 3a: Concept Generation
+### Adım 3a: Kavram Oluşturma
 
 Before any API calls, generate N text concepts describing each variant's design direction.
 Each concept should be a distinct creative direction, not a minor variation. Present them
@@ -1088,7 +1088,7 @@ Concrete test: if someone could swap the headline text between two variants with
 noticing, they're too similar. Variants should feel like they came from three
 different design teams, not the same team at three different coffee levels.
 
-### Step 3b: Concept Confirmation
+### Adım 3b: Kavram Onayı
 
 Use AskUserQuestion to confirm before spending API credits:
 
@@ -1105,7 +1105,7 @@ If B: incorporate feedback, re-present concepts, re-confirm. Max 2 rounds.
 If C: add concepts, re-present, re-confirm.
 If D: drop specified concepts, re-present, re-confirm.
 
-### Step 3c: Parallel Generation
+### Adım 3c: Paralel Oluşturma
 
 **If evolving from a screenshot** (user said "I don't like THIS"), take ONE screenshot
 first:
@@ -1156,7 +1156,7 @@ For the evolve path, replace step 1 with:
 failed with "The operation was aborted" while `--output /tmp/...` succeeded. This is
 a sandbox restriction. Always generate to `/tmp/` first, then `cp`.
 
-### Step 3d: Results
+### Adım 3d: Sonuçlar
 
 After all agents complete:
 
@@ -1179,7 +1179,7 @@ _IMAGES=$(ls "$_DESIGN_DIR"/variant-*.png 2>/dev/null | tr '\n' ',' | sed 's/,$/
 
 Use `$_IMAGES` in the `$D compare --images` command.
 
-## Step 4: Comparison Board + Feedback Loop
+## Adım 4: Karşılaştırma Panosu + Geri Bildirim Döngüsü
 
 ### Comparison Board + Feedback Loop
 
@@ -1283,7 +1283,7 @@ Use AskUserQuestion to verify before proceeding.
 echo '{"approved_variant":"<V>","feedback":"<FB>","date":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","screen":"<SCREEN>","branch":"'$(git branch --show-current 2>/dev/null)'"}' > "$_DESIGN_DIR/approved.json"
 ```
 
-## Step 5: Feedback Confirmation
+## Adım 5: Geri Bildirim Onayı
 
 After receiving feedback (via HTTP POST or AskUserQuestion fallback), output a clear
 summary confirming what was understood:
@@ -1299,7 +1299,7 @@ Is this right?"
 
 Use AskUserQuestion to confirm before saving.
 
-## Step 6: Save & Next Steps
+## Adım 6: Kaydet ve Sonraki Adımlar
 
 Write `approved.json` to `$_DESIGN_DIR/` (handled by the loop above).
 
@@ -1314,13 +1314,13 @@ If standalone, offer next steps via AskUserQuestion:
 > C) Save to plan — add this as an approved mockup reference in the current plan
 > D) Done — I'll use this later"
 
-## Important Rules
+## Önemli Kurallar
 
-1. **Never save to `.context/`, `docs/designs/`, or `/tmp/`.** All design artifacts go
-   to `~/.gstack/projects/$SLUG/designs/`. This is enforced. See DESIGN_SETUP above.
-2. **Show variants inline before opening the board.** The user should see designs
-   immediately in their terminal. The browser board is for detailed feedback.
-3. **Confirm feedback before saving.** Always summarize what you understood and verify.
-4. **Taste memory is automatic.** Prior approved designs inform new generations by default.
-5. **Two rounds max on context gathering.** Don't over-interrogate. Proceed with assumptions.
-6. **DESIGN.md is the default constraint.** Unless the user says otherwise.
+1. **Asla `.context/`, `docs/designs/` veya `/tmp/` dizinine kaydetmeyin.** Tüm tasarım yapıları
+   `~/.gstack/projects/$SLUG/designs/` dizinine gider. Bu zorunludur. Yukarıdaki DESIGN_SETUP bölümüne bakın.
+2. **Panoyu açmadan önce çeşitleri satır içinde gösterin.** Kullanıcı tasarımları
+   terminalinde hemen görmelidir. Tarayıcı panosu ayrıntılı geri bildirim içindir.
+3. **Kaydetmeden önce geri bildirimi onaylayın.** Her zaman ne anladığınızı özetleyin ve doğrulayın.
+4. **Tat hafızası otomatiktir.** Önceki onaylanmış tasarımlar varsayılan olarak yeni oluşturmalara bilgi verir.
+5. **Bağlam toplamada en fazla iki tur.** Aşırı sorgulama yapmayın. Varsayımlarla devam edin.
+6. **DESIGN.md varsayılan kısıtlamadır.** Kullanıcı aksini söylemedikçe.

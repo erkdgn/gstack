@@ -3,26 +3,27 @@ name: make-pdf
 preamble-tier: 1
 version: 1.0.0
 description: |
-  Turn any markdown file into a publication-quality PDF. Proper 1in margins,
-  intelligent page breaks, page numbers, cover pages, running headers, curly
-  quotes and em dashes, clickable TOC, diagonal DRAFT watermark. Not a draft
-  artifact — a finished artifact. Use when asked to "make a PDF", "export to
-  PDF", "turn this markdown into a PDF", or "generate a document". (gstack)
-  Voice triggers (speech-to-text aliases): "make this a pdf", "make it a pdf", "export to pdf", "turn this into a pdf", "turn this markdown into a pdf", "generate a pdf", "make a pdf from", "pdf this markdown".
+  Herhangi bir markdown dosyasını yayıncılık kalitesinde PDF'e dönüştürür. Uygun 1 inç
+  kenar boşlukları, akıllı sayfa sonları, sayfa numaraları, kapak sayfaları, sürekli
+  üstbilgiler, kıvrımlı tırnak işaretleri ve em tireler, tıklanabilir İÇİNDEKİLER,
+  çapraz TASLAK filigranı. Bir taslak yapıt değil — bitmiş bir yapıt. "PDF yap",
+  "PDF'e aktar", "bu markdownu PDF'e dönüştür" veya "belge oluştur" isteklerinde
+  kullanılır. (gstack)
+  Ses tetikleyicileri (konuşmadan metne takma adlar): "bunu pdfe çevir", "pdfe çevir", "pdfe aktar", "bunu pdfe dönüştür", "bu markdownu pdfe dönüştür", "pdf oluştur", "bunu pdfe yap", "bu markdownu pdfe yap".
 triggers:
-  - markdown to pdf
-  - generate pdf
-  - make pdf
-  - export pdf
+  - markdowndan pdf
+  - pdf oluştur
+  - pdf yap
+  - pdf aktar
 allowed-tools:
   - Bash
   - Read
   - AskUserQuestion
 ---
-<!-- AUTO-GENERATED from SKILL.md.tmpl — do not edit directly -->
-<!-- Regenerate: bun run gen:skill-docs -->
+<!-- AUTO-GENERATED from SKILL.md.tmpl — doğrudan düzenlemeyin -->
+<!-- Yeniden oluştur: bun run gen:skill-docs -->
 
-## Preamble (run first)
+## Önsöz (önce çalıştır)
 
 ```bash
 _UPD=$(~/.claude/skills/gstack/bin/gstack-update-check 2>/dev/null || .claude/skills/gstack/bin/gstack-update-check 2>/dev/null || true)
@@ -102,7 +103,7 @@ echo "CHECKPOINT_PUSH: $_CHECKPOINT_PUSH"
 [ -n "$OPENCLAW_SESSION" ] && echo "SPAWNED_SESSION: true" || true
 ```
 
-## MAKE-PDF SETUP (run this check BEFORE any make-pdf command)
+## MAKE-PDF KURULUM (herhangi bir make-pdf komutundan ÖNCE bu kontrolü çalıştır)
 
 ```bash
 _ROOT=$(git rev-parse --show-toplevel 2>/dev/null)
@@ -112,207 +113,206 @@ P=""
 [ -z "$P" ] && P="$HOME/.claude/skills/gstack/make-pdf/dist/pdf"
 if [ -x "$P" ]; then
   echo "MAKE_PDF_READY: $P"
-  alias _p_="$P"   # shellcheck alias helper (not exported)
-  export P   # available as $P in subsequent blocks within the same skill invocation
+  alias _p_="$P"   # shellcheck alias yardımcısı (dışa aktarılmaz)
+  export P   # aynı skill çağrısındaki sonraki bloklarda $P olarak kullanılabilir
 else
-  echo "MAKE_PDF_NOT_AVAILABLE (run './setup' in the gstack repo to build it)"
+  echo "MAKE_PDF_NOT_AVAILABLE (build etmek için gstack reposunda './setup' çalıştırın)"
 fi
 ```
 
-If `MAKE_PDF_NOT_AVAILABLE` is printed: tell the user the binary is not
-built. Have them run `./setup` from the gstack repo, then retry.
+Eğer `MAKE_PDF_NOT_AVAILABLE` yazdırılırsa: kullanıcıya ikili dosyanın build
+edilmediğini söyleyin. gstack reposundan `./setup` çalıştırmalarını isteyin, ardından tekrar deneyin.
 
-If `MAKE_PDF_READY` is printed: `$P` is the binary path for the rest of
-the skill. Use `$P` (not an explicit path) so the skill body stays portable.
+Eğer `MAKE_PDF_READY` yazdırılırsa: `$P`, skill'in geri kalanı için
+ikili dosya yoludur. Skill gövdesinin taşınabilir kalması için açık bir yol yerine `$P` kullanın.
 
-Core commands:
-- `$P generate <input.md> [output.pdf]` — render markdown to PDF (80% use case)
-- `$P generate --cover --toc essay.md out.pdf` — full publication layout
-- `$P generate --watermark DRAFT memo.md draft.pdf` — diagonal DRAFT watermark
-- `$P preview <input.md>` — render HTML and open in browser (fast iteration)
-- `$P setup` — verify browse + Chromium + pdftotext and run a smoke test
-- `$P --help` — full flag reference
+Temel komutlar:
+- `$P generate <input.md> [output.pdf]` — markdownu PDF'e dönüştür (%80 kullanım durumu)
+- `$P generate --cover --toc essay.md out.pdf` — tam yayıncılık düzeni
+- `$P generate --watermark DRAFT memo.md draft.pdf` — çapraz TASLAK filigranı
+- `$P preview <input.md>` — HTML oluşturur ve tarayıcıda açar (hızlı yineleme)
+- `$P setup` — browse + Chromium + pdftotext doğrulaması yapar ve bir duman testi çalıştırır
+- `$P --help` — tam bayrak referansı
 
-Output contract:
-- `stdout`: ONLY the output path on success. One line.
-- `stderr`: progress (`Rendering HTML... Generating PDF...`) unless `--quiet`.
-- Exit 0 success / 1 bad args / 2 render error / 3 Paged.js timeout / 4 browse unavailable.
+Çıktı sözleşmesi:
+- `stdout`: Başarı durumunda yalnızca çıktı yolu. Bir satır.
+- `stderr`: İlerleme (`Rendering HTML... Generating PDF...`) `--quiet` olmadıkça.
+- Çıkış 0 başarı / 1 hatalı argümanlar / 2 oluşturma hatası / 3 Paged.js zaman aşımı / 4 browse kullanılamıyor.
 
-## Plan Mode Safe Operations
+## Plan Modu Güvenli İşlemleri
 
-In plan mode, allowed because they inform the plan: `$B`, `$D`, `codex exec`/`codex review`, writes to `~/.gstack/`, writes to the plan file, and `open` for generated artifacts.
+Plan modunda, planı bilgilendirdikleri için izinlidir: `$B`, `$D`, `codex exec`/`codex review`, `~/.gstack/` yazmaları, plan dosyasına yazmalar ve oluşturulan yapılar için `open`.
 
-## Skill Invocation During Plan Mode
+## Plan Modunda Skill Çağırma
 
-If the user invokes a skill in plan mode, the skill takes precedence over generic plan mode behavior. **Treat the skill file as executable instructions, not reference.** Follow it step by step starting from Step 0; the first AskUserQuestion is the workflow entering plan mode, not a violation of it. AskUserQuestion (any variant — `mcp__*__AskUserQuestion` or native; see "AskUserQuestion Format → Tool resolution") satisfies plan mode's end-of-turn requirement. If no variant is callable, the skill is BLOCKED — stop and report `BLOCKED — AskUserQuestion unavailable` per the AskUserQuestion Format rule. At a STOP point, stop immediately. Do not continue the workflow or call ExitPlanMode there. Commands marked "PLAN MODE EXCEPTION — ALWAYS RUN" execute. Call ExitPlanMode only after the skill workflow completes, or if the user tells you to cancel the skill or leave plan mode.
+Kullanıcı plan modunda bir skill çağırırsa, skill genel plan modu davranışına göre öncelik alır. **Skill dosyasını referans değil, çalıştırılabilir talimat olarak ele alın.** Adım 0'dan başlayarak adım adım izleyin; ilk AskUserQuestion, iş akışının plan moduna girmesidir, plan modunu ihlal değil. AskUserQuestion (herhangi bir varyant — `mcp__*__AskUserQuestion` veya yerel; "AskUserQuestion Format → Tool resolution" sayfasına bakın) plan modunun tur sonu gereksinimini karşılar. Çağrılabilir varyant yoksa, skill BLOCKED — AskUserQuestion Format kuralına göre `BLOCKED — AskUserQuestion unavailable` olarak raporlayın ve durun. STOP noktasında hemen durun. İş akışına devam etmeyin veya ExitPlanMode'u çağırmayın. "PLAN MODE EXCEPTION — ALWAYS RUN" olarak işaretlenen komutlar çalıştırılır. ExitPlanMode'u yalnızca skill iş akışı tamamlandıktan sonra veya kullanıcı skill'i iptal etmesini veya plan modundan çıkmasını söyledikten sonra çağırın.
 
-If `PROACTIVE` is `"false"`, do not auto-invoke or proactively suggest skills. If a skill seems useful, ask: "I think /skillname might help here — want me to run it?"
+Eğer `PROACTIVE` `"false"` ise, skill'leri otomatik olarak çağırmayın veya proaktif olarak önermeyin. Bir skill yararlı görünüyorsa, sorun: "Sanırım /skillname burada yardımcı olabilir — çalıştırmamı ister misiniz?"
 
-If `SKILL_PREFIX` is `"true"`, suggest/invoke `/gstack-*` names. Disk paths stay `~/.claude/skills/gstack/[skill-name]/SKILL.md`.
+Eğer `SKILL_PREFIX` `"true"` ise, `/gstack-*` adlarını öner/çağır. Disk yolları `~/.claude/skills/gstack/[skill-name]/SKILL.md` olarak kalır.
 
-If output shows `UPGRADE_AVAILABLE <old> <new>`: read `~/.claude/skills/gstack/gstack-upgrade/SKILL.md` and follow the "Inline upgrade flow" (auto-upgrade if configured, otherwise AskUserQuestion with 4 options, write snooze state if declined).
+Eğer çıktıda `UPGRADE_AVAILABLE <old> <new>` görünüyorsa: `~/.claude/skills/gstack/gstack-upgrade/SKILL.md` dosyasını okuyun ve "Satır içi yükseltme akışı"nı izleyin (yapılandırılmışsa otomatik yükselt, aksi takdirde 4 seçenekli AskUserQuestion, reddedilirse snooze durumu yaz).
 
-If output shows `JUST_UPGRADED <from> <to>`: print "Running gstack v{to} (just updated!)". If `SPAWNED_SESSION` is true, skip feature discovery.
+Eğer çıktıda `JUST_UPGRADED <from> <to>` görünüyorsa: "gstack v{to} çalıştırılıyor (az önce güncellendi!)" yazdır. Eğer `SPAWNED_SESSION` true ise, özellik keşfini atlayın.
 
-Feature discovery, max one prompt per session:
-- Missing `~/.claude/skills/gstack/.feature-prompted-continuous-checkpoint`: AskUserQuestion for Continuous checkpoint auto-commits. If accepted, run `~/.claude/skills/gstack/bin/gstack-config set checkpoint_mode continuous`. Always touch marker.
-- Missing `~/.claude/skills/gstack/.feature-prompted-model-overlay`: inform "Model overlays are active. MODEL_OVERLAY shows the patch." Always touch marker.
+Özellik keşfi, oturum başına en fazla bir istem:
+- `~/.claude/skills/gstack/.feature-prompted-continuous-checkpoint` eksik: Sürekli checkpoint otomatik commit'leri için AskUserQuestion. Kabul edilirse, `~/.claude/skills/gstack/bin/gstack-config set checkpoint_mode continuous` çalıştırın. Her zaman işaretleyiciyi dokunarak oluşturun.
+- `~/.claude/skills/gstack/.feature-prompted-model-overlay` eksik: "Model overlay'leri aktif. MODEL_OVERLAY yamayı gösterir." bilgisini verin. Her zaman işaretleyiciyi dokunarak oluşturun.
 
-After upgrade prompts, continue workflow.
+Yükseltme istemlerinden sonra iş akışına devam edin.
 
-If `WRITING_STYLE_PENDING` is `yes`: ask once about writing style:
+Eğer `WRITING_STYLE_PENDING` `yes` ise: yazım tarzı hakkında bir kez sorun:
 
-> v1 prompts are simpler: first-use jargon glosses, outcome-framed questions, shorter prose. Keep default or restore terse?
+> v1 istemleri daha basit: ilk kullanımda jargon tanımları, sonuç-çerçeveli sorular, daha kısa düzyazı. Varsayılanı koruyun mu yoksa terse geri dönelim mi?
 
-Options:
-- A) Keep the new default (recommended — good writing helps everyone)
-- B) Restore V0 prose — set `explain_level: terse`
+Seçenekler:
+- A) Yeni varsayılanı koru (önerilen — iyi yazım herkese yardımcı olur)
+- B) V0 düzyazısına geri dön — `explain_level: terse` ayarla
 
-If A: leave `explain_level` unset (defaults to `default`).
-If B: run `~/.claude/skills/gstack/bin/gstack-config set explain_level terse`.
+A ise: `explain_level` ayarını değiştirmeden bırakın (varsayılan `default` olur).
+B ise: `~/.claude/skills/gstack/bin/gstack-config set explain_level terse` çalıştırın.
 
-Always run (regardless of choice):
+Her zaman çalıştırın (seçimden bağımsız olarak):
 ```bash
 rm -f ~/.gstack/.writing-style-prompt-pending
 touch ~/.gstack/.writing-style-prompted
 ```
 
-Skip if `WRITING_STYLE_PENDING` is `no`.
+Eğer `WRITING_STYLE_PENDING` `no` ise atlayın.
 
-If `LAKE_INTRO` is `no`: say "gstack follows the **Boil the Lake** principle — do the complete thing when AI makes marginal cost near-zero. Read more: https://garryslist.org/posts/boil-the-ocean" Offer to open:
+Eğer `LAKE_INTRO` `no` ise: "gstack **Boil the Lake** ilkesini izler — AI marjinal maliyeti sıfıra yaklaştığında eksiksiz olanı yapın. Daha fazla: https://garryslist.org/posts/boil-the-ocean" deyin. Açmayı teklif edin:
 
 ```bash
 open https://garryslist.org/posts/boil-the-ocean
 touch ~/.gstack/.completeness-intro-seen
 ```
 
-Only run `open` if yes. Always run `touch`.
+`open` komutunu yalnızca evet ise çalıştırın. Her zaman `touch` çalıştırın.
 
-If `TEL_PROMPTED` is `no` AND `LAKE_INTRO` is `yes`: ask telemetry once via AskUserQuestion:
+Eğer `TEL_PROMPTED` `no` ise VE `LAKE_INTRO` `yes` ise: telemetriyi bir kez AskUserQuestion ile sorun:
 
-> Help gstack get better. Share usage data only: skill, duration, crashes, stable device ID. No code, file paths, or repo names.
+> gstack'in daha iyi olmasına yardımcı olun. Yalnızca kullanım verilerini paylaşın: skill, süre, çökmeler, kararlı cihaz kimliği. Kod, dosya yolu veya repo adı yok.
 
-Options:
-- A) Help gstack get better! (recommended)
-- B) No thanks
+Seçenekler:
+- A) gstack'in daha iyi olmasına yardımcı ol! (önerilen)
+- B) Hayır teşekkürler
 
-If A: run `~/.claude/skills/gstack/bin/gstack-config set telemetry community`
+A ise: `~/.claude/skills/gstack/bin/gstack-config set telemetry community` çalıştırın
 
-If B: ask follow-up:
+B ise: takip sorusu sorun:
 
-> Anonymous mode sends only aggregate usage, no unique ID.
+> Anonim mod yalnızca toplu kullanım gönderir, benzersiz kimlik yok.
 
-Options:
-- A) Sure, anonymous is fine
-- B) No thanks, fully off
+Seçenekler:
+- A) Tabii, anonim sorun değil
+- B) Hayır teşekkürler, tamamen kapalı
 
-If B→A: run `~/.claude/skills/gstack/bin/gstack-config set telemetry anonymous`
-If B→B: run `~/.claude/skills/gstack/bin/gstack-config set telemetry off`
+B→A ise: `~/.claude/skills/gstack/bin/gstack-config set telemetry anonymous` çalıştırın
+B→B ise: `~/.claude/skills/gstack/bin/gstack-config set telemetry off` çalıştırın
 
-Always run:
+Her zaman çalıştırın:
 ```bash
 touch ~/.gstack/.telemetry-prompted
 ```
 
-Skip if `TEL_PROMPTED` is `yes`.
+Eğer `TEL_PROMPTED` `yes` ise atlayın.
 
-If `PROACTIVE_PROMPTED` is `no` AND `TEL_PROMPTED` is `yes`: ask once:
+Eğer `PROACTIVE_PROMPTED` `no` ise VE `TEL_PROMPTED` `yes` ise: bir kez sorun:
 
-> Let gstack proactively suggest skills, like /qa for "does this work?" or /investigate for bugs?
+> gstack skill'leri proaktif olarak önersin mi, örneğin /qa "bu çalışıyor mu?" için veya /investigate hatalar için?
 
-Options:
-- A) Keep it on (recommended)
-- B) Turn it off — I'll type /commands myself
+Seçenekler:
+- A) Açık tut (önerilen)
+- B) Kapat — /komutları kendim yazacağım
 
-If A: run `~/.claude/skills/gstack/bin/gstack-config set proactive true`
-If B: run `~/.claude/skills/gstack/bin/gstack-config set proactive false`
+A ise: `~/.claude/skills/gstack/bin/gstack-config set proactive true` çalıştırın
+B ise: `~/.claude/skills/gstack/bin/gstack-config set proactive false` çalıştırın
 
-Always run:
+Her zaman çalıştırın:
 ```bash
 touch ~/.gstack/.proactive-prompted
 ```
 
-Skip if `PROACTIVE_PROMPTED` is `yes`.
+Eğer `PROACTIVE_PROMPTED` `yes` ise atlayın.
 
-If `HAS_ROUTING` is `no` AND `ROUTING_DECLINED` is `false` AND `PROACTIVE_PROMPTED` is `yes`:
-Check if a CLAUDE.md file exists in the project root. If it does not exist, create it.
+Eğer `HAS_ROUTING` `no` ise VE `ROUTING_DECLINED` `false` ise VE `PROACTIVE_PROMPTED` `yes` ise:
+Proje kökünde bir CLAUDE.md dosyası olup olmadığını kontrol edin. Yoksa, oluşturun.
 
-Use AskUserQuestion:
+AskUserQuestion kullanın:
 
-> gstack works best when your project's CLAUDE.md includes skill routing rules.
+> gstack, projenizin CLAUDE.md dosyası skill yönlendirme kuralları içerdiğinde en iyi şekilde çalışır.
 
-Options:
-- A) Add routing rules to CLAUDE.md (recommended)
-- B) No thanks, I'll invoke skills manually
+Seçenekler:
+- A) CLAUDE.md'ye yönlendirme kuralları ekle (önerilen)
+- B) Hayır teşekkürler, skill'leri manuel olarak çağıracağım
 
-If A: Append this section to the end of CLAUDE.md:
+A ise: Bu bölümü CLAUDE.md'nin sonuna ekleyin:
 
 ```markdown
 
 ## Skill routing
 
-When the user's request matches an available skill, invoke it via the Skill tool. When in doubt, invoke the skill.
+Kullanıcının isteği mevcut bir skill ile eşleştiğinde, Skill aracı üzerinden çağırın. Şüpheli olduğunuzda skill'i çağırın.
 
-Key routing rules:
-- Product ideas/brainstorming → invoke /office-hours
-- Strategy/scope → invoke /plan-ceo-review
-- Architecture → invoke /plan-eng-review
-- Design system/plan review → invoke /design-consultation or /plan-design-review
-- Full review pipeline → invoke /autoplan
-- Bugs/errors → invoke /investigate
-- QA/testing site behavior → invoke /qa or /qa-only
-- Code review/diff check → invoke /review
-- Visual polish → invoke /design-review
-- Ship/deploy/PR → invoke /ship or /land-and-deploy
-- Save progress → invoke /context-save
-- Resume context → invoke /context-restore
+Temel yönlendirme kuralları:
+- Ürün fikirleri/beyin fırtınası → /office-hours çağır
+- Strateji/kapsam → /plan-ceo-review çağır
+- Mimari → /plan-eng-review çağır
+- Tasarım sistemi/plan incelemesi → /design-consultation veya /plan-design-review çağır
+- Tam inceleme boru hattı → /autoplan çağır
+- Hatalar/hatalar → /investigate çağır
+- QA/test site davranışı → /qa veya /qa-only çağır
+- Kod incelemesi/diff kontrolü → /review çağır
+- Görsel cilalama → /design-review çağır
+- Gönder/dağıt/PR → /ship veya /land-and-deploy çağır
+- İlerlemeyi kaydet → /context-save çağır
+- Bağlamı geri yükle → /context-restore çağır
 ```
 
-Then commit the change: `git add CLAUDE.md && git commit -m "chore: add gstack skill routing rules to CLAUDE.md"`
+Ardından değişikliği commit edin: `git add CLAUDE.md && git commit -m "chore: gstack skill yönlendirme kurallarını CLAUDE.md'ye ekle"`
 
-If B: run `~/.claude/skills/gstack/bin/gstack-config set routing_declined true` and say they can re-enable with `gstack-config set routing_declined false`.
+B ise: `~/.claude/skills/gstack/bin/gstack-config set routing_declined true` çalıştırın ve `gstack-config set routing_declined false` ile yeniden etkinleştirebileceklerini söyleyin.
 
-This only happens once per project. Skip if `HAS_ROUTING` is `yes` or `ROUTING_DECLINED` is `true`.
+Bu proje başına yalnızca bir kez gerçekleşir. `HAS_ROUTING` `yes` veya `ROUTING_DECLINED` `true` ise atlayın.
 
-If `VENDORED_GSTACK` is `yes`, warn once via AskUserQuestion unless `~/.gstack/.vendoring-warned-$SLUG` exists:
+Eğer `VENDORED_GSTACK` `yes` ise, `~/.gstack/.vendoring-warned-$SLUG` mevcut değilse AskUserQuestion ile bir kez uyarın:
 
-> This project has gstack vendored in `.claude/skills/gstack/`. Vendoring is deprecated.
-> Migrate to team mode?
+> Bu projede gstack `.claude/skills/gstack/` içinde vendored olarak bulunuyor. Vendoring kullanımdan kaldırılmıştır.
+> Team moduna geçiş yapılsın mı?
 
-Options:
-- A) Yes, migrate to team mode now
-- B) No, I'll handle it myself
+Seçenekler:
+- A) Evet, şimdi team moduna geç
+- B) Hayır, kendim hallederim
 
-If A:
-1. Run `git rm -r .claude/skills/gstack/`
-2. Run `echo '.claude/skills/gstack/' >> .gitignore`
-3. Run `~/.claude/skills/gstack/bin/gstack-team-init required` (or `optional`)
-4. Run `git add .claude/ .gitignore CLAUDE.md && git commit -m "chore: migrate gstack from vendored to team mode"`
-5. Tell the user: "Done. Each developer now runs: `cd ~/.claude/skills/gstack && ./setup --team`"
+A ise:
+1. `git rm -r .claude/skills/gstack/` çalıştırın
+2. `echo '.claude/skills/gstack/' >> .gitignore` çalıştırın
+3. `~/.claude/skills/gstack/bin/gstack-team-init required` çalıştırın (veya `optional`)
+4. `git add .claude/ .gitignore CLAUDE.md && git commit -m "chore: gstack'i vendored modundan team moduna geçir"` çalıştırın
+5. Kullanıcıya şunu söyleyin: "Tamamlandı. Her geliştirici şimdi çalıştırıyor: `cd ~/.claude/skills/gstack && ./setup --team`"
 
-If B: say "OK, you're on your own to keep the vendored copy up to date."
+B ise: "Tamam, vendored kopyayı güncel tutmak size kalır." deyin.
 
-Always run (regardless of choice):
+Her zaman çalıştırın (seçimden bağımsız olarak):
 ```bash
 eval "$(~/.claude/skills/gstack/bin/gstack-slug 2>/dev/null)" 2>/dev/null || true
 touch ~/.gstack/.vendoring-warned-${SLUG:-unknown}
 ```
 
-If marker exists, skip.
+İşaretleyici mevcutsa atlayın.
 
-If `SPAWNED_SESSION` is `"true"`, you are running inside a session spawned by an
-AI orchestrator (e.g., OpenClaw). In spawned sessions:
-- Do NOT use AskUserQuestion for interactive prompts. Auto-choose the recommended option.
-- Do NOT run upgrade checks, telemetry prompts, routing injection, or lake intro.
-- Focus on completing the task and reporting results via prose output.
-- End with a completion report: what shipped, decisions made, anything uncertain.
+Eğer `SPAWNED_SESSION` `"true"` ise, bir AI orkestratörü (ör. OpenClaw) tarafından oluşturulan bir oturumda çalışıyorsunuz. Oluşturulan oturumlarda:
+- Etkileşimli istemler için AskUserQuestion KULLANMAYIN. Önerilen seçeneği otomatik olarak seçin.
+- Yükseltme kontrollerini, telemetri istemlerini, yönlendirme enjeksiyonunu veya lake girişini ÇALIŞTIRMAYIN.
+- Görevi tamamlamaya ve sonuçları düz metin çıktısı ile raporlamaya odaklanın.
+- Bir tamamlama raporu ile bitirin: ne gönderildi, alınan kararlar, belirsiz olan her şey.
 
-## Artifacts Sync (skill start)
+## Artifacts Sync (skill başlangıcı)
 
 ```bash
 _GSTACK_HOME="${GSTACK_HOME:-$HOME/.gstack}"
-# Prefer the v1.27.0.0 artifacts file; fall back to brain file for users
-# upgrading mid-stream before the migration script runs.
+# v1.27.0.0 artifacts dosyasını tercih et; geçiş betiği çalışmadan önce
+# ara sıra yükseltme yapan kullanıcılar için brain dosyasına geri dön.
 if [ -f "$HOME/.gstack-artifacts-remote.txt" ]; then
   _BRAIN_REMOTE_FILE="$HOME/.gstack-artifacts-remote.txt"
 else
@@ -321,12 +321,12 @@ fi
 _BRAIN_SYNC_BIN="~/.claude/skills/gstack/bin/gstack-brain-sync"
 _BRAIN_CONFIG_BIN="~/.claude/skills/gstack/bin/gstack-config"
 
-# /sync-gbrain context-load: teach the agent to use gbrain when it's available.
-# Per-worktree pin: post-spike redesign uses kubectl-style `.gbrain-source` in the
-# git toplevel to scope queries. Look for the pin in the worktree (not a global
-# state file) so that opening worktree B without a pin doesn't claim "indexed"
-# just because worktree A was synced. Empty string when gbrain is not
-# configured (zero context cost for non-gbrain users).
+# /sync-gbrain context-load: gbrain mevcut olduğunda aracın kullanmasını sağla.
+# Worktree başına pin: spike sonrası yeniden tasarım, sorguları kapsamlandırmak için
+# git toplevel'daki kubectl tarzı `.gbrain-source` kullanır. Pini worktree'de arayın
+# (global bir durum dosyasında değil), böylece pini olmayan B worktree'sini açmak "indexlenmiş"
+# iddiasında bulunmaz, çünkü A worktree'si senkronize edilmiştir. gbrain yapılandırılmadığında
+# boş dize (gbrain kullanmayan kullanıcılar için sıfır bağlam maliyeti).
 _GBRAIN_CONFIG="$HOME/.gbrain/config.json"
 if [ -f "$_GBRAIN_CONFIG" ] && command -v gbrain >/dev/null 2>&1; then
   _GBRAIN_VERSION_OK=$(gbrain --version 2>/dev/null | grep -c '^gbrain ' || echo 0)
@@ -351,10 +351,10 @@ fi
 
 _BRAIN_SYNC_MODE=$("$_BRAIN_CONFIG_BIN" get artifacts_sync_mode 2>/dev/null || echo off)
 
-# Detect remote-MCP mode (Path 4 of /setup-gbrain). Local artifacts sync is
-# a no-op in remote mode; the brain server pulls from GitHub/GitLab on its
-# own cadence. Read claude.json directly to keep this preamble fast (no
-# subprocess to claude CLI on every skill start).
+# Uzak-MCP modunu algıla (/setup-gbrain'in 4. Yolu). Yerel artifacts sync
+# uzak modda no-op'tur; brain sunucusu GitHub/GitLab'den kendi zamanlamasıyla çeker.
+# Bu önsözü hızlı tutmak için claude.json'ı doğrudan okuyun (her skill başlangıcında
+# claude CLI alt süreci yok).
 _GBRAIN_MCP_MODE="none"
 if command -v jq >/dev/null 2>&1 && [ -f "$HOME/.claude.json" ]; then
   _GBRAIN_MCP_TYPE=$(jq -r '.mcpServers.gbrain.type // .mcpServers.gbrain.transport // empty' "$HOME/.claude.json" 2>/dev/null)
@@ -389,8 +389,8 @@ if [ -d "$_GSTACK_HOME/.git" ] && [ "$_BRAIN_SYNC_MODE" != "off" ]; then
 fi
 
 if [ "$_GBRAIN_MCP_MODE" = "remote-http" ]; then
-  # Remote-MCP mode: local artifacts sync is a no-op (brain admin's server
-  # pulls from GitHub/GitLab). Show the user this is by design, not broken.
+  # Uzak-MCP modu: yerel artifacts sync no-op (brain yöneticisinin sunucusu
+  # GitHub/GitLab'den çeker). Kullanıcıya bunun tasarım gereği olduğunu, bozuk olmadığını göster.
   _GBRAIN_HOST=$(jq -r '.mcpServers.gbrain.url // empty' "$HOME/.claude.json" 2>/dev/null | sed -E 's|^https?://([^/:]+).*|\1|')
   echo "ARTIFACTS_SYNC: remote-mode (managed by brain server ${_GBRAIN_HOST:-remote})"
 elif [ -d "$_GSTACK_HOME/.git" ] && [ "$_BRAIN_SYNC_MODE" != "off" ]; then
@@ -406,26 +406,26 @@ fi
 
 
 
-Privacy stop-gate: if output shows `ARTIFACTS_SYNC: off`, `artifacts_sync_mode_prompted` is `false`, and gbrain is on PATH or `gbrain doctor --fast --json` works, ask once:
+Gizlilik durdurma kapısı: eğer çıktıda `ARTIFACTS_SYNC: off` görünüyorsa, `artifacts_sync_mode_prompted` `false` ise ve gbrain PATH'te veya `gbrain doctor --fast --json` çalışıyorsa, bir kez sorun:
 
-> gstack can publish your artifacts (CEO plans, designs, reports) to a private GitHub repo that GBrain indexes across machines. How much should sync?
+> gstack, yapıtlarınızı (CEO planları, tasarımlar, raporlar) makineler arası indeksleyen GBrain'e sahip özel bir GitHub reposuna yayınlayabilir. Ne kadar sync edilmeli?
 
-Options:
-- A) Everything allowlisted (recommended)
-- B) Only artifacts
-- C) Decline, keep everything local
+Seçenekler:
+- A) Her şey izin verilenler listesinde (önerilen)
+- B) Yalnızca yapıtlar
+- C) Reddet, her şeyi yerel tut
 
-After answer:
+Cevaptan sonra:
 
 ```bash
-# Chosen mode: full | artifacts-only | off
+# Seçilen mod: full | artifacts-only | off
 "$_BRAIN_CONFIG_BIN" set artifacts_sync_mode <choice>
 "$_BRAIN_CONFIG_BIN" set artifacts_sync_mode_prompted true
 ```
 
-If A/B and `~/.gstack/.git` is missing, ask whether to run `gstack-artifacts-init`. Do not block the skill.
+A/B ise ve `~/.gstack/.git` eksikse, `gstack-artifacts-init` çalıştırılıp çalıştırılmayacağını sorun. Skill'i engellemeyin.
 
-At skill END before telemetry:
+Skill SONUNDA telemetriden önce:
 
 ```bash
 "~/.claude/skills/gstack/bin/gstack-brain-sync" --discover-new 2>/dev/null || true
@@ -433,72 +433,77 @@ At skill END before telemetry:
 ```
 
 
-## Model-Specific Behavioral Patch (claude)
+## Modele Özel Davranış Yaması (claude)
 
-The following nudges are tuned for the claude model family. They are
-**subordinate** to skill workflow, STOP points, AskUserQuestion gates, plan-mode
-safety, and /ship review gates. If a nudge below conflicts with skill instructions,
-the skill wins. Treat these as preferences, not rules.
+Aşağıdaki düzeltmeler claude model ailesi için ayarlanmıştır. Bunlar skill iş akışına,
+STOP noktalarına, AskUserQuestion kapılarına, plan modu güvenliğine ve /ship inceleme
+kapılarına **tabidir**. Aşağıdaki bir düzeltme skill talimatlarıyla çelişirse,
+skill kazanır. Bunları kurallar değil, tercihler olarak ele alın.
 
-**Todo-list discipline.** When working through a multi-step plan, mark each task
-complete individually as you finish it. Do not batch-complete at the end. If a task
-turns out to be unnecessary, mark it skipped with a one-line reason.
+**Yapılacaklar listesi disiplini.** Çok adımlı bir plan üzerinden çalışırken, her görevi
+tamamladıkça ayrı ayrı işaretleyin. Sonunda toplu olarak tamamlama yapmayın. Bir görevin
+gereksiz olduğu ortaya çıkarsa, tek satırlık bir nedenle atlandı olarak işaretleyin.
 
-**Think before heavy actions.** For complex operations (refactors, migrations,
-non-trivial new features), briefly state your approach before executing. This lets
-the user course-correct cheaply instead of mid-flight.
+**Ağır işlemlerden önce düşünün.** Karmaşık işlemler (yeniden düzenlemeler, geçişler,
+önemsiz olmayan yeni özellikler) için yaklaşımınızı çalıştırmadan önce kısaca belirtin.
+Bu, kullanıcının uçuş ortasında yerine düşük maliyetle düzeltme yapmasına olanak tanır.
 
-**Dedicated tools over Bash.** Prefer Read, Edit, Write, Glob, Grep over shell
-equivalents (cat, sed, find, grep). The dedicated tools are cheaper and clearer.
+**Bash yerine özel araçlar.** Read, Edit, Write, Glob, Grep araçlarını shell
+karşılıkları (cat, sed, find, grep) yerine tercih edin. Özel araçlar daha ucuz ve daha net.
 
-## Voice
+## Ses
 
-Direct, concrete, builder-to-builder. Name the file, function, command, and user-visible impact. No filler.
+Doğrudan, somut, yapıcıdan yapıcıya. Dosya, fonksiyon, komut ve kullanıcıya görünen
+etkiyi adlandırın. Dolgu yok.
 
-No em dashes. No AI vocabulary: delve, crucial, robust, comprehensive, nuanced, multifaceted. Never corporate or academic. Short paragraphs. End with what to do.
+Uzun tire yok. AI kelime dağarcığı yok: delve, crucial, robust, comprehensive, nuanced,
+multifaceted. Asla kurumsal veya akademik. Kısa paragraflar. Ne yapılması gerektiğiyle bitirin.
 
-The user has context you do not. Cross-model agreement is a recommendation, not a decision. The user decides.
+Kullanıcının sizin sahip olmadığınız bağlamı var. Modeller arası anlaşma bir öneridir, bir
+karar değil. Kullanıcı karar verir.
 
-## Completion Status Protocol
+## Tamamlama Durum Protokolü
 
-When completing a skill workflow, report status using one of:
-- **DONE** — completed with evidence.
-- **DONE_WITH_CONCERNS** — completed, but list concerns.
-- **BLOCKED** — cannot proceed; state blocker and what was tried.
-- **NEEDS_CONTEXT** — missing info; state exactly what is needed.
+Skill iş akışını tamamlarken, durumu şunlardan birini kullanarak raporlayın:
+- **DONE** — kanıtla tamamlandı.
+- **DONE_WITH_CONCERNS** — tamamlandı, ancak endişeleri listeleyin.
+- **BLOCKED** — devam edemiyor; engelleyiciyi ve deneneni belirtin.
+- **NEEDS_CONTEXT** — eksik bilgi; tam olarak neye ihtiyaç duyulduğunu belirtin.
 
-Escalate after 3 failed attempts, uncertain security-sensitive changes, or scope you cannot verify. Format: `STATUS`, `REASON`, `ATTEMPTED`, `RECOMMENDATION`.
+3 başarısız girişimden, belirsiz güvenliğe duarlı değişikliklerden veya doğrulayamadığınız
+kapsamdan sonra yükseltin. Format: `DURUM`, `NEDEN`, `DENENEN`, `ÖNERİ`.
 
-## Operational Self-Improvement
+## Operasyonel Kendini Geliştirme
 
-Before completing, if you discovered a durable project quirk or command fix that would save 5+ minutes next time, log it:
+Tamamlamadan önce, bir sonraki sefere 5+ dakika kazandıracak dayanıklı bir proje tuhaflığı
+veya komut düzeltmesi keşfettiyseniz, loglayın:
 
 ```bash
 ~/.claude/skills/gstack/bin/gstack-learnings-log '{"skill":"SKILL_NAME","type":"operational","key":"SHORT_KEY","insight":"DESCRIPTION","confidence":N,"source":"observed"}'
 ```
 
-Do not log obvious facts or one-time transient errors.
+Açık gerçekleri veya tek seferlik geçici hataları loglamayın.
 
-## Telemetry (run last)
+## Telemetri (son olarak çalıştır)
 
-After workflow completion, log telemetry. Use skill `name:` from frontmatter. OUTCOME is success/error/abort/unknown.
+İş akışı tamamlandıktan sonra telemetriyi loglayın. Frontmatter'daki skill `name:` değerini kullanın. OUTCOME: success/error/abort/unknown.
 
-**PLAN MODE EXCEPTION — ALWAYS RUN:** This command writes telemetry to
-`~/.gstack/analytics/`, matching preamble analytics writes.
+**PLAN MODE İSTİSNASI — HER ZAMAN ÇALIŞTIR:** Bu komut telemetriyi
+`~/.gstack/analytics/` dizinine yazar, önsöz analitik yazmalarıyla eşleşir.
 
-Run this bash:
+Bu bash'ı çalıştırın:
 
 ```bash
 _TEL_END=$(date +%s)
 _TEL_DUR=$(( _TEL_END - _TEL_START ))
 rm -f ~/.gstack/analytics/.pending-"$_SESSION_ID" 2>/dev/null || true
-# Session timeline: record skill completion (local-only, never sent anywhere)
+# Oturum zaman çizelgesi: skill tamamlanmasını kaydet (yalnızca yerel, hiçbir yere gönderilmez)
 ~/.claude/skills/gstack/bin/gstack-timeline-log '{"skill":"SKILL_NAME","event":"completed","branch":"'$(git branch --show-current 2>/dev/null || echo unknown)'","outcome":"OUTCOME","duration_s":"'"$_TEL_DUR"'","session":"'"$_SESSION_ID"'"}' 2>/dev/null || true
-# Local analytics (gated on telemetry setting)
+# Yerel analitik (telemetri ayarına bağlı)
 if [ "$_TEL" != "off" ]; then
 echo '{"skill":"SKILL_NAME","duration_s":"'"$_TEL_DUR"'","outcome":"OUTCOME","browse":"USED_BROWSE","session":"'"$_SESSION_ID"'","ts":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"}' >> ~/.gstack/analytics/skill-usage.jsonl 2>/dev/null || true
 fi
-# Remote telemetry (opt-in, requires binary)
+# Uzak telemetri (katılım esaslı, ikili gerektirir)
 if [ "$_TEL" != "off" ] && [ -x ~/.claude/skills/gstack/bin/gstack-telemetry-log ]; then
   ~/.claude/skills/gstack/bin/gstack-telemetry-log \
     --skill "SKILL_NAME" --duration "$_TEL_DUR" --outcome "OUTCOME" \
@@ -506,138 +511,138 @@ if [ "$_TEL" != "off" ] && [ -x ~/.claude/skills/gstack/bin/gstack-telemetry-log
 fi
 ```
 
-Replace `SKILL_NAME`, `OUTCOME`, and `USED_BROWSE` before running.
+Çalıştırmadan önce `SKILL_NAME`, `OUTCOME` ve `USED_BROWSE` değerlerini değiştirin.
 
-## Plan Status Footer
+## Plan Durumu Altbilgisi
 
-Skills that run plan reviews (`/plan-*-review`, `/codex review`) include the EXIT PLAN MODE GATE blocking checklist at the end of the skill, which verifies the plan file ends with `## GSTACK REVIEW REPORT` before ExitPlanMode is called. Skills that don't run plan reviews (operational skills like `/ship`, `/qa`, `/review`) typically don't operate in plan mode and have no review report to verify; this footer is a no-op for them. Writing the plan file is the one edit allowed in plan mode.
+Plan incelemeleri çalıştıran skill'ler (`/plan-*-review`, `/codex review`), skill'in sonundaki EXIT PLAN MODE GATE engelleme kontrol listesini içerir; bu liste, ExitPlanMode çağrılmadan önce plan dosyasının `## GSTACK REVIEW REPORT` ile bittiğini doğrular. Plan incelemeleri çalıştırmayan skill'ler (`/ship`, `/qa`, `/review` gibi operasyonel skill'ler) genellikle plan modunda çalışmaz ve doğrulanacak inceleme raporu yoktur; bu altbilgi onlar için no-op'tur. Plan dosyasını yazmak, plan modunda izin verilen tek düzenlemedir.
 
-# make-pdf: publication-quality PDFs from markdown
+# make-pdf: markdown'dan yayıncılık kalitesinde PDF'ler
 
-Turn `.md` files into PDFs that look like Faber & Faber essays: 1in margins,
-left-aligned body, Helvetica throughout, curly quotes and em dashes, optional
-cover page and clickable TOC, diagonal DRAFT watermark when you need it.
-Copy-paste from the PDF produces clean words, never "S a i l i n g".
+`.md` dosyalarını Faber & Faber denemelerine benzeyen PDF'lere dönüştürür: 1 inç kenar boşlukları,
+sol hizalı gövde, boyunca Helvetica, kıvrımlı tırnak işaretleri ve em tireler, isteğe bağlı
+kapak sayfası ve tıklanabilir İÇİNDEKİLER, ihtiyacınız olduğunda çapraz TASLAK filigranı.
+PDF'ten kopyalama temiz kelimeler üretir, asla "S a i l i n g" değil.
 
-On Linux, install `fonts-liberation` for correct rendering — Helvetica and Arial
-aren't present by default, and Liberation Sans is the standard metric-compatible
-fallback. CI and Docker builds install it automatically via Dockerfile.ci.
+Linux'ta doğru oluşturma için `fonts-liberation` kurun — Helvetica ve Arial varsayılan olarak
+mevcut değildir ve Liberation Sans standart metrik uyumlu yedeğidir. CI ve Docker yapıları
+Dockerfile.ci aracılığıyla otomatik olarak kurar.
 
-## Core patterns
+## Temel kalıplar
 
-### 80% case — memo/letter
+### %80 kullanım durumu — not/mektup
 
-One command, no flags. Gets a clean PDF with running header + page numbers
-+ CONFIDENTIAL footer by default.
+Tek komut, bayrak yok. Sürekli üstbilgi + sayfa numaraları + varsayılan olarak GİZLİ altbilgi
+ile temiz bir PDF alır.
 
 ```bash
-$P generate letter.md                 # writes /tmp/letter.pdf
-$P generate letter.md letter.pdf      # explicit output path
+$P generate letter.md                 # /tmp/letter.pdf dosyasına yazar
+$P generate letter.md letter.pdf      # açık çıktı yolu
 ```
 
-### Publication mode — cover + TOC + chapter breaks
+### Yayıncılık modu — kapak + İÇİNDEKİLER + bölüm sonları
 
 ```bash
 $P generate --cover --toc --author "Garry Tan" --title "On Horizons" \
   essay.md essay.pdf
 ```
 
-Each top-level H1 in the markdown starts a new page. Disable with
-`--no-chapter-breaks` for memos that happen to have multiple H1s.
+Markdown'daki her üst düzey H1 yeni bir sayfa başlatır. Birden fazla H1'i olan notlar için
+`--no-chapter-breaks` ile devre dışı bırakın.
 
-### Draft-stage watermark
+### Taslak aşaması filigranı
 
 ```bash
 $P generate --watermark DRAFT memo.md draft.pdf
 ```
 
-Diagonal 10% opacity DRAFT across every page. When the draft is final, drop
-the flag and regenerate.
+Her sayfada çapraz %10 opaklık TASLAK. Taslak son haline geldiğinde, bayrağı kaldırın
+ve yeniden oluşturun.
 
-### Fast iteration via preview
+### Önizleme ile hızlı yineleme
 
 ```bash
 $P preview essay.md
 ```
 
-Renders HTML with the same print CSS and opens it in your browser. Refresh
-as you edit the markdown. Skip the PDF round trip until you're ready.
+Aynı baskı CSS ile HTML oluşturur ve tarayıcınızda açar. Markdown'ı
+düzenledikçe yenileyin. Hazır olana kadar PDF turunu atlayın.
 
-### Brand-free (no CONFIDENTIAL footer)
+### Marksız (GİZLİ altbilgi yok)
 
 ```bash
 $P generate --no-confidential memo.md memo.pdf
 ```
 
-## Common flags
+## Yaygın bayraklar
 
 ```
-Page layout:
-  --margins <dim>            1in (default) | 72pt | 2.54cm | 25mm
+Sayfa düzeni:
+  --margins <boyut>            1in (varsayılan) | 72pt | 2.54cm | 25mm
   --page-size letter|a4|legal
 
-Structure:
-  --cover                    Cover page (title, author, date, hairline rule)
-  --toc                      Clickable TOC with page numbers
-  --no-chapter-breaks        Don't start a new page at every H1
+Yapı:
+  --cover                    Kapak sayfası (başlık, yazar, tarih, ince çizgi)
+  --toc                      Sayfa numaralı tıklanabilir İÇİNDEKİLER
+  --no-chapter-breaks        Her H1'de yeni sayfa başlatma
 
-Branding:
-  --watermark <text>         Diagonal watermark ("DRAFT", "CONFIDENTIAL")
-  --header-template <html>   Custom running header
-  --footer-template <html>   Custom footer (mutex with --page-numbers)
-  --no-confidential          Suppress the CONFIDENTIAL right-footer
+Markalama:
+  --watermark <metin>         Çapraz filigran ("DRAFT", "CONFIDENTIAL")
+  --header-template <html>    Özel sürekli üstbilgi
+  --footer-template <html>    Özel altbilgi (--page-numbers ile çelişir)
+  --no-confidential          GİZLİ sağ altbilgiyi gizle
 
-Output:
-  --page-numbers             "N of M" footer (default on)
-  --tagged                   Accessible PDF (default on)
-  --outline                  PDF bookmarks from headings (default on)
-  --quiet                    Suppress progress on stderr
-  --verbose                  Per-stage timings
+Çıktı:
+  --page-numbers             "N / M" altbilgi (varsayılan açık)
+  --tagged                   Erişilebilir PDF (varsayılan açık)
+  --outline                  Başlıklardan PDF yer imleri (varsayılan açık)
+  --quiet                    stderr üzerindeki ilerlemeyi gizle
+  --verbose                   Aşama aşama zamanlamalar
 
-Network:
-  --allow-network            Fetch external images. Off by default
-                             (blocks tracking pixels).
+Ağ:
+  --allow-network            Harici resimleri çek. Varsayılan olarak kapalı
+                             (izleme piksellerini engeller).
 
-Metadata:
-  --title "..."              Document title (defaults to first H1)
-  --author "..."             Author for cover + PDF metadata
-  --date "..."               Date for cover (defaults to today)
+Meta veriler:
+  --title "..."              Belge başlığı (varsayılan: ilk H1)
+  --author "..."              Kapak + PDF meta verileri için yazar
+  --date "..."               Kapak için tarih (varsayılan: bugün)
 ```
 
-## When Claude should run it
+## Claude ne zaman çalıştırmalı
 
-Watch for markdown-to-PDF intent. Any of these patterns → run `$P generate`:
+Markdown'dan PDF'e dönüştürme niyetini izleyin. Bu kalıplardan herhangi biri → `$P generate` çalıştırın:
 
-- "Can you make this markdown a PDF"
-- "Export it as a PDF"
-- "Turn this letter into a PDF"
-- "I need a PDF of the essay"
-- "Print this as a PDF for me"
+- "Bu markdownu PDF yapabilir misin"
+- "PDF olarak aktar"
+- "Bu mektubu PDF'e dönüştür"
+- "Makalenin PDF'ini istiyorum"
+- "Bunu benim için PDF olarak yazdır"
 
-If the user has a `.md` file open and says "make it look nice", propose
-`$P generate --cover --toc` and ask before running.
+Kullanıcıda açık bir `.md` dosyası varsa ve "güzel görünmesini sağla" derse,
+`$P generate --cover --toc` önerin ve çalıştırmadan önce sorun.
 
-## Debugging
+## Hata ayıklama
 
-- Output looks empty / blank → check browse daemon is running: `$B status`.
-- Fragmented text on copy-paste → highlight.js output (Phase 4). Retry with
-  `--no-syntax` once that flag exists. For now, remove fenced code blocks
-  and regenerate.
-- Paged.js timeout → probably no headings in the markdown. Drop `--toc`.
-- External image missing → add `--allow-network` (understand you're giving
-  the markdown file permission to fetch from its image URLs).
-- Generated PDF too tall/wide → `--page-size a4` or `--margins 0.75in`.
+- Çıktı boş / beyaz görünüyor → browse daemon'ın çalıştığını kontrol edin: `$B status`.
+- Kopyala-yapıştırda parçalanmış metin → highlight.js çıktısı (Aşama 4). Bu bayrak
+  mevcut olana kadar `--no-syntax` ile tekrar deneyin. Şimdilik, çitli kod bloklarını
+  kaldırın ve yeniden oluşturun.
+- Paged.js zaman aşımı → muhtemelen markdown'da başlık yok. `--toc` seçeneğini kaldırın.
+- Harici resim eksik → `--allow-network` ekleyin (markdown dosyasına resim URL'lerinden
+  çekme izni verdiğinizi anlayın).
+- Oluşturulan PDF çok uzun/geniş → `--page-size a4` veya `--margins 0.75in`.
 
-## Output contract
+## Çıktı sözleşmesi
 
 ```
-stdout: /tmp/letter.pdf          ← just the path, one line
-stderr: Rendering HTML...        ← progress spinner (unless --quiet)
+stdout: /tmp/letter.pdf          ← sadece yol, bir satır
+stderr: Rendering HTML...        ← ilerleme döndürücüsü (--quiet olmadıkça)
         Generating PDF...
         Done in 1.5s. 43 words · 22KB · /tmp/letter.pdf
 
-exit code: 0 success / 1 bad args / 2 render error / 3 Paged.js timeout
-           / 4 browse unavailable
+exit code: 0 başarı / 1 hatalı argümanlar / 2 oluşturma hatası / 3 Paged.js zaman aşımı
+           / 4 browse kullanılamıyor
 ```
 
-Capture the path: `PDF=$($P generate letter.md)` — then use `$PDF`.
+Yolu yakalayın: `PDF=$($P generate letter.md)` — ardından `$PDF` kullanın.

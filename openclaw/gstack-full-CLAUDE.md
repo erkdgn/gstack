@@ -1,12 +1,12 @@
-# gstack-full Pipeline
+# gstack-full Boru Hattı
 
-Injected by the orchestrator for complete feature builds. Append to existing CLAUDE.md.
+Orkestratör tarafından eksiksiz özellik yapıları için enjekte edilir. Mevcut CLAUDE.md'ye ekleyin.
 
-## Full Pipeline
-1. Read CLAUDE.md and understand the project context.
-2. Run /autoplan to review your approach (CEO + eng + design review pipeline).
-3. Implement the approved plan. Follow the planning discipline above.
-4. Run /ship to create a PR with tests, changelog, and version bump.
-5. Report back: PR URL, what shipped, decisions made, anything uncertain.
+## Tam Boru Hattı
+1. CLAUDE.md dosyasını okuyun ve proje bağlamını anlayın.
+2. Yaklaşımınızı incelemek için /autoplan çalıştırın (CEO + mühendislik + tasarım inceleme boru hattı).
+3. Onaylanan planı uygulayın. Yukarıdaki planlama disiplinini takip edin.
+4. Testler, değişiklik günlüğü ve sürüm yükseltmesi ile bir PR oluşturmak için /ship çalıştırın.
+5. Raporlayın: PR URL'si, neler gönderildi, alınan kararlar, belirsiz olan her şey.
 
-Do not ask for human input until the PR is ready for review.
+PR incelemeye hazır olana kadar insan girdisi istemeyin.

@@ -1,52 +1,52 @@
-# Performance Specialist Review Checklist
+# Performans Uzman İnceleme Kontrol Listesi
 
-Scope: When SCOPE_BACKEND=true OR SCOPE_FRONTEND=true
-Output: JSON objects, one finding per line. Schema:
-{"severity":"CRITICAL|INFORMATIONAL","confidence":N,"path":"file","line":N,"category":"performance","summary":"...","fix":"...","fingerprint":"path:line:performance","specialist":"performance"}
-Optional: line, fix, fingerprint, evidence, test_stub.
-If no findings: output `NO FINDINGS` and nothing else.
+Kapsam: SCOPE_BACKEND=true VEYA SCOPE_FRONTEND=true olduğunda
+Çıktı: JSON nesneleri, satır başına bir bulgu. Şema:
+{"severity":"CRITICAL|INFORMATIONAL","confidence":N,"path":"dosya","line":N,"category":"performance","summary":"...","fix":"...","fingerprint":"path:line:performance","specialist":"performance"}
+İsteğe bağlı: line, fix, fingerprint, evidence, test_stub.
+Bulgu yoksa: `NO FINDINGS` çıktısı ve başka hiçbir şey.
 
 ---
 
-## Categories
+## Kategoriler
 
-### N+1 Queries
-- ActiveRecord/ORM associations traversed in loops without eager loading (.includes, joinedload, include)
-- Database queries inside iteration blocks (each, map, forEach) that could be batched
-- Nested serializers that trigger lazy-loaded associations
-- GraphQL resolvers that query per-field instead of batching (check for DataLoader usage)
+### N+1 Sorgular
+- İstekli yükleme olmaksızın döngülerde gezilen ActiveRecord/ORM ilişkileri (.includes, joinedload, include)
+- Toplu işlenebilecek yineleme blokları içindeki veritabanı sorguları (each, map, forEach)
+- Tembel yüklenmiş ilişkileri tetikleyen iç içe serileştiriciler
+- DataLoader kullanımını kontrol ederek alan başına sorgulama yerine toplu iş yapan GraphQL çözücüler
 
-### Missing Database Indexes
-- New WHERE clauses on columns without indexes (check migration files or schema)
-- New ORDER BY on non-indexed columns
-- Composite queries (WHERE a AND b) without composite indexes
-- Foreign key columns added without indexes
+### Eksik Veritabanı İndeksleri
+- İndeksleri olmayan sütunlarda yeni WHERE yan cümleleri (göç dosyalarını veya şemayı kontrol edin)
+- İndekslenmemiş sütunlarda yeni ORDER BY
+- Bileşik indeksleri olmayan bileşik sorgular (WHERE a AND b)
+- İndeksleri olmaksızın eklenen yabancı anahtar sütunları
 
-### Algorithmic Complexity
-- O(n^2) or worse patterns: nested loops over collections, Array.find inside Array.map
-- Repeated linear searches that could use a hash/map/set lookup
-- String concatenation in loops (use join or StringBuilder)
-- Sorting or filtering large collections multiple times when once would suffice
+### Algoritmik Karmaşıklık
+- O(n^2) veya daha kötü desenler: koleksiyonlar üzerinde iç içe döngüler, Array.map içinde Array.find
+- Bir hash/map/set araması kullanabilecek yinelenen doğrusal aramalar
+- Döngülerde dize birleştirme (join veya StringBuilder kullanın)
+- Bir kez yeterli olabilecekken birden fazla kez sıralama veya filtreleme yapılan büyük koleksiyonlar
 
-### Bundle Size Impact (Frontend)
-- New production dependencies that are known-heavy (moment.js, lodash full, jquery)
-- Barrel imports (import from 'library') instead of deep imports (import from 'library/specific')
-- Large static assets (images, fonts) committed without optimization
-- Missing code splitting for route-level chunks
+### Paket Boyutu Etkisi (Ön Uç)
+- Ağır olduğu bilinen yeni üretim bağımlılıkları (moment.js, lodash full, jquery)
+- Derin içe aktarmalar (library/specific'ten import) yerine varil içe aktarmaları (library'den import)
+- Optimizasyon olmaksızın işlenen büyük statik varlıklar (görseller, yazı tipleri)
+- Rota düzeyinde parçalar için eksik kod bölme
 
-### Rendering Performance (Frontend)
-- Fetch waterfalls: sequential API calls that could be parallel (Promise.all)
-- Unnecessary re-renders from unstable references (new objects/arrays in render)
-- Missing React.memo, useMemo, or useCallback on expensive computations
-- Layout thrashing from reading then writing DOM properties in loops
-- Missing loading="lazy" on below-fold images
+### Render Performansı (Ön Uç)
+- Getirme şelaleleri: paralel olabilecek sıralı API çağrıları (Promise.all)
+- Kararsız referanslardan gelen gereksiz yeniden render'lar (render'da yeni nesneler/diziler)
+- Pahalı hesaplamalarda eksik React.memo, useMemo veya useCallback
+- Döngülerde DOM özelliklerini okuyup ardından yazmaktan gelen düzen sarsıntısı
+- Kat altı görsellerde eksik loading="lazy"
 
-### Missing Pagination
-- List endpoints that return unbounded results (no LIMIT, no pagination params)
-- Database queries without LIMIT that grow with data volume
-- API responses that embed full nested objects instead of IDs with expansion
+### Eksik Sayfalama
+- Sınırsız sonuç döndüren liste uç noktaları (LIMIT yok, sayfalama parametreleri yok)
+- Veri hacmiyle büyüen LIMIT olmaksızın veritabanı sorguları
+- Genişletma ile ID'ler yerine tam iç içe nesneler gömen API yanıtları
 
-### Blocking in Async Contexts
-- Synchronous I/O (file reads, subprocess, HTTP requests) inside async functions
-- time.sleep() / Thread.sleep() inside event-loop-based handlers
-- CPU-intensive computation blocking the main thread without worker offload
+### Zaman Uyumsuz Bağlamlarda Engelleme
+- Zaman uyumsuz fonksiyonlar içinde zaman uyumlu G/Ç (dosya okumaları, alt süreç, HTTP istekleri)
+- Olay döngüsü tabanlı işleyiciler içinde time.sleep() / Thread.sleep()
+- Çalışanı boşaltmaksızın ana iş parçacığını engelleyen CPU yoğun hesaplama

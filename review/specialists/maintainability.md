@@ -1,46 +1,46 @@
-# Maintainability Specialist Review Checklist
+# Bakım Uzman İnceleme Kontrol Listesi
 
-Scope: Always-on (every review)
-Output: JSON objects, one finding per line. Schema:
-{"severity":"INFORMATIONAL","confidence":N,"path":"file","line":N,"category":"maintainability","summary":"...","fix":"...","fingerprint":"path:line:maintainability","specialist":"maintainability"}
-Optional: line, fix, fingerprint, evidence, test_stub.
-If no findings: output `NO FINDINGS` and nothing else.
+Kapsam: Her zaman açık (her inceleme)
+Çıktı: JSON nesneleri, satır başına bir bulgu. Şema:
+{"severity":"INFORMATIONAL","confidence":N,"path":"dosya","line":N,"category":"maintainability","summary":"...","fix":"...","fingerprint":"path:line:maintainability","specialist":"maintainability"}
+İsteğe bağlı: line, fix, fingerprint, evidence, test_stub.
+Bulgu yoksa: `NO FINDINGS` çıktısı ve başka hiçbir şey.
 
 ---
 
-## Categories
+## Kategoriler
 
-### Dead Code & Unused Imports
-- Variables assigned but never read in the changed files
-- Functions/methods defined but never called (check with Grep across the repo)
-- Imports/requires that are no longer referenced after the change
-- Commented-out code blocks (either remove or explain why they exist)
+### Ölü Kod ve Kullanılmayan İthalatlar
+- Değiştirilen dosyalarda atanmış ancak hiç okunmamış değişkenler
+- Tanımlanmış ancak hiç çağrılmamış fonksiyonlar/yöntemler (repo genelinde Grep ile kontrol edin)
+- Değişiklikten sonra artık referans verilmeyen import/require ifadeleri
+- Yorum satırına alınmış kod blokları (ya kaldırın ya da neden var olduklarını açıklayın)
 
-### Magic Numbers & String Coupling
-- Bare numeric literals used in logic (thresholds, limits, retry counts) — should be named constants
-- Error message strings used as query filters or conditionals elsewhere
-- Hardcoded URLs, ports, or hostnames that should be config
-- Duplicated literal values across multiple files
+### Sihirli Sayılar ve Dize Bağlantısı
+- Mantıkta kullanılan çıplak sayısal sabitler (eşikler, limitler, yeniden deneme sayıları) — adlandırılmış sabitler olmalı
+- Başka yerlerde sorgu filtresi veya koşul olarak kullanılan hata mesajı dizgeleri
+- Yapılandırma olması gereken sabit kodlanmış URL'ler, bağlantı noktaları veya ana bilgisayar adları
+- Birden fazla dosyada yinelenen sabit değerler
 
-### Stale Comments & Docstrings
-- Comments that describe old behavior after the code was changed in this diff
-- TODO/FIXME comments that reference completed work
-- Docstrings with parameter lists that don't match the current function signature
-- ASCII diagrams in comments that no longer match the code flow
+### Eskimiş Yorumlar ve Belge Dizgeleri
+- Bu dif'te kod değiştirildikten sonra eski davranışı açıklayan yorumlar
+- Tamamlanmış işe referans veren TODO/FIXME yorumları
+- Mevcut fonksiyon imzasıyla eşleşmeyen parametre listelerine sahip belge dizgeleri
+- Artık kod akışıyla eşleşmeyen ASCII diyagramları içeren yorumlar
 
-### DRY Violations
-- Similar code blocks (3+ lines) appearing multiple times within the diff
-- Copy-paste patterns where a shared helper would be cleaner
-- Configuration or setup logic duplicated across test files
-- Repeated conditional chains that could be a lookup table or map
+### DRY İhlalleri
+- Dif içinde birden fazla kez görünen benzer kod blokları (3+ satır)
+- Paylaşılan bir yardımcının daha temiz olacağı kopyala-yapıştır desenleri
+- Test dosyaları arasında yinelenen yapılandırma veya kurulum mantığı
+- Bir arama tablosu veya eşlem olabilecek yinelenen koşul zincirleri
 
-### Conditional Side Effects
-- Code paths that branch on a condition but forget a side effect on one branch
-- Log messages that claim an action happened but the action was conditionally skipped
-- State transitions where one branch updates related records but the other doesn't
-- Event emissions that only fire on the happy path, missing error/edge paths
+### Koşullu Yan Etkiler
+- Bir koşula dallanan ancak bir dalı yan etkisi unuturan kod yolları
+- Bir eylemin gerçekleştiğini iddia eden ancak eylemin koşullu olarak atlandığı günlük mesajları
+- Bir dalın ilgili kayıtları güncellediği ancak diğerinin güncellemediği durum geçişleri
+- Yalnızca mutlu yolda çalışan, hata/kenar yolları eksik olay yayımları
 
-### Module Boundary Violations
-- Reaching into another module's internal implementation (accessing private-by-convention methods)
-- Direct database queries in controllers/views that should go through a service/model
-- Tight coupling between components that should communicate through interfaces
+### Modül Sınırı İhlalleri
+- Başka bir modülün iç uygulamasına erişim (kurala göre özel yöntemlere erişim)
+- Bir hizmet/model üzerinden gitmesi gereken denetleyiciler/görünümlerdeki doğrudan veritabanı sorguları
+- Arayüzler üzerinden iletişim kurması gereken bileşenler arasındaki sıkı bağ

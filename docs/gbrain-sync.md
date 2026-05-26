@@ -1,192 +1,190 @@
-# Cross-machine memory with GBrain sync
+# GBrain eşitleme ile makineler arası bellek
 
-gstack writes a lot of useful state to `~/.gstack/` — learnings, retros, CEO
-plans, design docs, developer profile. By default, all of that dies when you
-switch laptops. **GBrain sync** pushes a curated subset to a private git
-repo so your memory follows you across machines and becomes indexable by
-GBrain.
+gstack `~/.gstack/` dizinine birçok yararlı durum yazar — öğrenmeler, geribildirimler,
+CEO planları, tasarım belgeleri, geliştirici profili. Varsayılan olarak, bunların hepsi
+dizüstü değiştirdiğinizde kaybolur. **GBrain eşitleme**, seçilmiş bir alt kümeyi özel
+bir git deposuna iter, böylece belleğiniz makineler arasında sizi takip eder ve GBrain
+tarafından dizinelenebilir hale gelir.
 
-## What you get
+## Ne elde edersiniz
 
-- Work on machine A, pick up seamlessly on machine B.
-- Your learnings, plans, and designs are visible in GBrain (if you use it).
-- A clean off-ramp (`gstack-brain-uninstall`) that never touches your data.
-- No daemon, no system service, no background process.
+- Makine A'da çalışın, Makine B'de sorunsuzca devam edin.
+- Öğrenmeleriniz, planlarınız ve tasarımlarınız GBrain'de görünür (kullanıyorsanız).
+- Verilerinize hiç dokunmayan temiz bir çıkış yolu (`gstack-brain-uninstall`).
+- Artalan süreci yok, sistem servisi yok, arka plan işlemi yok.
 
-## What does NOT leave your machine
+## Makinenizden Çıkmayanlar
 
-By design, these stay local even when sync is on:
+Tasarım gereği, eşitleme açıkken bile bunlar yerel kalır:
 
-- Credentials: `.auth.json`, `auth-token.json`, `sidebar-sessions/`,
-  `security/device-salt`, consumer tokens in `config.yaml`
-- Machine-specific state: Chromium profiles, ONNX model weights,
-  caches, eval-cache, CDP-profile, one-time prompt markers
-  (`.welcome-seen`, `.telemetry-prompted`, `.vendoring-warned-*`, etc.)
-- Question-preferences: per-machine UX preferences
+- Kimlik bilgileri: `.auth.json`, `auth-token.json`, `sidebar-sessions/`,
+  `security/device-salt`, `config.yaml` içindeki tüketici belirteçleri
+- Makineye özgü durum: Chromium profilleri, ONNX model ağırlıkları,
+  önbellekler, eval-cache, CDP-profile, bir kerelik komut istemi işaretçileri
+  (`.welcome-seen`, `.telemetry-prompted`, `.vendoring-warned-*` vb.)
+- Soru tercihleri: makine başına UX tercihleri
   (`question-preferences.json`, `question-log.jsonl`, `question-events.jsonl`).
 
-The exact allowlist lives in `~/.gstack/.brain-allowlist`. The CLI manages
-it; you can append your own entries below the marker line.
+Tam izin verilenler listesi `~/.gstack/.brain-allowlist` dosyasındadır. CLI yönetir;
+kendi girdilerinizi işaretçi satırının altına ekleyebilirsiniz.
 
-## First-run setup (30–90 seconds)
+## İlk çalıştırma kurulumu (30–90 saniye)
 
 ```bash
 gstack-brain-init
 ```
 
-The command:
+Komut şunları yapar:
 
-1. Turns `~/.gstack/` into a git repo.
-2. Asks for a remote URL (default: `gh repo create --private
-   gstack-brain-$USER`). Any git remote works — GitHub, GitLab, Gitea,
-   self-hosted.
-3. Pushes an initial commit with just the config.
-4. Writes `~/.gstack-brain-remote.txt` (URL-only, no secrets —
-   safe to copy to another machine).
-5. Wires the gstack-brain repo into your local gbrain as a federated
-   source (via `gbrain sources add` + `git worktree`) so `gbrain search`
-   can index your synced learnings, plans, and designs. Implementation
-   lives in `bin/gstack-gbrain-source-wireup`. The old
-   `gstack-brain-reader add --ingest-url ...` HTTP path was removed in
-   v1.15.1.0 — it depended on a `/ingest-repo` endpoint gbrain never
-   shipped.
+1. `~/.gstack/` dizimini bir git deposuna dönüştürür.
+2. Uzak bir URL sorar (varsayılan: `gh repo create --private
+   gstack-brain-$USER`). Herhangi bir git uzak makinesi çalışır — GitHub, GitLab,
+   Gitea, kendi sunucunuz.
+3. Yalnızca yapılandırmayı içeren bir başlangıç commiti iter.
+4. `~/.gstack-brain-remote.txt` dosyasına yazar (yalnızca URL, gizli yok —
+   başka bir makineye kopyalamak güvenlidir).
+5. gstack-brain deposunu yerel gbrain'a federasyonlu bir kaynak olarak bağlar
+   (`gbrain sources add` + `git worktree` aracılığıyla), böylece `gbrain search`
+   eşitlenmiş öğrenmelerinizi, planlarınızı ve tasarımlarınızı dizine ekleyebilir.
+   Uygulama `bin/gstack-gbrain-source-wireup` dosyasındadır. Eski
+   `gstack-brain-reader add --ingest-url ...` HTTP yolu v1.15.1.0 sürümünde
+   kaldırıldı — gbrain'ın hiçbir zaman göndermediği bir `/ingest-repo` uç noktasına
+   bağımlıydı.
 
-After init, the **next skill you run** will ask you ONE question about
-privacy mode:
+Başlatma sonrası, **çalıştırdığınız sonraki yetenek** size gizlilik modu hakkında
+BİR soru sorar:
 
-- **Everything allowlisted (recommended)**: learnings, reviews, plans,
-  designs, retros, timelines, and developer profile all sync.
-- **Only artifacts**: plans, designs, retros, learnings — skip
-  behavioral data (timelines, developer profile).
-- **Decline**: keep everything local. You can turn sync on later with
-  `gstack-config set artifacts_sync_mode full`.
+- **İzin verilenler listesindeki her şey (önerilen)**: öğrenmeler, incelemeler, planlar,
+  tasarımlar, geribildirimler, zaman çizelgeleri ve geliştirici profilinin hepsi eşitlenir.
+- **Yalnızca yapıtlar**: planlar, tasarımlar, geribildirimler, öğrenmeler — davranışsal
+  verileri atlar (zaman çizelgeleri, geliştirici profili).
+- **Reddet**: her şeyi yerel tutun. Daha sonra `gstack-config set artifacts_sync_mode full`
+  ile eşitlemeyi açabilirsiniz.
 
-Your answer is persisted. You won't be asked again.
+Yanıtınız kalıcıdır. Bir daha sorulmaz.
 
-## Cross-machine workflow
+## Makineler arası iş akışı
 
-On machine A: run `gstack-brain-init` once. That's it — every skill
-invocation now drains the sync queue at its start and end boundaries
-(~200–800 ms network pause per skill).
+Makine A'da: `gstack-brain-init` komutunu bir kez çalıştırın. Bu kadar — artık her
+yetenek çağrısı, başlangıç ve bitiş sınırlarında eşitleme sırasını boşaltır
+(~200–800 ms ağ duraklaması).
 
-On machine B:
+Makine B'de:
 
-1. Copy `~/.gstack-brain-remote.txt` from machine A to machine B
-   (password manager, dotfile repo, USB stick — your call).
-2. Run any gstack skill. The preamble sees the URL file and prints:
+1. `~/.gstack-brain-remote.txt` dosyasını Makine A'dan Makine B'ye kopyalayın
+   (parola yöneticisi, dotfile deposu, USB bellek — size kalmış).
+2. Herhangi bir gstack yeteneği çalıştırın. Önsöz, URL dosyasını görür ve şunu yazdırır:
    ```
    BRAIN_SYNC: brain repo detected: <url>
    BRAIN_SYNC: run 'gstack-brain-restore' to pull your cross-machine memory
    ```
-3. Run `gstack-brain-restore`. That clones the repo, rehydrates your
-   learnings/plans/retros, and re-registers the git merge drivers.
-4. Re-enter consumer tokens (they're machine-local and NOT synced —
-   `gstack-config set gbrain_token <your-token>`).
-5. Next skill: your yesterday-on-machine-A learning surfaces. That's the
-   magical moment.
+3. `gstack-brain-restore` çalıştırın. Bu, depoyu klonlar, öğrenmelerinizi/planlarınızı/
+   geribildirimlerinizi yeniden yükler ve git birleştirme sürücülerini yeniden kaydeder.
+4. Tüketici belirteçlerini yeniden girin (bunlar makineye özeldir ve eşitlenmez —
+   `gstack-config set gbrain_token <belirteciniz>`).
+5. Sonraki yetenek: dünkü Makine-A öğrenmeniz ortaya çıkar. İşte o sihirli an.
 
-## Status, health, and queue depth
+## Durum, sağlık ve sıra derinliği
 
 ```bash
 gstack-brain-sync --status
 ```
 
-Shows: last successful push, pending queue depth, any sync blocks, and the
-current privacy mode.
+Şunları gösterir: son başarılı push, bekleyen sıra derinliği, varsa eşitleme
+engelleri ve geçerli gizlilik modu.
 
-Every skill run prints a `BRAIN_SYNC:` line near the top of the preamble
-output. Scan it for problems.
+Her yetenek çalıştırması, önsöz çıktısının üst kısmında bir `BRAIN_SYNC:` satırı
+yazdırır. Sorunlar için bunu tarayın.
 
-## Privacy modes in detail
+## Gizlilik modları ayrıntılı
 
-| Mode | What syncs |
+| Mod | Ne eşitlenir |
 |------|------------|
-| `off` | Nothing (default). |
-| `artifacts-only` | Plans, designs, retros, learnings, reviews. Skips timelines + developer-profile. |
-| `full` | Everything in the allowlist, including behavioral state. |
+| `off` | Hiçbir şey (varsayılan). |
+| `artifacts-only` | Planlar, tasarımlar, geribildirimler, öğrenmeler, incelemeler. Zaman çizelgeleri + geliştirici profilini atlar. |
+| `full` | İzin verilenler listesindeki her şey, davranışsal durum dahil. |
 
-Change anytime with:
+İstediğiniz zaman değiştirin:
 ```bash
 gstack-config set artifacts_sync_mode full
 gstack-config set artifacts_sync_mode off
 ```
 
-## Secret protection
+## Gizli koruma
 
-Every commit is scanned for credential-shaped content before it leaves
-your machine. Blocked patterns include:
+Her commit, makinenizden ayrılmadan önce kimlik bilgisi biçiminde içerik için taranır.
+Engellenen desenler şunları içerir:
 
-- AWS access keys (`AKIA…`)
-- GitHub tokens (`ghp_`, `gho_`, `ghu_`, `ghs_`, `ghr_`, `github_pat_`)
-- OpenAI keys (`sk-…`)
-- PEM blocks (`-----BEGIN …-----`)
-- JWTs (`eyJ…`)
-- Bearer tokens in JSON (`"authorization": "…"`, `"api_key": "…"`, etc.)
+- AWS erişim anahtarları (`AKIA…`)
+- GitHub belirteçleri (`ghp_`, `gho_`, `ghu_`, `ghs_`, `ghr_`, `github_pat_`)
+- OpenAI anahtarları (`sk-…`)
+- PEM blokları (`-----BEGIN …-----`)
+- JWT'ler (`eyJ…`)
+- JSON içindeki bearer belirteçleri (`"authorization": "…"`, `"api_key": "…"`, vb.)
 
-If a scan hits, sync stops, the queue is preserved, and your preamble
-prints:
+Bir tarama isabet ederse, eşitleme durur, sıra korunur ve önsözünüz şunu yazdırır:
 
 ```
 BRAIN_SYNC: blocked: <pattern-family>:<snippet>
 ```
 
-To remediate:
+Çözüm için:
 
-1. Review the offending file.
-2. If the match is a false positive on content you explicitly want to
-   sync, run `gstack-brain-sync --skip-file <path>` to permanently
-   exclude that path.
-3. Otherwise, edit the file to remove the secret and re-run any skill.
+1. Sorunlu dosyayı inceleyin.
+2. Eşleşme açıkça eşitlemek istediğiniz içerikteki yanlış bir pozitifse,
+   o yolu kalıcı olarak dışlamak için `gstack-brain-sync --skip-file <yol>` çalıştırın.
+3. Aksi takdirde, gizliyi kaldırmak için dosyayı düzenleyin ve herhangi bir yetenek
+   çalıştırın.
 
-There's a defense-in-depth hook at `~/.gstack/.git/hooks/pre-commit` that
-runs the same scan if you manually `git commit` against the repo.
+`~/.gstack/.git/hooks/pre-commit` konumunda, depoya el ile `git commit` yaparsanız
+aynı taramayı çalıştıran bir derinlemesine savunma kancası vardır.
 
-## Two-machine conflicts
+## İki makine çakışmaları
 
-If you write on machine A and machine B the same day, both will push
-append commits. Git's default would conflict at the file tail, but the
-`.jsonl` and markdown files are registered with custom merge drivers:
+Aynı gün Makine A ve Makine B'de yazarsanız, her ikisi de ekleme commitleri iter.
+Git'in varsayılanı dosya kuyruğunda çakışma yaratur, ancak `.jsonl` ve markdown
+dosyaları özel birleştirme sürücüleri ile kayıtlıdır:
 
-- JSONL files use a sort-and-dedup driver that orders appends by ISO
-  timestamp (falls back to SHA-256 hash of each line for determinism).
-- Markdown artifacts (retros, plans, designs) use a union merge driver
-  that concatenates both sides.
+- JSONL dosyaları, eklemeleri ISO zaman damgasına göre sıralayan ve tekrarları kaldıran
+  bir sürücü kullanır (belirleyicilik için her satırın SHA-256 karmasına düşer).
+- Markdown yapıtları (geribildirimler, planlar, tasarımlar) her iki tarafı
+  birleştiren bir birleşim sürücüsü kullanır.
 
-You shouldn't see conflict prompts. If you do (a real semantic conflict,
-like two machines editing the same plan), git will stop and prompt.
+Çakışma komut istemleri görmemelisiniz. Görürseniz (gerçek anlamsal bir çakışma,
+örneğin iki makine aynı planı düzenlemek), git durur ve komut istemi gösterir.
 
-## Cross-machine pull cadence
+## Makineler arası çekme sıklığı
 
-The preamble runs `git fetch` + `git merge --ff-only` once per 24 hours
-(cached via `~/.gstack/.brain-last-pull`). You don't need to think about
-this — it happens automatically at the first skill invocation each day.
+Önsöz, 24 saatte bir `git fetch` + `git merge --ff-only` çalıştırır
+(`~/.gstack/.brain-last-pull` ile önbelleğe alınır). Bunun hakkında düşünmenize
+gerek yok — her günün ilk yetenek çağrısında otomatik olarak gerçekleşir.
 
-## Uninstall
+## Kaldırma
 
 ```bash
 gstack-brain-uninstall
 ```
 
-This:
+Bu şunları yapar:
 
-- Removes `~/.gstack/.git/` and all `.brain-*` config files.
-- Clears `artifacts_sync_mode` in `gstack-config`.
-- Does NOT touch your learnings, plans, retros, or developer profile.
+- `~/.gstack/.git/` dizinini ve tüm `.brain-*` yapılandırma dosyalarını kaldırır.
+- `gstack-config` içindeki `artifacts_sync_mode` ayarını temizler.
+- Öğrenmelerinizi, planlarınızı, geribildirimlerinizi veya geliştirici profilinizi
+  dokunmaz.
 
-Add `--delete-remote` to also delete the private GitHub repo (GitHub only,
-uses `gh repo delete`).
+Özel GitHub deposunu da silmek için `--delete-remote` ekleyin (yalnızca GitHub,
+`gh repo delete` kullanır).
 
-Re-init anytime with `gstack-brain-init`.
+İstediğiniz zaman `gstack-brain-init` ile yeniden başlatabilirsiniz.
 
-## Troubleshooting
+## Sorun giderme
 
-See [gbrain-sync-errors.md](gbrain-sync-errors.md) for an index of every
-error message gstack-brain may print, with problem / cause / fix for each.
+gstack-brain komutunun yazdırabileceği her hata mesajı için, her biri için sorun /
+neden / çözüm ile birlikte [gbrain-sync-errors.md](gbrain-sync-errors.md) dosyasına bakın.
 
-## Under the hood
+## Kaputun altında
 
-For the architectural decisions behind this feature (allowlist vs
-denylist, daemon vs preamble-boundary sync, JSONL merge driver, privacy
-stop-gate), see the
-[approved plan](../system-instruction-you-are-working-jaunty-kahn.md) in
-the gstack plans directory.
+Bu özelliğin arkasındaki mimari kararlar (izin verilenler listesi vs ret listesi,
+artalan süreci vs önsöz sınırı eşitlemesi, JSONL birleştirme sürücüsü, gizlilik
+durdurma kapısı) için gstack planlar dizinindeki
+[onaylanmış plana](../system-instruction-you-are-working-jaunty-kahn.md) bakın.

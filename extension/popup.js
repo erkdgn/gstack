@@ -34,12 +34,12 @@ chrome.runtime.onMessage.addListener((msg) => {
 function updateStatus(connected, data) {
   dot.className = `dot ${connected ? 'connected' : ''}`;
   statusText.className = `status-text ${connected ? 'connected' : ''}`;
-  statusText.textContent = connected ? 'Connected' : 'Disconnected';
+  statusText.textContent = connected ? 'Bağlı' : 'Bağlantı Kesildi';
 
   if (connected && data) {
     const parts = [];
-    if (data.tabs) parts.push(`${data.tabs} tabs`);
-    if (data.mode) parts.push(`Mode: ${data.mode}`);
+    if (data.tabs) parts.push(`${data.tabs} sekme`);
+    if (data.mode) parts.push(`Mod: ${data.mode}`);
     details.textContent = parts.join(' \u00b7 ');
   } else {
     details.textContent = '';
@@ -55,6 +55,6 @@ sidePanelBtn.addEventListener('click', async () => {
       window.close();
     }
   } catch (err) {
-    details.textContent = `Side panel error: ${err.message}`;
+    details.textContent = `Yan panel hatası: ${err.message}`;
   }
 });

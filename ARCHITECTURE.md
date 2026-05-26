@@ -1,326 +1,326 @@
-# Architecture
+# Mimari
 
-This document explains **why** gstack is built the way it is. For setup and commands, see CLAUDE.md. For contributing, see CONTRIBUTING.md.
+Bu belge gstack'in **neden** bu şekilde oluşturulduğunu açıklar. Kurulum ve komutlar için CLAUDE.md'ye, katkıda bulunmak için CONTRIBUTING.md'ye bakın.
 
-## The core idea
+## Temel fikir
 
-gstack gives Claude Code a persistent browser and a set of opinionated workflow skills. The browser is the hard part — everything else is Markdown.
+gstack, Claude Code'a kalıcı bir tarayıcı ve bir deye görüşlü iş akışı yeteneği verir. Zor olan kısım tarayıcıdır — geriye kalan her şey Markdown'dur.
 
-The key insight: an AI agent interacting with a browser needs **sub-second latency** and **persistent state**. If every command cold-starts a browser, you're waiting 3-5 seconds per tool call. If the browser dies between commands, you lose cookies, tabs, and login sessions. So gstack runs a long-lived Chromium daemon that the CLI talks to over localhost HTTP.
+Temel içgörü: Bir tarayıcıyla etkileşime giren bir yapay zeka temsilcisinin **saniyenin altında gecikme** ve **kalıcı durum** (state) gereksinimi vardır. Her komut tarayıcıyı soğuk başlatıyorsa, her araç çağrısı başına 3-5 saniye beklersiniz. Tarayıcı komutlar arasında ölürse, çerezleri, sekmeleri ve oturumları kaybedersiniz. Bu nedenle gstack, CLI'nin localhost HTTP üzerinden konuştuğu uzun ömürlü bir Chromium arka plan programı çalıştırır.
 
 ```
 Claude Code                     gstack
 ─────────                      ──────
                                ┌──────────────────────┐
-  Tool call: $B snapshot -i    │  CLI (compiled binary)│
-  ─────────────────────────→   │  • reads state file   │
-                               │  • POST /command      │
-                               │    to localhost:PORT   │
+  Tool call: $B snapshot -i    │  CLI (derlenmiş binary)│
+  ─────────────────────────→   │  • durum dosyasını okur │
+                               │  • POST /command       │
+                               │    localhost:PORT'a     │
                                └──────────┬───────────┘
                                           │ HTTP
                                ┌──────────▼───────────┐
-                               │  Server (Bun.serve)   │
-                               │  • dispatches command  │
-                               │  • talks to Chromium   │
-                               │  • returns plain text  │
+                               │  Sunucu (Bun.serve)   │
+                               │  • komutu yönlendirir │
+                               │  • Chromium ile konuşur│
+                               │  • düz metin döndürür │
                                └──────────┬───────────┘
                                           │ CDP
                                ┌──────────▼───────────┐
                                │  Chromium (headless)   │
-                               │  • persistent tabs     │
-                               │  • cookies carry over  │
-                               │  • 30min idle timeout  │
+                               │  • kalıcı sekmeler     │
+                               │  • çerezler taşınır    │
+                               │  • 30dk boşta zaman aşımı│
                                └───────────────────────┘
 ```
 
-First call starts everything (~3s). Every call after: ~100-200ms.
+İlk çağrı her şeyi başlatır (~3s). Sonraki her çağrı: ~100-200ms.
 
-## Why Bun
+## Neden Bun
 
-Node.js would work. Bun is better here for three reasons:
+Node.js de çalışırdı. Burada Bun üç nedene daha iyidir:
 
-1. **Compiled binaries.** `bun build --compile` produces a single ~58MB executable. No `node_modules` at runtime, no `npx`, no PATH configuration. The binary just runs. This matters because gstack installs into `~/.claude/skills/` where users don't expect to manage a Node.js project.
+1. **Derlenmiş binary'ler.** `bun build --compile` tek bir ~58MB çalıştırılabilir dosya üretir. Çalışma zamanında `node_modules` yok, `npx` yok, PATH yapılandırması yok. Binary doğrudan çalışır. Bu önemlidir çünkü gstack, kullanıcıların bir Node.js projesi yönetmeyi beklemediği `~/.claude/skills/` konumuna kurulur.
 
-2. **Native SQLite.** Cookie decryption reads Chromium's SQLite cookie database directly. Bun has `new Database()` built in — no `better-sqlite3`, no native addon compilation, no gyp. One less thing that breaks on different machines.
+2. **Yerel SQLite.** Çerez şifre çözme, Chromium'un SQLite çerez veritabanını doğrudan okur. Bun'da yerleşik `new Database()` vardır — `better-sqlite3` yok, yerel eklenti derlemesi yok, gyp yok. Farklı makinelerde bozulan bir şey daha az.
 
-3. **Native TypeScript.** The server runs as `bun run server.ts` during development. No compilation step, no `ts-node`, no source maps to debug. The compiled binary is for deployment; source files are for development.
+3. **Yerel TypeScript.** Sunucu geliştirme sırasında `bun run server.ts` olarak çalışır. Derleme adımı yok, `ts-node` yok, hata ayıklamak için source map yok. Derlenmiş binary dağıtım içindir; kaynak dosyalar geliştirme içindir.
 
-4. **Built-in HTTP server.** `Bun.serve()` is fast, simple, and doesn't need Express or Fastify. The server handles ~10 routes total. A framework would be overhead.
+4. **Yerleşik HTTP sunucusu.** `Bun.serve()` hızlıdır, sadedir ve Express veya Fastify gerektirmez. Sunucu toplam ~10 rotayı işler. Bir framework fazla yük getirirdi.
 
-The bottleneck is always Chromium, not the CLI or server. Bun's startup speed (~1ms for the compiled binary vs ~100ms for Node) is nice but not the reason we chose it. The compiled binary and native SQLite are.
+Darboğaz her zaman Chromium'dur, CLI veya sunucu değil. Bun'un başlatma hızı (~1ms derlenmiş binary için, ~100ms Node için) güzel ama seçmemizin nedeni bu değil. Derlenmiş binary ve yerel SQLite sebebidir.
 
-## The daemon model
+## Arka plan programı modeli
 
-### Why not start a browser per command?
+### Neden komut başına tarayıcı başlatmıyoruz?
 
-Playwright can launch Chromium in ~2-3 seconds. For a single screenshot, that's fine. For a QA session with 20+ commands, it's 40+ seconds of browser startup overhead. Worse: you lose all state between commands. Cookies, localStorage, login sessions, open tabs — all gone.
+Playwright Chromium'u ~2-3 saniyede başlatabilir. Tek bir ekran görüntüsü için bu sorun değil. 20+ komutlu bir QA oturumu içinse 40+ saniye tarayıcı başlatma yükü oluşur. Daha kötüsü: komutlar arasındaki tüm durumu kaybedersiniz. Çerezler, localStorage, oturumlar, açık sekmeler — hepsi gider.
 
-The daemon model means:
+Arka plan programı modeli şu anlama gelir:
 
-- **Persistent state.** Log in once, stay logged in. Open a tab, it stays open. localStorage persists across commands.
-- **Sub-second commands.** After the first call, every command is just an HTTP POST. ~100-200ms round-trip including Chromium's work.
-- **Automatic lifecycle.** The server auto-starts on first use, auto-shuts down after 30 minutes idle. No process management needed.
+- **Kalıcı durum.** Bir kez oturum açın, oturum açık kalsın. Bir sekme açın, açık kalsın. localStorage komutlar arasında kalıcıdır.
+- **Saniyenin altında komutlar.** İlk çağrıdan sonra, her komut yalnızca bir HTTP POST'dur. Chromium'un çalışması dahil ~100-200ms gidiş-dönüş.
+- **Otomatik yaşam döngüsü.** Sunucu ilk kullanımda otomatik başlar, 30 dakika boşta kaldıktan sonra otomatik kapanır. Süreç yönetimine gerek yoktur.
 
-### State file
+### Durum dosyası
 
-The server writes `.gstack/browse.json` (atomic write via tmp + rename, mode 0o600):
+Sunucu `.gstack/browse.json` dosyasını yazar (tmp + rename ile atomik yazma, mod 0o600):
 
 ```json
 { "pid": 12345, "port": 34567, "token": "uuid-v4", "startedAt": "...", "binaryVersion": "abc123" }
 ```
 
-The CLI reads this file to find the server. If the file is missing or the server fails an HTTP health check, the CLI spawns a new server. On Windows, PID-based process detection is unreliable in Bun binaries, so the health check (GET /health) is the primary liveness signal on all platforms.
+CLI sunucuyu bulmak için bu dosyayı okur. Dosya eksikse veya sunucu bir HTTP sağlık kontrolünde başarısız olursa, CLI yeni bir sunucu başlatır. Windows'ta PID tabanlı süreç algılama Bun binary'lerinde güvenilmezdir, bu nedenle sağlık kontrolü (GET /health) tüm platformlarda birincil canlılık sinyalidir.
 
-### Port selection
+### Port seçimi
 
-Random port between 10000-60000 (retry up to 5 on collision). This means 10 Conductor workspaces can each run their own browse daemon with zero configuration and zero port conflicts. The old approach (scanning 9400-9409) broke constantly in multi-workspace setups.
+10000-60000 arasında rastgele port (çakışmada en fazla 5 yeniden deneme). Bu, 10 Conductor çalışma alanının sıfır yapılandırma ve sıfır port çakışmasıyla kendi browse arka plan programını çalıştırabileceği anlamına gelir. Eski yaklaşım (9400-9409 taraması) çoklu çalışma alanı kurulumlarında sürekli bozuluyordu.
 
-### Version auto-restart
+### Sürüm otomatik yeniden başlatma
 
-The build writes `git rev-parse HEAD` to `browse/dist/.version`. On each CLI invocation, if the binary's version doesn't match the running server's `binaryVersion`, the CLI kills the old server and starts a new one. This prevents the "stale binary" class of bugs entirely — rebuild the binary, next command picks it up automatically.
+Derleme, `git rev-parse HEAD` çıktısını `browse/dist/.version` dosyasına yazar. Her CLI çağrısında, binary'nin sürümü çalışan sunucunun `binaryVersion` değeriyle eşleşmezse, CLI eski sunucuyu öldürür ve yenisini başlatır. Bu, "eski binary" hata sınıfını tamamen önler — binary'yi yeniden derleyin, sonraki komut otomatik olarak alır.
 
-## Security model
+## Güvenlik modeli
 
-### Localhost only
+### Yalnızca localhost
 
-The HTTP server binds to `127.0.0.1`, not `0.0.0.0`. It's not reachable from the network.
+HTTP sunucusu `127.0.0.1`'e bağlanır, `0.0.0.0`'a değil. Ağdan erişilemez.
 
-### Dual-listener tunnel architecture (v1.6.0.0)
+### Çift dinleyici tünel mimarisi (v1.6.0.0)
 
-When a user runs `pair-agent --client`, the daemon starts an ngrok tunnel so a remote paired agent can drive the browser. Exposing the full daemon surface to the internet (even behind a random ngrok subdomain) meant `/health` leaked the root token on any Origin spoof, and `/cookie-picker` embedded the token into HTML that any caller could fetch.
+Bir kullanıcı `pair-agent --client` çalıştırdığında, arka plan programı uzaktaki eşleştirilmiş bir temsilcinin tarayıcıyı kullanabilmesi için bir ngrok tüneli başlatır. Tam arka plan programı yüzeyini internete açmak (rastgele bir ngrok alt alanının arkasında bile), `/health`'in herhangi bir Origin sahteciliğinde kök token'ı sızdırması ve `/cookie-picker`'ın token'ı her çağırıcının alabileceği HTML'e gömmesi anlamına geliyordu.
 
-The fix is **two HTTP listeners**, not one:
+Çözüm **iki HTTP dinleyicidir**, bir değil:
 
-- **Local listener** (`127.0.0.1:LOCAL_PORT`) — always bound. Serves bootstrap (`/health` with token delivery), `/cookie-picker`, `/inspector/*`, `/welcome`, `/refs`, the sidebar-agent API, and the full command surface. Never forwarded.
-- **Tunnel listener** (`127.0.0.1:TUNNEL_PORT`) — bound lazily on `/tunnel/start`, torn down on `/tunnel/stop`. Serves a locked allowlist: `/connect` (pairing ceremony, unauth + rate-limited), `/command` (scoped tokens only, further restricted to a browser-driving command allowlist), and `/sidebar-chat`. Everything else 404s.
+- **Yerel dinleyici** (`127.0.0.1:LOCAL_PORT`) — her zaman bağlıdır. Önyükleme (`/health` ile token teslimi), `/cookie-picker`, `/inspector/*`, `/welcome`, `/refs`, sidebar-agent API'si ve tam komut yüzeyini sunar. Hiçbir zaman yönlendirilmez.
+- **Tünel dinleyici** (`127.0.0.1:TUNNEL_PORT`) — `/tunnel/start` üzerinde tembel olarak bağlanır, `/tunnel/stop` üzerinde kaldırılır. Kilitli bir izin listesi sunar: `/connect` (eşleştirme seremonisi, yetkisiz + hız sınırlı), `/command` (yalnızca kapsamlı token'lar, tarayıcı-kullanma komut izin listesiyle daha fazla kısıtlı) ve `/sidebar-chat`. Diğer her şey 404 döner.
 
-ngrok forwards only the tunnel port. The security property comes from **physical port separation**: a tunnel caller cannot reach `/health` or `/cookie-picker` because those paths don't exist on that TCP socket. Header inference (check `x-forwarded-for`, check origin) is unreliable (ngrok header behavior changes; local proxies can add these headers); socket separation isn't.
+ngrok yalnızca tünel portunu yönlendirir. Güvenlik özelliği **fiziksel port ayrımından** gelir: bir tünel çağırıcısı `/health` veya `/cookie-picker`'a erişemez çünkü bu yollar o TCP soketinde mevcut değildir. Başlık çıkarımı (`x-forwarded-for` kontrolü, origin kontrolü) güvenilmezdir (ngrok başlık davranışı değişebilir; yerel proxy'ler bu başlıkları ekleyebilir); soket ayrımı güvenilirdir.
 
-| Endpoint | Local listener | Tunnel listener | Notes |
+| Uç nokta | Yerel dinleyici | Tünel dinleyici | Notlar |
 |---|---|---|---|
-| `GET /health` | public (no token unless headed/extension) | 404 | Token bootstrap for extension happens locally only |
-| `GET /connect` | public (`{alive:true}`) | public (`{alive:true}`) | Probe path for tunnel liveness |
-| `POST /connect` | public (rate-limited 300/min) | public (rate-limited) | Setup-key exchange for pair-agent |
-| `POST /command` | auth (Bearer root OR scoped) | auth (scoped only, allowlisted commands) | Root token on tunnel = 403 |
-| `POST /sidebar-chat` | auth | auth | Lets remote agent post into local sidebar |
-| `POST /pair` | root-only | 404 | Pairing mint — local operator action |
-| `POST /tunnel/{start,stop}` | root-only | 404 | Daemon configuration |
-| `POST /token`, `DELETE /token/:id` | root-only | 404 | Scoped token mint/revoke |
-| `GET /cookie-picker`, `GET /cookie-picker/*` | public UI, auth API | 404 | Local-only — reads local browser DBs |
-| `GET /inspector`, `/inspector/events`, etc. | auth | 404 | Extension callback, local-only |
-| `GET /welcome` | public | 404 | GStack Browser landing page, local-only |
-| `GET /refs` | auth | 404 | Ref map — internal state |
-| `GET /activity/stream` | Bearer OR HttpOnly `gstack_sse` cookie | 404 | SSE. ?token= query param no longer accepted |
-| `GET /inspector/events` | Bearer OR HttpOnly `gstack_sse` cookie | 404 | SSE. Same cookie as /activity/stream |
-| `POST /sse-session` | auth (Bearer) | 404 | Mints the view-only 30-min SSE session cookie |
+| `GET /health` | herkese açık (başlı/eklenti olmadıkça token yok) | 404 | Eklenti için token önyüklemesi yalnızca yerel olarak gerçekleşir |
+| `GET /connect` | herkese açık (`{alive:true}`) | herkese açık (`{alive:true}`) | Tünel canlılığı için yoklama yolu |
+| `POST /connect` | herkese açık (hız sınırı 300/dk) | herkese açık (hız sınırı) | pair-agent için kurulum anahtarı değişimi |
+| `POST /command` | yetkili (Bearer root VEYA kapsamlı) | yetkili (yalnızca kapsamlı, izin listeli komutlar) | Tünel üzerinde kök token = 403 |
+| `POST /sidebar-chat` | yetkili | yetkili | Uzak temsilcinin yerel sidebar'a mesaj göndermesine izin verir |
+| `POST /pair` | yalnızca kök | 404 | Eşleştirme basımı — yerel operatör eylemi |
+| `POST /tunnel/{start,stop}` | yalnızca kök | 404 | Arka plan programı yapılandırması |
+| `POST /token`, `DELETE /token/:id` | yalnızca kök | 404 | Kapsamlı token basımı/iptal |
+| `GET /cookie-picker`, `GET /cookie-picker/*` | herkese açık UI, yetkili API | 404 | Yalnızca yerel — yerel tarayıcı DB'lerini okur |
+| `GET /inspector`, `/inspector/events`, vb. | yetkili | 404 | Eklenti geri çağırması, yalnızca yerel |
+| `GET /welcome` | herkese açık | 404 | GStack Browser açılış sayfası, yalnızca yerel |
+| `GET /refs` | yetkili | 404 | Ref haritası — iç durum |
+| `GET /activity/stream` | Bearer VEYA HttpOnly `gstack_sse` çerezi | 404 | SSE. ?token= sorgu parametresi artık kabul edilmiyor |
+| `GET /inspector/events` | Bearer VEYA HttpOnly `gstack_sse` çerezi | 404 | SSE. /activity/stream ile aynı çerez |
+| `POST /sse-session` | yetkili (Bearer) | 404 | 30 dakikalık salt-görüntüleme SSE oturum çerezini basar |
 
-**Tunnel surface denial logs.** Every rejection on the tunnel listener (`path_not_on_tunnel`, `root_token_on_tunnel`, `missing_scoped_token`, `disallowed_command:*`) is recorded asynchronously to `~/.gstack/security/attempts.jsonl` with timestamp, source IP (from `x-forwarded-for`), path, and method. Rate-capped at 60 writes/min globally to prevent log-flood DoS. Shares the attempt log with the prompt-injection scanner.
+**Tünel yüzey reddi günlükleri.** Tünel dinleyicisindeki her reddetme (`path_not_on_tunnel`, `root_token_on_tunnel`, `missing_scoped_token`, `disallowed_command:*`) zaman damgası, kaynak IP (`x-forwarded-for`'dan), yol ve yöntem ile asenkron olarak `~/.gstack/security/attempts.jsonl` dosyasına kaydedilir. Günlük taşması DoS'unu önlemek için global olarak 60 yazma/dk hız sınırına tabidir. Deneme günlüğünü prompt-enjeksiyon tarayıcısıyla paylaşır.
 
-**SSE session cookies.** EventSource can't send Authorization headers, so the extension POSTs `/sse-session` once at bootstrap with the root Bearer and receives a 30-minute view-only cookie (`gstack_sse`, HttpOnly, SameSite=Strict). The cookie is valid ONLY for `/activity/stream` and `/inspector/events` — it is NOT a scoped token and cannot be used on `/command`. Scope isolation is enforced by the module boundary: `sse-session-cookie.ts` has no imports from `token-registry.ts`.
+**SSE oturum çerezleri.** EventSource Authorization başlıkları gönderemez, bu nedenle eklenti önyükleme sırasında kök Bearer ile bir kez `/sse-session` uç noktasına POST yapar ve 30 dakikalık salt-görüntüleme çerezi (`gstack_sse`, HttpOnly, SameSite=Strict) alır. Çerez YALNIZCA `/activity/stream` ve `/inspector/events` için geçerlidir — kapsamlı bir token DEĞİLDİR ve `/command` üzerinde kullanılamaz. Kapsam izolasyonu modül sınırı tarafından uygulanır: `sse-session-cookie.ts`'nin `token-registry.ts`'den içe aktarması yoktur.
 
-**Non-goal in this wave** (tracked as #1136): the cookie-import-browser path launches Chrome with `--remote-debugging-port=<random>`. On Windows with App-Bound Encryption v20, a same-user local process can connect to that port and exfiltrate decrypted v20 cookies — an elevation path relative to reading the SQLite DB directly (which can't decrypt v20 without DPAPI context). Fix direction is `--remote-debugging-pipe` instead of TCP; requires restructuring the CDP client.
+**Bu dalga ilişkin hedef dışı** (#1136 olarak izleniyor): çerez-içe-aktarma-tarayıcı yolu Chrome'u `--remote-debugging-port=<rastgele>` ile başlatır. App-Bound Encryption v20 ile Windows'ta, aynı kullanıcı yerel süreci bu porta bağlanabilir ve şifresi çözülmüş v20 çerezlerini sızdırabilir — bu, SQLite DB'sini doğrudan okumaya (DPAPI bağlamı olmadan v20'nin şifresini çözemez) göre bir yetki yükseltme yoludur. Düzeltme yönü TCP yerine `--remote-debugging-pipe`'dır; CDP istemcisinin yeniden yapılandırılmasını gerektirir.
 
-### Bearer token auth
+### Bearer token yetkilendirmesi
 
-Every server session generates a random UUID token, written to the state file with mode 0o600 (owner-only read). Every HTTP request that mutates browser state must include `Authorization: Bearer <token>`. If the token doesn't match, the server returns 401.
+Her sunucu oturumu rastgele bir UUID token üretir, mod 0o600 (yalnızca sahibinin okuyabileceği) ile durum dosyasına yazar. Tarayıcı durumunu değiştiren her HTTP isteği `Authorization: Bearer <token>` içermelidir. Token eşleşmezse, sunucu 401 döner.
 
-This prevents other processes on the same machine from talking to your browse server. The cookie picker UI (`/cookie-picker`) and health check (`/health`) are exempt on the local listener — they're 127.0.0.1-bound and don't execute commands. On the tunnel listener nothing is exempt except `/connect`.
+Bu, aynı makinedeki diğer süreçlerin browse sunucunuzla konuşmasını engeller. Çerez seçici UI'ı (`/cookie-picker`) ve sağlık kontrolü (`/health`) yerel dinleyicide muaftır — bunlar 127.0.0.1'e bağlıdır ve komut çalıştırmaz. Tünel dinleyicisinde `/connect` dışında hiçbir şey muaftır.
 
-### Cookie security
+### Çerez güvenliği
 
-Cookies are the most sensitive data gstack handles. The design:
+Çerezler gstack'in işlediği en hassas verilerdir. Tasarım:
 
-1. **Keychain access requires user approval.** First cookie import per browser triggers a macOS Keychain dialog. The user must click "Allow" or "Always Allow." gstack never silently accesses credentials.
+1. **Anahtarlık erişimi kullanıcı onayı gerektirir.** Tarayıcı başına ilk çerez içe aktarma macOS Anahtarlık iletişim kutusunu tetikler. Kullanıcının "İzin Ver" veya "Her Zaman İzin Ver" seçeneğine tıklaması gerekir. gstack asla kimlik bilgilerine sessizce erişmez.
 
-2. **Decryption happens in-process.** Cookie values are decrypted in memory (PBKDF2 + AES-128-CBC), loaded into the Playwright context, and never written to disk in plaintext. The cookie picker UI never displays cookie values — only domain names and counts.
+2. **Şifre çözme süreç içinde gerçekleşir.** Çerez değerleri bellekte (PBKDF2 + AES-128-CBC) çözülür, Playwright bağlamına yüklenir ve asla düz metin olarak diske yazılmaz. Çerez seçici UI'ı çerez değerlerini asla göstermez — yalnızca alan adları ve sayılar.
 
-3. **Database is read-only.** gstack copies the Chromium cookie DB to a temp file (to avoid SQLite lock conflicts with the running browser) and opens it read-only. It never modifies your real browser's cookie database.
+3. **Veritabanı salt-okunurdur.** gstack, Chromium çerez DB'sini (çalışan tarayıcı ile SQLite kilit çakışmalarını önlemek için) geçici bir dosyaya kopyalar ve salt-okunur açar. Gerçek tarayıcınızın çerez veritabanını asla değiştirmez.
 
-4. **Key caching is per-session.** The Keychain password + derived AES key are cached in memory for the server's lifetime. When the server shuts down (idle timeout or explicit stop), the cache is gone.
+4. **Anahtar önbellekleme oturum başınadır.** Anahtarlık parolası + türetilmiş AES anahtarı sunucunun yaşam süresi boyunca bellekte önbelleğe alınır. Sunucu kapandığında (boşta zaman aşımı veya açık durdurma), önbellek temizlenir.
 
-5. **No cookie values in logs.** Console, network, and dialog logs never contain cookie values. The `cookies` command outputs cookie metadata (domain, name, expiry) but values are truncated.
+5. **Günlüklerde çerez değeri yok.** Konsol, ağ ve iletişim kutusu günlükleri hiçbir zaman çerez değerleri içermez. `cookies` komutu çerez meta verilerini (alan adı, ad, son kullanma) çıkarır, ancak değerler kesilir.
 
-### Shell injection prevention
+### Kabuk enjeksiyonu önleme
 
-The browser registry (Comet, Chrome, Arc, Brave, Edge) is hardcoded. Database paths are constructed from known constants, never from user input. Keychain access uses `Bun.spawn()` with explicit argument arrays, not shell string interpolation.
+Tarayıcı kayıt defteri (Comet, Chrome, Arc, Brave, Edge) sabit kodlanmıştır. Veritabanı yolları bilinen sabitlerden oluşturulur, asla kullanıcı girişinden değil. Anahtarlık erişimi, kabuk dize interpolasyonu değil, açık argüman dizileriyle `Bun.spawn()` kullanır.
 
-### Unicode sanitization at server egress (v1.38.0.0)
+### Sunucu çıkışında Unicode arıtma (v1.38.0.0)
 
-Page content harvested by CDP can contain lone UTF-16 surrogate halves (orphaned high or low surrogates from broken JavaScript string handling on the page). When those reach `JSON.stringify`, Bun emits them as `\uD800`-style escape sequences that the downstream consumer's `JSON.parse` accepts, but the Anthropic API rejects with a 400 — turning a single weird page into a session-killing error. Defense is single-point, applied at every server egress that ships page-derived strings.
+CDP tarafından toplanan sayfa içeriği yalnız UTF-16 vekil yarımçiftleri (sayfadaki bozuk JavaScript dize işlemeninden kaynaklanan yetim yüksek veya düşük vekiller) içerebilir. Bunlar `JSON.stringify`'e ulaştığında, Bun onları `\uD800` tarzı kaçış dizileri olarak yayar ve bu dizileri aşağı akış tüketicisinin `JSON.parse`'ı kabul eder, ancak Anthropic API 400 hatasıyla reddeder — tek bir tuhaf sayfayı oturum öldüren bir hataya dönüştürür. Savunma tek noktalıdır, sayfadan türetilmiş dizeleri gönderen her sunucu çıkışına uygulanır.
 
-| Egress path | Module | Sanitization point |
+| Çıkış yolu | Modül | Arıtma noktası |
 |---|---|---|
-| `POST /command` (HTTP) | `browse/src/server.ts` | `handleCommandInternal` wrapper (sanitizes the result of `handleCommandInternalImpl`) |
-| `POST /command/batch` | `browse/src/server.ts` | Same wrapper — batch consumers inherit it |
-| `GET /activity/stream` (SSE) | `browse/src/server.ts` | `sanitizeReplacer` passed to `JSON.stringify` |
-| `GET /inspector/events` (SSE) | `browse/src/server.ts` | `sanitizeReplacer` passed to `JSON.stringify` |
+| `POST /command` (HTTP) | `browse/src/server.ts` | `handleCommandInternal` sarmalayıcısı (`handleCommandInternalImpl` sonucunu arıtır) |
+| `POST /command/batch` | `browse/src/server.ts` | Aynı sarmalayıcı — toplu tüketiciler onu devralır |
+| `GET /activity/stream` (SSE) | `browse/src/server.ts` | `JSON.stringify`'e geçirilen `sanitizeReplacer` |
+| `GET /inspector/events` (SSE) | `browse/src/server.ts` | `JSON.stringify`'e geçirilen `sanitizeReplacer` |
 
-`sanitizeReplacer` is a `JSON.stringify` replacer function that cleans every string value during encoding. Post-stringify regex doesn't work here — `JSON.stringify` has already converted `\uD800` into the literal escape sequence `"\\ud800"` before the regex could match, so the replacer must run inside the encoding pipeline. The pure-string helper `sanitizeLoneSurrogates` is used directly for `text/plain` responses.
+`sanitizeReplacer`, kodlama sırasında her dize değerini temizleyen bir `JSON.stringify` değiştirici fonksiyondur. Kodlama sonrası regex burada çalışmaz — `JSON.stringify`, regex eşleşmeden önce `\uD800`'i `"\\ud800"` literal kaçış dizisine zaten dönüştürmüştür, bu nedenle değiştiricinin kodlama ardışık düzeni içinde çalışması gerekir. Saf dize yardımcısı `sanitizeLoneSurrogates`, `text/plain` yanıtları için doğrudan kullanılır.
 
-**Architectural invariant.** Every new SSE/WebSocket writer or HTTP response that ships page-content-derived strings MUST go through one of two paths: `JSON.stringify(payload, sanitizeReplacer)` for object payloads, or `sanitizeLoneSurrogates(body)` for text bodies. New surfaces that bypass both will desync the system. Inline comments at both SSE producers in `server.ts` say so; `browse/test/server-sanitize-surrogates.test.ts` pins wiring with bug-repro + invariant tests (`handleCommandInternalImpl` rename, central sanitization line, replacer existence, SSE producers stringify with replacer).
+**Mimari değişmez.** Sayfa içeriğinden türetilmiş dizeleri gönderen her yeni SSE/WebSocket yazıcısı veya HTTP yanıtı iki yoldan birini ZORUNLU olarak izlemelidir: nesne yükleri için `JSON.stringify(payload, sanitizeReplacer)`, veya metin gövdeleri için `sanitizeLoneSurrogates(body)`. İkisini de atlayan yeni yüzeyler sistemi eşzamansız hale getirir. `server.ts`'deki her iki SSE üreticisindeki satır içi yorumlar bunu belirtir; `browse/test/server-sanitize-surrogates.test.ts`, hata yeniden üretimi + değişmez testleriyle bağlantıyı sabitler (`handleCommandInternalImpl` yeniden adlandırma, merkezi arıtma satırı, değiştirici varlığı, SSE üreticilerinin değiştirici ile stringify'ı).
 
-### Prompt injection defense (sidebar agent)
+### Prompt enjeksiyonu savunması (sidebar agent)
 
-The Chrome sidebar agent has tools (Bash, Read, Glob, Grep, WebFetch) and reads hostile web pages, so it's the part of gstack most exposed to prompt injection. Defense is layered, not single-point.
+Chrome sidebar agent'ı araçlara (Bash, Read, Glob, Grep, WebFetch) sahiptir ve düşmanca web sayfalarını okur, bu nedenle gstack'in prompt enjeksiyonuna en açık olan parçasıdır. Savunma katmanlıdır, tek noktalı değil.
 
-1. **L1-L3 content security (`browse/src/content-security.ts`).** Runs on every page-content command and every tool output: datamarking, hidden-element strip, ARIA regex, URL blocklist, and a trust-boundary envelope wrapper. Applied at both the server and the agent.
+1. **L1-L3 içerik güvenliği (`browse/src/content-security.ts`).** Her sayfa-içeriği komutunda ve her araç çıktısında çalışır: veri işaretleme, gizli öğe çıkarma, ARIA regex, URL engelleme listesi ve güven sınırı zarf sarmalayıcısı. Hem sunucuda hem de agent'ta uygulanır.
 
-2. **L4 ML classifier — TestSavantAI (`browse/src/security-classifier.ts`).** A 22MB BERT-small ONNX model (int8 quantized) bundled with the agent. Runs locally, no network. Scans every user message and every Read/Glob/Grep/WebFetch tool output before Claude sees it. Opt-in 721MB DeBERTa-v3 ensemble via `GSTACK_SECURITY_ENSEMBLE=deberta`.
+2. **L4 ML sınıflandırıcısı — TestSavantAI (`browse/src/security-classifier.ts`).** Agent ile paketlenmiş 22MB BERT-small ONNX modeli (int8 nicemlenmiş). Yerel olarak çalışır, ağ yok. Claude görmeden önce her kullanıcı mesajını ve her Read/Glob/Grep/WebFetch araç çıktısını tarar. `GSTACK_SECURITY_ENSEMBLE=deberta` ile isteğe bağlı 721MB DeBERTa-v3 topluluğu.
 
-3. **L4b transcript classifier.** A Claude Haiku pass that looks at the full conversation shape (user message, tool calls, tool output), not just text. Gated by `LOG_ONLY: 0.40` so most clean traffic skips the paid call.
+3. **L4b transkript sınıflandırıcısı.** Yalnızca metne değil, tam konuşma şekline (kullanıcı mesajı, araç çağrıları, araç çıktısı) bakan bir Claude Haiku geçişi. `LOG_ONLY: 0.40` ile sınırlandırılmıştır, bu nedenle çoğu temiz trafik ücretli çağrıyı atlar.
 
-4. **L5 canary token (`browse/src/security.ts`).** A random token injected into the system prompt at session start. Rolling-buffer detection across `text_delta` and `input_json_delta` streams catches the token if it shows up anywhere in Claude's output, tool arguments, URLs, or file writes. Deterministic BLOCK — if the token leaks, the attacker convinced Claude to reveal the system prompt, and the session ends.
+4. **L5 kanarya token (`browse/src/security.ts`).** Oturum başlangıcında sistem prompt'una enjekte edilen rastgele bir token. `text_delta` ve `input_json_delta` akışlarındaki yuvarlanan-arabellek algılama, token Claude'ın çıktısında, araç argümanlarında, URL'lerde veya dosya yazmalarında herhangi bir yerde belirirse onu yakalar. Belirleyici ENGEL — token sızarsa, saldırgan Claude'ı sistem prompt'unu açığa çıkarmaya ikna etmiştir ve oturum sonlanır.
 
-5. **L6 ensemble combiner (`combineVerdict`).** BLOCK requires agreement from two ML classifiers at >= `WARN` (0.75), not a single confident hit. This is the Stack Overflow instruction-writing false-positive mitigation. On tool-output scans, single-layer high confidence BLOCKs directly — the content wasn't user-authored, so the FP concern doesn't apply.
+5. **L6 topluluk birleştirici (`combineVerdict`).** ENGEL, iki ML sınıflandırıcının >= `WARN` (0.75) düzeyinde anlaşmasını gerektirir, tek bir güvenilir eşleşme yeterli değildir. Bu, Stack Overflow talimat-yazma yanlış pozitif azaltımıdır. Araç çıktısı taramalarında, tek katmanlı yüksek güvenli ENGEL'ler doğrudan çalışır — içerik kullanıcı tarafından yazılmamıştır, bu nedenle yanlış pozitif endişesi geçerli değildir.
 
-**Critical constraint:** `security-classifier.ts` runs only in the sidebar-agent process, never in the compiled browse binary. `@huggingface/transformers` v4 requires `onnxruntime-node`, which fails `dlopen` from Bun compile's temp extract directory. Only the pure-string pieces (canary inject/check, verdict combiner, attack log, status) are in `security.ts`, which is safe to import from `server.ts`.
+**Kritik kısıtlama:** `security-classifier.ts` yalnızca sidebar-agent sürecinde çalışır, asla derlenmiş browse binary'sinde değil. `@huggingface/transformers` v4, `onnxruntime-node` gerektirir ve bu, Bun compile'ın geçici çıkarma dizininden `dlopen` işleminde başarısız olur. Yalnızca saf dize parçaları (kanarya enjekte/kontrol, karar birleştirici, saldırı günlüğü, durum) `security.ts`'dedir ve bu `server.ts`'den içe aktarmak için güvenlidir.
 
-**Env knobs:** `GSTACK_SECURITY_OFF=1` is a real kill switch (skips ML scan, canary still injects). Model cache at `~/.gstack/models/testsavant-small/` (112MB, first run) and `~/.gstack/models/deberta-v3-injection/` (721MB, opt-in only). Attack log at `~/.gstack/security/attempts.jsonl` (salted sha256 + domain, rotates at 10MB, 5 generations). Per-device salt at `~/.gstack/security/device-salt` (0600), cached in-process to survive FS-unwritable environments.
+**Ortam değişkeni düğmeleri:** `GSTACK_SECURITY_OFF=1` gerçek bir kapatma anahtarıdır (ML taramasını atlar, kanarya yine de enjekte edilir). Model önbelleği: `~/.gstack/models/testsavant-small/` (112MB, ilk çalıştırma) ve `~/.gstack/models/deberta-v3-injection/` (721MB, yalnızca isteğe bağlı). Saldırı günlüğü: `~/.gstack/security/attempts.jsonl` (tuzlanmış sha256 + alan adı, 10MB'de döner, 5 nesil). Cihaz başına tuz: `~/.gstack/security/device-salt` (0600), FS-yazılamaz ortamlarda hayatta kalmak için süreç içinde önbelleğe alınır.
 
-**Visibility.** The sidebar header shows a shield icon (green/amber/red) polled via `/sidebar-chat`. A centered banner appears on canary leak or BLOCK verdict with the exact layer scores. `bin/gstack-security-dashboard` aggregates local attempts; `supabase/functions/community-pulse` aggregates opt-in community telemetry across users.
+**Görünürlük.** Sidebar başlığı `/sidebar-chat` üzerinden yoklanan bir kalkan simgesi (yeşil/amber/kırmızı) gösterir. Kanarya sızıntısı veya ENGEL kararı olduğunda kesin katman puanlarıyla ortalanmış bir banner görünür. `bin/gstack-security-dashboard` yerel girişimleri toplar; `supabase/functions/community-pulse` kullanıcılar arası isteğe bağlı topluluk telemetrisini toplar.
 
-## The ref system
+## Ref sistemi
 
-Refs (`@e1`, `@e2`, `@c1`) are how the agent addresses page elements without writing CSS selectors or XPath.
+Ref'ler (`@e1`, `@e2`, `@c1`), agent'in CSS seçicileri veya XPath yazmadan sayfa öğelerine nasıl hitap ettiğidir.
 
-### How it works
+### Nasıl çalışır
 
 ```
-1. Agent runs: $B snapshot -i
-2. Server calls Playwright's page.accessibility.snapshot()
-3. Parser walks the ARIA tree, assigns sequential refs: @e1, @e2, @e3...
-4. For each ref, builds a Playwright Locator: getByRole(role, { name }).nth(index)
-5. Stores Map<string, RefEntry> on the BrowserManager instance (role + name + Locator)
-6. Returns the annotated tree as plain text
+1. Agent çalıştırır: $B snapshot -i
+2. Sunucu Playwright'ın page.accessibility.snapshot() çağrısını yapar
+3. Ayrıştırıcı ARIA ağacını gezer, sıralı ref'ler atar: @e1, @e2, @e3...
+4. Her ref için bir Playwright Locator oluşturur: getByRole(role, { name }).nth(index)
+5. BrowserManager örneğinde Map<string, RefEntry> saklar (role + name + Locator)
+6. Açıklamalı ağacı düz metin olarak döndürür
 
-Later:
-7. Agent runs: $B click @e3
-8. Server resolves @e3 → Locator → locator.click()
+Daha sonra:
+7. Agent çalıştırır: $B click @e3
+8. Sunucu @e3 → Locator → locator.click() olarak çözer
 ```
 
-### Why Locators, not DOM mutation
+### Neden Locators, DOM mutasyonu değil
 
-The obvious approach is to inject `data-ref="@e1"` attributes into the DOM. This breaks on:
+Bariz yaklaşım DOM'a `data-ref="@e1"` nitelikleri enjekte etmektir. Bu şu durumlarda bozulur:
 
-- **CSP (Content Security Policy).** Many production sites block DOM modification from scripts.
-- **React/Vue/Svelte hydration.** Framework reconciliation can strip injected attributes.
-- **Shadow DOM.** Can't reach inside shadow roots from the outside.
+- **CSP (İçerik Güvenliği Politikası).** Birçok üretim sitesi betiklerden DOM değişikliğini engeller.
+- **React/Vue/Svelte hidrasyon..** Framework uzlaştırması enjekte edilen nitelikleri kaldırabilir.
+- **Shadow DOM.** Dışarıdan shadow köklerin içine erişilemez.
 
-Playwright Locators are external to the DOM. They use the accessibility tree (which Chromium maintains internally) and `getByRole()` queries. No DOM mutation, no CSP issues, no framework conflicts.
+Playwright Locators DOM'a dışarıdan bakar. Erişilebilirlik ağacını (Chromium'un dahili olarak tuttuğu) ve `getByRole()` sorgularını kullanır. DOM mutasyonu yok, CSP sorunu yok, framework çakışması yok.
 
-### Ref lifecycle
+### Ref yaşam döngüsü
 
-Refs are cleared on navigation (the `framenavigated` event on the main frame). This is correct — after navigation, all locators are stale. The agent must run `snapshot` again to get fresh refs. This is by design: stale refs should fail loudly, not click the wrong element.
+Ref'ler gezinme sırasında temizlenir (ana çerçevede `framenavigated` olayı). Bu doğrudur — gezinmeden sonra tüm locator'lar eskimiş olur. Agent yeni ref'ler almak için `snapshot` komutunu tekrar çalıştırmalıdır. Bu tasarımdandır: eski ref'ler sessizce yanlış öğeye tıklamak yerine yüksek sesle başarısız olmalıdır.
 
-### Ref staleness detection
+### Ref eskime algılama
 
-SPAs can mutate the DOM without triggering `framenavigated` (e.g. React router transitions, tab switches, modal opens). This makes refs stale even though the page URL didn't change. To catch this, `resolveRef()` performs an async `count()` check before using any ref:
+SPA'ler DOM'u `framenavigated`'i tetiklemeden mutasyona uğratabilir (örn. React router geçişleri, sekme değişimleri, modal açılışları). Bu, sayfa URL'si değişmemiş olsa bile ref'leri eskimiş hale getirir. Bunu yakalamak için `resolveRef()`, herhangi bir ref'i kullanmadan önce asenkron bir `count()` kontrolü gerçekleştirir:
 
 ```
 resolveRef(@e3) → entry = refMap.get("e3")
                 → count = await entry.locator.count()
-                → if count === 0: throw "Ref @e3 is stale — element no longer exists. Run 'snapshot' to get fresh refs."
-                → if count > 0: return { locator }
+                → eğer count === 0: throw "Ref @e3 is stale — element no longer exists. Run 'snapshot' to get fresh refs."
+                → eğer count > 0: return { locator }
 ```
 
-This fails fast (~5ms overhead) instead of letting Playwright's 30-second action timeout expire on a missing element. The `RefEntry` stores `role` and `name` metadata alongside the Locator so the error message can tell the agent what the element was.
+Bu, Playwright'ın 30 saniyelik eylem zaman aşımının eksik bir öğe üzerinde sona ermesini beklemek yerine hızlı başarısız olur (~5ms ek yük). `RefEntry`, Locator'ın yanında `role` ve `name` meta verilerini saklar, böylece hata mesajı agent'a öğenin ne olduğunu söyleyebilir.
 
-### Cursor-interactive refs (@c)
+### İmleç-etkileşimli ref'ler (@c)
 
-The `-C` flag finds elements that are clickable but not in the ARIA tree — things styled with `cursor: pointer`, elements with `onclick` attributes, or custom `tabindex`. These get `@c1`, `@c2` refs in a separate namespace. This catches custom components that frameworks render as `<div>` but are actually buttons.
+`-C` bayrağı, tıklanabilir ancak ARIA ağacında olmayan öğeleri bulur — `cursor: pointer` ile stillendirilmişler, `onclick` niteliklerine sahipler veya özel `tabindex`'leri var. Bunlar ayrı bir ad alanında `@c1`, `@c2` ref'leri alır. Bu, framework'lerin aslında düğme olan `<div>` olarak render ettiği özel bileşenleri yakalar.
 
-## Logging architecture
+## Günlük mimarisi
 
-Three ring buffers (50,000 entries each, O(1) push):
-
-```
-Browser events → CircularBuffer (in-memory) → Async flush to .gstack/*.log
-```
-
-Console messages, network requests, and dialog events each have their own buffer. Flushing happens every 1 second — the server appends only new entries since the last flush. This means:
-
-- HTTP request handling is never blocked by disk I/O
-- Logs survive server crashes (up to 1 second of data loss)
-- Memory is bounded (50K entries × 3 buffers)
-- Disk files are append-only, readable by external tools
-
-The `console`, `network`, and `dialog` commands read from the in-memory buffers, not disk. Disk files are for post-mortem debugging.
-
-## SKILL.md template system
-
-### The problem
-
-SKILL.md files tell Claude how to use the browse commands. If the docs list a flag that doesn't exist, or miss a command that was added, the agent hits errors. Hand-maintained docs always drift from code.
-
-### The solution
+Üç halka tampon (her biri 50.000 giriş, O(1) ekleme):
 
 ```
-SKILL.md.tmpl          (human-written prose + placeholders)
+Tarayıcı olayları → CircularBuffer (bellek içi) → .gstack/*.log dosyasına asenk flush
+```
+
+Konsol mesajları, ağ istekleri ve iletişim kutusu olaylarının her birinin kendi tamponu vardır. Flush her 1 saniyede bir gerçekleşir — sunucu yalnızca son flushtan bu yana yeni girişleri ekler. Bu şu anlama gelir:
+
+- HTTP istek işleme asla disk I/O tarafından engellenmez
+- Günlükler sunucu çökmelerinden kurtulur (en fazla 1 saniyelik veri kaybı)
+- Bellek sınırlıdır (50K giriş × 3 tampon)
+- Disk dosyaları ekleme-yalnızdır, dış araçlar tarafından okunabilir
+
+`console`, `network` ve `dialog` komutları diskten değil, bellek içi tamponlardan okur. Disk dosyaları otopsi hata ayıklama içindir.
+
+## SKILL.md şablon sistemi
+
+### Sorun
+
+SKILL.md dosyaları Claude'a browse komutlarını nasıl kullanacağını söyler. Belgeler var olmayan bir bayrak listeliyorsa veya eklenen bir komutu kaçırıyorsa, agent hatalarla karşılaşır. El ile bakılan belgeler her zaman koddan ayrışır.
+
+### Çözüm
+
+```
+SKILL.md.tmpl          (insan yazısı düzyazı + yer tutucular)
        ↓
-gen-skill-docs.ts      (reads source code metadata)
+gen-skill-docs.ts      (kaynak kodu meta verilerini okur)
        ↓
-SKILL.md               (committed, auto-generated sections)
+SKILL.md               (işlenmiş, otomatik oluşturulan bölümler)
 ```
 
-Templates contain the workflows, tips, and examples that require human judgment. Placeholders are filled from source code at build time:
+Şablonlar insan kararlığı gerektiren iş akışlarını, ipuçlarını ve örnekleri içerir. Yer tutucular derleme zamanında kaynak koddan doldurulur:
 
-| Placeholder | Source | What it generates |
+| Yer tutucu | Kaynak | Ne üretir |
 |-------------|--------|-------------------|
-| `{{COMMAND_REFERENCE}}` | `commands.ts` | Categorized command table |
-| `{{SNAPSHOT_FLAGS}}` | `snapshot.ts` | Flag reference with examples |
-| `{{PREAMBLE}}` | `gen-skill-docs.ts` | Startup block: update check, session tracking, contributor mode, AskUserQuestion format |
-| `{{BROWSE_SETUP}}` | `gen-skill-docs.ts` | Binary discovery + setup instructions |
-| `{{BASE_BRANCH_DETECT}}` | `gen-skill-docs.ts` | Dynamic base branch detection for PR-targeting skills (ship, review, qa, plan-ceo-review) |
-| `{{QA_METHODOLOGY}}` | `gen-skill-docs.ts` | Shared QA methodology block for /qa and /qa-only |
-| `{{DESIGN_METHODOLOGY}}` | `gen-skill-docs.ts` | Shared design audit methodology for /plan-design-review and /design-review |
-| `{{REVIEW_DASHBOARD}}` | `gen-skill-docs.ts` | Review Readiness Dashboard for /ship pre-flight |
-| `{{TEST_BOOTSTRAP}}` | `gen-skill-docs.ts` | Test framework detection, bootstrap, CI/CD setup for /qa, /ship, /design-review |
-| `{{CODEX_PLAN_REVIEW}}` | `gen-skill-docs.ts` | Optional cross-model plan review (Codex or Claude subagent fallback) for /plan-ceo-review and /plan-eng-review |
-| `{{DESIGN_SETUP}}` | `resolvers/design.ts` | Discovery pattern for `$D` design binary, mirrors `{{BROWSE_SETUP}}` |
-| `{{DESIGN_SHOTGUN_LOOP}}` | `resolvers/design.ts` | Shared comparison board feedback loop for /design-shotgun, /plan-design-review, /design-consultation |
-| `{{UX_PRINCIPLES}}` | `resolvers/design.ts` | User behavioral foundations (scanning, satisficing, goodwill reservoir, trunk test) for /design-html, /design-shotgun, /design-review, /plan-design-review |
-| `{{GBRAIN_CONTEXT_LOAD}}` | `resolvers/gbrain.ts` | Brain-first context search with keyword extraction, health awareness, and data-research routing. Injected into 10 brain-aware skills. Suppressed on non-brain hosts. |
-| `{{GBRAIN_SAVE_RESULTS}}` | `resolvers/gbrain.ts` | Post-skill brain persistence with entity enrichment, throttle handling, and per-skill save instructions. 8 skill-specific save formats. |
+| `{{COMMAND_REFERENCE}}` | `commands.ts` | Kategorize edilmiş komut tablosu |
+| `{{SNAPSHOT_FLAGS}}` | `snapshot.ts` | Örneklerle bayrak referansı |
+| `{{PREAMBLE}}` | `gen-skill-docs.ts` | Başlatma bloğu: güncelleme kontrolü, oturum izleme, katılımcı modu, AskUserQuestion formatı |
+| `{{BROWSE_SETUP}}` | `gen-skill-docs.ts` | Binary keşfi + kurulum talimatları |
+| `{{BASE_BRANCH_DETECT}}` | `gen-skill-docs.ts` | PR hedefleme yetenekleri (ship, review, qa, plan-ceo-review) için dinamik temel dal algılama |
+| `{{QA_METHODOLOGY}}` | `gen-skill-docs.ts` | /qa ve /qa-only için paylaşılan QA metodoloji bloğu |
+| `{{DESIGN_METHODOLOGY}}` | `gen-skill-docs.ts` | /plan-design-review ve /design-review için paylaşılan tasarım denetim metodolojisi |
+| `{{REVIEW_DASHBOARD}}` | `gen-skill-docs.ts` | /ship uçuş öncesi için İnceleme Hazırlık Paneli |
+| `{{TEST_BOOTSTRAP}}` | `gen-skill-docs.ts` | /qa, /ship, /design-review için test framework algılama, önyükleme, CI/CD kurulumu |
+| `{{CODEX_PLAN_REVIEW}}` | `gen-skill-docs.ts` | /plan-ceo-review ve /plan-eng-review için isteğe bağlı çapraz-model plan incelemesi (Codex veya Claude alt agent geri dönüşü) |
+| `{{DESIGN_SETUP}}` | `resolvers/design.ts` | `$D` design binary'si için keşif modeli, `{{BROWSE_SETUP}}`'ı yansıtır |
+| `{{DESIGN_SHOTGUN_LOOP}}` | `resolvers/design.ts` | /design-shotgun, /plan-design-review, /design-consultation için paylaşışılan karşılaştırma panosu geri bildirim döngüsü |
+| `{{UX_PRINCIPLES}}` | `resolvers/design.ts` | /design-html, /design-shotgun, /design-review, /plan-design-review için kullanıcı davranışsal temeller (tarama, tatmin edicilik, iyi niyet rezervi, trunk testi) |
+| `{{GBRAIN_CONTEXT_LOAD}}` | `resolvers/gbrain.ts` | Anahtar kelime çıkarma, sağlık farkındalığı ve veri-araştırma yönlendirmesi ile beyin öncelikli bağlam arama. 10 beyin-duyarlı yeteneğe enjekte edilir. Beyin olmayan ana bilgisayarlarda bastırılır. |
+| `{{GBRAIN_SAVE_RESULTS}}` | `resolvers/gbrain.ts` | Varlık zenginleştirme, gazlama işleme ve yetenek başına kaydetme talimatları ile yetenek sonrası beyen kalıcılığı. 8 yeteneğe özel kaydetme formatı. |
 
-This is structurally sound — if a command exists in code, it appears in docs. If it doesn't exist, it can't appear.
+Bu yapısal olarak sağlamdır — bir komut kodda mevcutsa, belgelerde görünür. Mevcut değilse, görünemez.
 
-### The preamble
+### Preamble
 
-Every skill starts with a `{{PREAMBLE}}` block that runs before the skill's own logic. It handles five things in a single bash command:
+Her yetenek, kendi mantığından önce çalışan bir `{{PREAMBLE}}` bloğu ile başlar. Tek bir bash komutunda beş şeyi yönetir:
 
-1. **Update check** — calls `gstack-update-check`, reports if an upgrade is available.
-2. **Session tracking** — touches `~/.gstack/sessions/$PPID` and counts active sessions (files modified in the last 2 hours). When 3+ sessions are running, all skills enter "ELI16 mode" — every question re-grounds the user on context because they're juggling windows.
-3. **Operational self-improvement** — at the end of every skill session, the agent reflects on failures (CLI errors, wrong approaches, project quirks) and logs operational learnings to the project's JSONL file for future sessions.
-4. **AskUserQuestion format** — universal format: context, question, `RECOMMENDATION: Choose X because ___`, lettered options. Consistent across all skills.
-5. **Search Before Building** — before building infrastructure or unfamiliar patterns, search first. Three layers of knowledge: tried-and-true (Layer 1), new-and-popular (Layer 2), first-principles (Layer 3). When first-principles reasoning reveals conventional wisdom is wrong, the agent names the "eureka moment" and logs it. See `ETHOS.md` for the full builder philosophy.
+1. **Güncelleme kontrolü** — `gstack-update-check` çağırır, yükseltme olup olmadığını bildirir.
+2. **Oturum izleme** — `~/.gstack/sessions/$PPID` dosyasına dokunur ve aktif oturumları sayar (son 2 saatte değiştirilen dosyalar). 3+ oturum çalışırken, tüm yetenekler "ELI16 moduna" girer — her soru kullanıcıyı bağlam üzerinde yeniden zemine oturtur çünkü pencereleri yönetmektedir.
+3. **Operasyonel öz-gelişim** — her yetenek oturumunun sonunda, agent başarısızlıklar (CLI hataları, yanlış yaklaşımlar, proje tuhaflıkları) üzerine yansıtır ve gelecek oturumlar için operasyonel öğrenmeleri projenin JSONL dosyasına kaydeder.
+4. **AskUserQuestion formatı** — evrensel format: bağlam, soru, `RECOMMENDATION: Choose X because ___`, harfli seçenekler. Tüm yeteneklerde tutarlı.
+5. **Önce Ara, Sonra Oluştur** — altyapı veya alışılmadık desenler oluşturmadan önce, önce arayın. Bilginin üç katmanı: denenmiş-ve-doğru (Katman 1), yeni-ve-popüler (Katman 2), birinci-ilkeler (Katman 3). Birinci-ilkeler muhakemesi geleneksel bilgelik yanlış olduğunda, agent "öureka anını" adlandırır ve kaydeder. Tam oluşturcu felsefe için `ETHOS.md`'ye bakın.
 
-### Why committed, not generated at runtime?
+### Neden çalışma zamanında değil, işlenmiş olarak kaydedilir?
 
-Three reasons:
+Üç neden:
 
-1. **Claude reads SKILL.md at skill load time.** There's no build step when a user invokes `/browse`. The file must already exist and be correct.
-2. **CI can validate freshness.** `gen:skill-docs --dry-run` + `git diff --exit-code` catches stale docs before merge.
-3. **Git blame works.** You can see when a command was added and in which commit.
+1. **Claude SKILL.md'yi yetenek yükleme zamanında okur.** Bir kullanıcı `/browse` çağırdığında derleme adımı yoktur. Dosya zaten mevcut ve doğru olmalıdır.
+2. **CI tazelik doğrulayabilir.** `gen:skill-docs --dry-run` + `git diff --exit-code` birleştirme öncesi eski belgeleri yakalar.
+3. **Git blame çalışır.** Bir komutun ne zaman eklendiğini ve hangi commit'te olduğunu görebilirsiniz.
 
-### Template test tiers
+### Şablon test katmanları
 
-| Tier | What | Cost | Speed |
+| Katman | Ne | Maliyet | Hız |
 |------|------|------|-------|
-| 1 — Static validation | Parse every `$B` command in SKILL.md, validate against registry | Free | <2s |
-| 2 — E2E via `claude -p` | Spawn real Claude session, run each skill, check for errors | ~$3.85 | ~20min |
-| 3 — LLM-as-judge | Sonnet scores docs on clarity/completeness/actionability | ~$0.15 | ~30s |
+| 1 — Statik doğrulama | SKILL.md'deki her `$B` komutunu ayrıştır, kayıt defterine karşı doğrula | Ücretsiz | <2s |
+| 2 — `claude -p` ile E2E | Gerçek Claude oturumu başlat, her yeteneği çalıştır, hataları tara | ~$3.85 | ~20dk |
+| 3 — LLM-as-judge | Sonnet belgeleri netlik/tamlık/eyleme-dönüştürülebilirlik puanlar | ~$0.15 | ~30s |
 
-Tier 1 runs on every `bun test`. Tiers 2+3 are gated behind `EVALS=1`. The idea is: catch 95% of issues for free, use LLMs only for judgment calls.
+Katman 1 her `bun test` çalıştırmasında çalışır. Katman 2+3 `EVALS=1` ile sınırlandırılır. Fikir şu: sorunların %95'ini ücretsiz yakala, LLM'leri yalnızca karar çağrıları için kullan.
 
-## Command dispatch
+## Komut yönlendirme
 
-Commands are categorized by side effects:
+Komutlar yan etkilere göre kategorize edilir:
 
-- **READ** (text, html, links, console, cookies, ...): No mutations. Safe to retry. Returns page state.
-- **WRITE** (goto, click, fill, press, ...): Mutates page state. Not idempotent.
-- **META** (snapshot, screenshot, tabs, chain, ...): Server-level operations that don't fit neatly into read/write.
+- **READ** (text, html, links, console, cookies, ...): Mutasyon yok. Yeniden denemek güvenlidir. Sayfa durumunu döndürür.
+- **WRITE** (goto, click, fill, press, ...): Sayfa durumunu mutasyona uğratır. Idempotent değildir.
+- **META** (snapshot, screenshot, tabs, chain, ...): Okuma/yazmaya neatly uymayan sunucu düzeyinde işlemler.
 
-This isn't just organizational. The server uses it for dispatch:
+Bu yalnızca organizasyonel değil. Sunucu bunu yönlendirme için kullanır:
 
 ```typescript
 if (READ_COMMANDS.has(cmd))  → handleReadCommand(cmd, args, bm)
@@ -328,108 +328,108 @@ if (WRITE_COMMANDS.has(cmd)) → handleWriteCommand(cmd, args, bm)
 if (META_COMMANDS.has(cmd))  → handleMetaCommand(cmd, args, bm, shutdown)
 ```
 
-The `help` command returns all three sets so agents can self-discover available commands.
+`help` komutu üç kümenin tamamını döndürür, böylece agent'lar kullanılabilir komutları kendileri keşfedebilir.
 
-## Error philosophy
+## Hata felsefesi
 
-Errors are for AI agents, not humans. Every error message must be actionable:
+Hatalar insanlar için değil, yapay zeka agent'ları içindir. Her hata mesajı eyleme geçirilebilir olmalıdır:
 
 - "Element not found" → "Element not found or not interactable. Run `snapshot -i` to see available elements."
 - "Selector matched multiple elements" → "Selector matched multiple elements. Use @refs from `snapshot` instead."
 - Timeout → "Navigation timed out after 30s. The page may be slow or the URL may be wrong."
 
-Playwright's native errors are rewritten through `wrapError()` to strip internal stack traces and add guidance. The agent should be able to read the error and know what to do next without human intervention.
+Playwright'ın yerel hataları, iç yığın izlerini çıkarmak ve rehberlik eklemek için `wrapError()` üzerinden yeniden yazılır. Agent, insan müdahalesi olmadan hatayı okuyup ne yapması gerektiğini bilmelidir.
 
-### Crash recovery
+### Çökme kurtarma
 
-The server doesn't try to self-heal. If Chromium crashes (`browser.on('disconnected')`), the server exits immediately. The CLI detects the dead server on the next command and auto-restarts. This is simpler and more reliable than trying to reconnect to a half-dead browser process.
+Sunucu kendini iyileştirmeye çalışmaz. Chromium çökerse (`browser.on('disconnected')`), sunucu hemen çıkar. CLI sonraki komutta ölü sunucuyu algılar ve otomatik yeniden başlatır. Bu, yarı-ölü bir tarayıcı sürecine yeniden bağlanmaya çalışmaktan daha basit ve güvenilirdir.
 
-## E2E test infrastructure
+## E2E test altyapısı
 
-### Session runner (`test/helpers/session-runner.ts`)
+### Oturum çalıştırıcısı (`test/helpers/session-runner.ts`)
 
-E2E tests spawn `claude -p` as a completely independent subprocess — not via the Agent SDK, which can't nest inside Claude Code sessions. The runner:
+E2E testleri `claude -p`'yi tamamen bağımsız bir alt süreç olarak başlatır — Agent SDK ile değil, çünkü bu Claude Code oturumları içinde iç içe geçemez. Çalıştırıcı:
 
-1. Writes the prompt to a temp file (avoids shell escaping issues)
-2. Spawns `sh -c 'cat prompt | claude -p --output-format stream-json --verbose'`
-3. Streams NDJSON from stdout for real-time progress
-4. Races against a configurable timeout
-5. Parses the full NDJSON transcript into structured results
+1. Prompt'u geçici bir dosyaya yazar (kabuk kaçış sorunlarından kaçınır)
+2. `sh -c 'cat prompt | claude -p --output-format stream-json --verbose'` başlatır
+3. Gerçek zamanlı ilerleme için stdout'tan NDJSON akıştırır
+4. Yapılandırılabilir bir zaman aşımına karşı yarıştır
+5. Tam NDJSON transkriptini yapılandırılmış sonuçlara ayrıştırır
 
-The `parseNDJSON()` function is pure — no I/O, no side effects — making it independently testable.
+`parseNDJSON()` fonksiyonu saf bir fonksiyondur — girdi/çıkış yok, yan etki yok — bu da onu bağımsız olarak test edilebilir kılar.
 
-### Observability data flow
+### Gözlemlenebilirlik veri akışı
 
 ```
   skill-e2e-*.test.ts
         │
-        │ generates runId, passes testName + runId to each call
+        │ runId oluşturur, her çağrıya testName + runId geçirir
         │
   ┌─────┼──────────────────────────────┐
   │     │                              │
   │  runSkillTest()              evalCollector
   │  (session-runner.ts)         (eval-store.ts)
   │     │                              │
-  │  per tool call:              per addTest():
+  │  araç çağrısı başına:        addTest() başına:
   │  ┌──┼──────────┐              savePartial()
   │  │  │          │                   │
   │  ▼  ▼          ▼                   ▼
   │ [HB] [PL]    [NJ]          _partial-e2e.json
-  │  │    │        │             (atomic overwrite)
+  │  │    │        │             (atomik üzerine yazma)
   │  │    │        │
   │  ▼    ▼        ▼
   │ e2e-  prog-  {name}
   │ live  ress   .ndjson
   │ .json .log
   │
-  │  on failure:
+  │  başarısızlık durumunda:
   │  {name}-failure.json
   │
-  │  ALL files in ~/.gstack-dev/
-  │  Run dir: e2e-runs/{runId}/
+  │  TÜM dosyalar ~/.gstack-dev/ içinde
+  │  Çalıştırma dizini: e2e-runs/{runId}/
   │
   │         eval-watch.ts
   │              │
   │        ┌─────┴─────┐
-  │     read HB     read partial
+  │     HB oku     partial oku
   │        └─────┬─────┘
   │              ▼
-  │        render dashboard
-  │        (stale >10min? warn)
+  │        dashboard render
+  │        (10dk+ eski? uyarı)
 ```
 
-**Split ownership:** session-runner owns the heartbeat (current test state), eval-store owns partial results (completed test state). The watcher reads both. Neither component knows about the other — they share data only through the filesystem.
+**Bölünmüş sahiplik:** session-runner kalp atışına (mevcut test durumu), eval-store kısmi sonuçlara (tamamlanmış test durumu) sahiptir. İzleyici her ikisini okur. Bileşenlerden hiçbiri diğerini bilmez — veriyi yalnızca dosya sistemi üzerinden paylaşır.
 
-**Non-fatal everything:** All observability I/O is wrapped in try/catch. A write failure never causes a test to fail. The tests themselves are the source of truth; observability is best-effort.
+**Her şey ölümcül değil:** Tüm gözlemlenebilirlik girdi/çıkışı try/catch ile sarılır. Bir yazma hatası asla bir testin başarısız olmasına neden olmaz. Testlerin kendisi gerçeklik kaynağıdır; gözlemlenebilirlik en-iyi-çabadır.
 
-**Machine-readable diagnostics:** Each test result includes `exit_reason` (success, timeout, error_max_turns, error_api, exit_code_N), `timeout_at_turn`, and `last_tool_call`. This enables `jq` queries like:
+**Makine tarafından okunabilir tanılama:** Her test sonucu `exit_reason` (success, timeout, error_max_turns, error_api, exit_code_N), `timeout_at_turn` ve `last_tool_call` içerir. Bu, şu gibi `jq` sorgularını mümkün kılar:
 ```bash
 jq '.tests[] | select(.exit_reason == "timeout") | .last_tool_call' ~/.gstack-dev/evals/_partial-e2e.json
 ```
 
-### Eval persistence (`test/helpers/eval-store.ts`)
+### Değerlendirme kalıcılığı (`test/helpers/eval-store.ts`)
 
-The `EvalCollector` accumulates test results and writes them in two ways:
+`EvalCollector` test sonuçlarını biriktirir ve iki şekilde yazar:
 
-1. **Incremental:** `savePartial()` writes `_partial-e2e.json` after each test (atomic: write `.tmp`, `fs.renameSync`). Survives kills.
-2. **Final:** `finalize()` writes a timestamped eval file (e.g. `e2e-20260314-143022.json`). The partial file is never cleaned up — it persists alongside the final file for observability.
+1. **Artımlı:** `savePartial()` her testten sonra `_partial-e2e.json` yazar (atomik: `.tmp` yaz, `fs.renameSync`). Öldürmelerden kurtulur.
+2. **Final:** `finalize()` zaman damgalı bir değerlendirme dosyası yazar (örn. `e2e-20260314-143022.json`). Kısmi dosya asla temizlenmez — gözlemlenebilirlik için final dosyasının yanında kalır.
 
-`eval:compare` diffs two eval runs. `eval:summary` aggregates stats across all runs in `~/.gstack-dev/evals/`.
+`eval:compare` iki değerlendirme çalışmasını karşılaştırır. `eval:summary` `~/.gstack-dev/evals/` içindeki tüm çalışmalardaki istatistikleri toplar.
 
-### Test tiers
+### Test katmanları
 
-| Tier | What | Cost | Speed |
+| Katman | Ne | Maliyet | Hız |
 |------|------|------|-------|
-| 1 — Static validation | Parse `$B` commands, validate against registry, observability unit tests | Free | <5s |
-| 2 — E2E via `claude -p` | Spawn real Claude session, run each skill, scan for errors | ~$3.85 | ~20min |
-| 3 — LLM-as-judge | Sonnet scores docs on clarity/completeness/actionability | ~$0.15 | ~30s |
+| 1 — Statik doğrulama | `$B` komutlarını ayrıştır, kayıt defterine karşı doğrula, gözlemlenebilirlik birim testleri | Ücretsiz | <5s |
+| 2 — `claude -p` ile E2E | Gerçek Claude oturumu başlat, her yeteneği çalıştır, hataları tara | ~$3.85 | ~20dk |
+| 3 — LLM-as-judge | Sonnet belgeleri netlik/tamlık/eyleme-dönüştürülebilirlik puanlar | ~$0.15 | ~30s |
 
-Tier 1 runs on every `bun test`. Tiers 2+3 are gated behind `EVALS=1`. The idea: catch 95% of issues for free, use LLMs only for judgment calls and integration testing.
+Katman 1 her `bun test` çalıştırmasında çalışır. Katman 2+3 `EVALS=1` ile sınırlandırılır. Fikir: sorunların %95'ini ücretsiz yakala, LLM'leri yalnızca karar çağrıları ve entegrasyon testi için kullan.
 
-## What's intentionally not here
+## Kasıtlı olarak burada olmayanlar
 
-- **No WebSocket streaming.** HTTP request/response is simpler, debuggable with curl, and fast enough. Streaming would add complexity for marginal benefit.
-- **No MCP protocol.** MCP adds JSON schema overhead per request and requires a persistent connection. Plain HTTP + plain text output is lighter on tokens and easier to debug.
-- **No multi-user support.** One server per workspace, one user. The token auth is defense-in-depth, not multi-tenancy.
-- **No Windows/Linux cookie decryption.** macOS Keychain is the only supported credential store. Linux (GNOME Keyring/kwallet) and Windows (DPAPI) are architecturally possible but not implemented.
-- **No iframe auto-discovery.** `$B frame` supports cross-frame interaction (CSS selector, @ref, `--name`, `--url` matching), but the ref system does not auto-crawl iframes during `snapshot`. You must explicitly enter a frame context first.
+- **WebSocket akışı yok.** HTTP istek/yanıt daha basit, curl ile hata ayıklanabilir ve yeterince hızlıdır. Akış, marjinal bir fayda için karmaşıklık ekler.
+- **MCP protokolü yok.** MCP istek başına JSON şema yükü ekler ve kalıcı bir bağlantı gerektirir. Düz HTTP + düz metin çıktısı token'lar üzerinde daha hafif ve hata ayıklamak daha kolaydır.
+- **Çok kullanıcılı destek yok.** Çalışma alanı başına bir sunucu, bir kullanıcı. Token yetkilendirmesi derinlemesine savunmadır, çoklu-kiracılık değil.
+- **Windows/Linux çerez şifre çözme yok.** macOS Anahtarlık desteklenen tek kimlik bilgisi deposudur. Linux (GNOME Keyring/kwallet) ve Windows (DPAPI) mimari olarak mümkündür ancak uygulanmamıştır.
+- **Iframe otomatik keşfi yok.** `$B frame` çerçeveler arası etkileşimi destekler (CSS seçici, @ref, `--name`, `--url` eşleştirmesi), ancak ref sistemi `snapshot` sırasında iframe'leri otomatik taramaz. Önce açıkça bir çerçeve bağlamına girmelisiniz.

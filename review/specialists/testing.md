@@ -1,46 +1,46 @@
-# Testing Specialist Review Checklist
+# Test Uzman İnceleme Kontrol Listesi
 
-Scope: Always-on (every review)
-Output: JSON objects, one finding per line. Schema:
-{"severity":"CRITICAL|INFORMATIONAL","confidence":N,"path":"file","line":N,"category":"testing","summary":"...","fix":"...","fingerprint":"path:line:testing","specialist":"testing"}
-Optional: line, fix, fingerprint, evidence, test_stub.
-If no findings: output `NO FINDINGS` and nothing else.
+Kapsam: Her zaman açık (her inceleme)
+Çıktı: JSON nesneleri, satır başına bir bulgu. Şema:
+{"severity":"CRITICAL|INFORMATIONAL","confidence":N,"path":"dosya","line":N,"category":"testing","summary":"...","fix":"...","fingerprint":"path:line:testing","specialist":"testing"}
+İsteğe bağlı: line, fix, fingerprint, evidence, test_stub.
+Bulgu yoksa: `NO FINDINGS` çıktısı ve başka hiçbir şey.
 
 ---
 
-## Categories
+## Kategoriler
 
-### Missing Negative-Path Tests
-- New code paths that handle errors, rejections, or invalid input with NO corresponding test
-- Guard clauses and early returns that are untested
-- Error branches in try/catch, rescue, or error boundaries with no failure-path test
-- Permission/auth checks that are asserted in code but never tested for the "denied" case
+### Eksik Negatif-Yol Testleri
+- Hataları, reddetmeleri veya geçersiz girdiyi işleyen ve karşılık gelen TESTİ OLMAYAN yeni kod yolları
+- Test edilmemiş koruma ifadeleri ve erken dönüşler
+- Başarısızlık-yolu testi olmaksızın try/catch, rescue veya hata sınırlarındaki hata dalları
+- Kodda iddia edilen ancak "reddedildi" durumu için hiçbir zaman test edilmemiş izin/kimlik doğrulama kontrolleri
 
-### Missing Edge-Case Coverage
-- Boundary values: zero, negative, max-int, empty string, empty array, nil/null/undefined
-- Single-element collections (off-by-one on loops)
-- Unicode and special characters in user-facing inputs
-- Concurrent access patterns with no race-condition test
+### Eksik Sınır-Durumu Kapsamı
+- Sınır değerleri: sıfır, negatif, maks-tamsayı, boş dizge, boş dizi, nil/null/undefined
+- Tek elemanlı koleksiyonlar (döngülerde bir-fazla hatası)
+- Kullanıcıya bakan girdilerde Unicode ve özel karakterler
+- Yarış durumu testi olmaksızın eşzamanlı erişim desenleri
 
-### Test Isolation Violations
-- Tests sharing mutable state (class variables, global singletons, DB records not cleaned up)
-- Order-dependent tests (pass in sequence, fail when randomized)
-- Tests that depend on system clock, timezone, or locale
-- Tests that make real network calls instead of using stubs/mocks
+### Test İzolasyonu İhlalleri
+- Değiştirilebilir durumu paylaşan testler (sınıf değişkenleri, global singleton'lar, temizlenmemiş DB kayıtları)
+- Sıraya bağımlı testler (sıralı geçen, rastgele çalıştırıldığında başarısız olan)
+- Sistem saatine, saat dilimine veya yerel aya bağımlı testler
+- Stub/mock kullanmak yerine gerçek ağ çağrıları yapan testler
 
-### Flaky Test Patterns
-- Timing-dependent assertions (sleep, setTimeout, waitFor with tight timeouts)
-- Assertions on ordering of unordered results (hash keys, Set iteration, async resolution order)
-- Tests that depend on external services (APIs, databases) without fallback
-- Randomized test data without seed control
+### Geçici (Flaky) Test Desenleri
+- Zamanlama bağımlı iddialar (sleep, setTimeout, sıkı zaman aşımları ile waitFor)
+- Sıralanmamış sonuçların sıralaması üzerinde iddialar (hash anahtarları, Set yinelemesi, zaman uyumsuz çözümleme sırası)
+- Geri dönüş olmaksızın harici hizmetlere (API'ler, veritabanları) bağımlı testler
+- Tohum kontrolü olmaksızın rastgeleleştirilmiş test verileri
 
-### Security Enforcement Tests Missing
-- Auth/authz checks in controllers with no test for the "unauthorized" case
-- Rate limiting logic with no test proving it actually blocks
-- Input sanitization with no test for malicious input
-- CSRF/CORS configuration with no integration test
+### Güvenlik Uygulama Testleri Eksik
+- "Yetkisiz" durumu için testi olmaksızın denetleyicilerdeki kimlik doğrulama/yetkilendirme kontrolleri
+- Gerçekte engellediğini kanıtlayan testi olmaksızın hız sınırlandırma mantığı
+- Kötü niyetli girdi için testi olmaksızın girdi temizleme
+- Entegrasyon testi olmaksızın CSRF/CORS yapılandırması
 
-### Coverage Gaps
-- New public methods/functions with zero test coverage
-- Changed methods where existing tests only cover the old behavior, not the new branch
-- Utility functions called from multiple places but tested only indirectly
+### Kapsam Boşlukları
+- Sıfır test kapsamı olan yeni genel yöntemler/fonksiyonlar
+- Mevcut testlerin yalnızca eski davranışı kapsadığı, yeni dalı kapsamadığı değiştirilmiş yöntemler
+- Birden fazla yerden çağrılan ancak yalnızca dolaylı olarak test edilen yardımcı fonksiyonlar

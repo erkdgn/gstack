@@ -3,10 +3,11 @@ name: gstack
 preamble-tier: 1
 version: 1.1.0
 description: |
-  Fast headless browser for QA testing and site dogfooding. Navigate pages, interact with
-  elements, verify state, diff before/after, take annotated screenshots, test responsive
-  layouts, forms, uploads, dialogs, and capture bug evidence. Use when asked to open or
-  test a site, verify a deployment, dogfood a user flow, or file a bug with screenshots. (gstack)
+  QA testi ve site deneme kullanımı için hızlı başsız tarayıcı. Sayfalarda gezinme, öğelerle
+  etkileşim, durum doğrulama, önce/sonra farkı çıkarma, açıklamalı ekran görüntüleri alma,
+  responsive düzenleri, formları, dosya yüklemelerini, diyalogları test etme ve hata kanıtı
+  yakalama. Bir siteyi açma veya test etme, bir dağıtımı doğrulama, bir kullanıcı akışını
+  deneme kullanımı yapma veya hata raporuyla ekran görüntüleri yakalama istendiğinde kullanın. (gstack)
 allowed-tools:
   - Bash
   - Read
@@ -21,164 +22,164 @@ triggers:
 
 {{PREAMBLE}}
 
-If `PROACTIVE` is `false`: do NOT proactively invoke or suggest other gstack skills during
-this session. Only run skills the user explicitly invokes. This preference persists across
-sessions via `gstack-config`.
+`PROACTIVE` `false` ise: bu oturum sırasında diğer gstack yeteneklerini proaktif olarak
+çağırmayın veya önermeyin. Yalnızca kullanıcının açıkça çağırdığı yetenekleri çalıştırın.
+Bu tercih `gstack-config` aracılığıyla oturumlar arasında kalıcıdır.
 
-If `PROACTIVE` is `true` (default): **invoke the Skill tool** when the user's request
-matches a skill's purpose. Do NOT answer directly when a skill exists for the task.
-Use the Skill tool to invoke it. The skill has specialized workflows, checklists, and
-quality gates that produce better results than answering inline.
+`PROACTIVE` `true` ise (varsayılan): kullanıcının isteği bir yeteneğin amacıyla
+eşleştiğinde **Skill aracını çağırın**. Bir yetenek görev için mevcut olduğunda doğrudan
+cevap vermeyin. Skill aracını kullanarak çağırın. Yeteneğin özel iş akışları, kontrol
+listeleri ve satır içi cevaptan daha iyi sonuçlar üreten kalite kapıları vardır.
 
-**Routing rules — when you see these patterns, INVOKE the skill via the Skill tool:**
-- User describes a new idea, asks "is this worth building", brainstorms, pitches a concept → invoke `/office-hours`
-- User asks about strategy, scope, ambition, "think bigger", "what should we build" → invoke `/plan-ceo-review`
-- User asks to review architecture, lock in the plan, "does this design make sense" → invoke `/plan-eng-review`
-- User asks about design system, brand, visual identity, "how should this look" → invoke `/design-consultation`
-- User asks to review design of a plan → invoke `/plan-design-review`
-- User asks about developer experience of a plan, API/CLI/SDK design → invoke `/plan-devex-review`
-- User wants all reviews done automatically, "review everything" → invoke `/autoplan`
-- User reports a bug, error, broken behavior, "why is this broken", "this doesn't work", "wtf", "something's wrong" → invoke `/investigate`
-- User asks to test the site, find bugs, QA, "does this work", "check the deploy" → invoke `/qa`
-- User asks to just report bugs without fixing → invoke `/qa-only`
-- User asks to review code, check the diff, pre-landing review, "look at my changes" → invoke `/review`
-- User asks about visual polish, design audit of a live site, "this looks off" → invoke `/design-review`
-- User asks to audit the live developer experience, time-to-hello-world → invoke `/devex-review`
-- User asks to ship, deploy, push, create a PR, "let's land this", "send it" → invoke `/ship`
-- User asks to merge + deploy + verify as one flow → invoke `/land-and-deploy`
-- User asks to configure deployment for the project → invoke `/setup-deploy`
-- User asks to monitor prod after shipping, post-deploy checks → invoke `/canary`
-- User asks to update docs after shipping → invoke `/document-release`
-- User asks to write docs from scratch, generate documentation, "document this feature/module" → invoke `/document-generate`
-- User asks for a weekly retro, what did we ship, "how'd we do" → invoke `/retro`
-- User asks for a second opinion, codex review → invoke `/codex`
-- User asks for safety mode, careful mode → invoke `/careful` or `/guard`
-- User asks to restrict edits to a directory → invoke `/freeze` or `/unfreeze`
-- User asks to upgrade gstack → invoke `/gstack-upgrade`
-- User asks to save progress, checkpoint, "save my work" → invoke `/context-save`
-- User asks to resume, restore, "where was I" → invoke `/context-restore`
-- User asks about security, OWASP, vulnerabilities, "is this secure" → invoke `/cso`
-- User asks to make a PDF, document, publication → invoke `/make-pdf`
-- User asks to launch a real browser for QA, "open the browser" → invoke `/open-gstack-browser`
-- User asks to import cookies for authenticated testing → invoke `/setup-browser-cookies`
-- User asks about page speed, performance regression, benchmarks → invoke `/benchmark`
-- User asks what gstack has learned, "show learnings" → invoke `/learn`
-- User asks to tune question sensitivity, "stop asking me that" → invoke `/plan-tune`
-- User asks for code quality dashboard, "health check" → invoke `/health`
+**Yönlendirme kuralları — bu kalıpları gördüğünüzde, Skill aracı ile ÇAĞIRIN:**
+- Kullanıcı yeni bir fikir tanımlıyor, "bunu yapmak değer mi" diye soruyor, beyin fırtınası yapıyor, bir konsept sunuyor → `/office-hours` çağır
+- Kullanıcı strateji, kapsam, hırs soruyor, "daha büyük düşün", "ne yapmalıyız" → `/plan-ceo-review` çağır
+- Kullanıcı mimari incelemesi istiyor, planı kilitlemek, "bu tasarım mantıklı mı" → `/plan-eng-review` çağır
+- Kullanıcı tasarım sistemi, marka, görsel kimlik soruyor, "nasıl görünmeli" → `/design-consultation` çağır
+- Kullanıcı bir planın tasarımını incelemek istiyor → `/plan-design-review` çağır
+- Kullanıcı bir planın geliştirici deneyimini, API/CLI/SDK tasarımını soruyor → `/plan-devex-review` çağır
+- Kullanıcı tüm incelemelerin otomatik yapılmasını istiyor, "her şeyi incele" → `/autoplan` çağır
+- Kullanıcı hata bildiriyor, hata, bozuk davranış, "neden bozuk", "bu çalışmıyor", "ne oluyor", "bir şeyler yanlış" → `/investigate` çağır
+- Kullanıcı siteyi test etmeyi, hata bulmayı, QA, "bu çalışıyor mu", "dağıtımı kontrol et" istiyor → `/qa` çağır
+- Kullanıcı düzeltmeden hata raporlamak istiyor → `/qa-only` çağır
+- Kullanıcı kod incelemesi istiyor, diff'i kontrol etme, iniş öncesi inceleme, "değişikliklerime bak" → `/review` çağır
+- Kullanıcı görsel cilalama, canlı sitenin tasarım denetimini soruyor, "bu tuhaf görünüyor" → `/design-review` çağır
+- Kullanıcı canlı geliştirici deneyimini denetlemek istiyor, hello-world'e kadar geçen süre → `/devex-review` çağır
+- Kullanıcı göndermeyi, dağıtmayı, push etmeyi, PR oluşturmayı istiyor, "bunu indirelim", "gönderelim" → `/ship` çağır
+- Kullanıcı merge + deploy + doğrulama tek akış olarak istiyor → `/land-and-deploy` çağır
+- Kullanıcı proje için dağıtım yapılandırması istiyor → `/setup-deploy` çağır
+- Kullanıcı gönderdikten sonra prod'yu izlemeyi, dağıtım sonrası kontrolleri istiyor → `/canary` çağır
+- Kullanıcı gönderdikten sonra belgeleri güncellemeyi istiyor → `/document-release` çağır
+- Kullanıcı sıfırdan belge yazmak, belge oluşturmak, "bu özelliği/modülü belgele" istiyor → `/document-generate` çağır
+- Kullanıcı haftalık retrospektif istiyor, ne gönderdik, "nasıl yaptık" → `/retro` çağır
+- Kullanıcı ikinci bir görüş, codex incelemesi istiyor → `/codex` çağır
+- Kullanıcı güvenli mod, dikkatli mod istiyor → `/careful` veya `/guard` çağır
+- Kullanıcı düzenlemeleri bir dizinle sınırlandırmak istiyor → `/freeze` veya `/unfreeze` çağır
+- Kullanıcı gstack'i yükseltmek istiyor → `/gstack-upgrade` çağır
+- Kullanıcı ilerlemeyi kaydetmek, checkpoint, "işimi kaydet" istiyor → `/context-save` çağır
+- Kullanıcı devam etmek, geri yüklemek, "neredeydim" istiyor → `/context-restore` çağır
+- Kullanıcı güvenlik, OWASP, güvenlik açıkları soruyor, "bu güvenli mi" → `/cso` çağır
+- Kullanıcı PDF, belge, yayın oluşturmak istiyor → `/make-pdf` çağır
+- Kullanıcı QA için gerçek tarayıcı başlatmak istiyor, "tarayıcıyı aç" → `/open-gstack-browser` çağır
+- Kullanıcı kimlik doğrulamalı test için çerezleri içe aktarmak istiyor → `/setup-browser-cookies` çağır
+- Kullanıcı sayfa hızı, performans gerilemesi, kıyaslamalar soruyor → `/benchmark` çağır
+- Kullanıcı gstack'in öğrendiklerini soruyor, "öğrenimleri göster" → `/learn` çağır
+- Kullanıcı soru hassasiyetini ayarlamak istiyor, "bunu bana sormayı bırak" → `/plan-tune` çağır
+- Kullanıcı kod kalitesi panosu, "sağlık kontrolü" istiyor → `/health` çağır
 
-**When in doubt, invoke the skill.** A false positive (invoking a skill that wasn't
-needed) is cheaper than a false negative (answering ad-hoc when a structured workflow
-exists). The skill provides multi-step workflows, checklists, and quality gates that
-always produce better results than an ad-hoc answer. If no skill matches, answer
-directly as usual.
+**Şüpheye düştüğünüzde yeteneği çağırın.** Yalancı pozitif (gerekmediği halde bir yeteneği
+çağırmak), yalancı negatifidden (yapılandırılmış bir iş akışı varken satır içi cevap vermek)
+daha ucuzdur. Yetenek, satır içi cevaptan her zaman daha iyi sonuçlar üreten çok adımlı iş
+akışları, kontrol listeleri ve kalite kapıları sağlar. Eşleşen bir yetenek yoksa, her zamanki
+gibi doğrudan cevaplayın.
 
-If the user opts out of suggestions, run `gstack-config set proactive false`.
-If they opt back in, run `gstack-config set proactive true`.
+Kullanıcı önerilerden vazgeçerse, `gstack-config set proactive false` çalıştırın.
+Tekrar katılmak isterse, `gstack-config set proactive true` çalıştırın.
 
-# gstack browse: QA Testing & Dogfooding
+# gstack browse: QA Testi ve Deneme Kullanımı
 
-Persistent headless Chromium. First call auto-starts (~3s), then ~100-200ms per command.
-Auto-shuts down after 30 min idle. State persists between calls (cookies, tabs, sessions).
+Kalıcı başsız Chromium. İlk çağrı otomatik başlatır (~3 saniye), ardından komut başına ~100-200 ms.
+30 dakika boşta kalımdan sonra otomatik kapanır. Durum çağrılar arasında kalıcıdır (çerezler, sekmeler, oturumlar).
 
 {{BROWSE_SETUP}}
 
-## IMPORTANT
+## ÖNEMLİ
 
-- Use the compiled binary via Bash: `$B <command>`
-- NEVER use `mcp__claude-in-chrome__*` tools. They are slow and unreliable.
-- Browser persists between calls — cookies, login sessions, and tabs carry over.
-- Dialogs (alert/confirm/prompt) are auto-accepted by default — no browser lockup.
-- **Show screenshots:** After `$B screenshot`, `$B snapshot -a -o`, or `$B responsive`, always use the Read tool on the output PNG(s) so the user can see them. Without this, screenshots are invisible.
+- Derlenmiş çalıştırılabilir dosyayı Bash ile kullanın: `$B <komut>`
+- `mcp__claude-in-chrome__*` araçlarını ASLA kullanmayın. Yavaş ve güvenilmezler.
+- Tarayıcı çağrılar arasında kalıcıdır — çerezler, oturum açma oturumları ve sekmeler taşınır.
+- Diyaloglar (alert/confirm/prompt) varsayılan olarak otomatik kabul edilir — tarayıcı kilitlenmesi yok.
+- **Ekran görüntülerini gösterin:** `$B screenshot`, `$B snapshot -a -o` veya `$B responsive` sonrasında, kullanıcının görebilmesi için çıktı PNG'lerinde her zaman Read aracını kullanın. Bu olmadan, ekran görüntüleri görünmez.
 
-## QA Workflows
+## QA İş Akışları
 
-> **Credential safety:** Use environment variables for test credentials.
-> Set them before running: `export TEST_EMAIL="..." TEST_PASSWORD="..."`
+> **Kimlik bilgisi güvenliği:** Test kimlik bilgileri için ortam değişkenlerini kullanın.
+> Çalıştırmadan önce ayarlayın: `export TEST_EMAIL="..." TEST_PASSWORD="..."`
 
-### Test a user flow (login, signup, checkout, etc.)
+### Bir kullanıcı akışını test etme (giriş, kayıt, ödeme vb.)
 
 ```bash
-# 1. Go to the page
+# 1. Sayfaya git
 $B goto https://app.example.com/login
 
-# 2. See what's interactive
+# 2. Etkileşimli olanları gör
 $B snapshot -i
 
-# 3. Fill the form using refs
+# 3. Formu referanslarla doldur
 $B fill @e3 "$TEST_EMAIL"
 $B fill @e4 "$TEST_PASSWORD"
 $B click @e5
 
-# 4. Verify it worked
-$B snapshot -D              # diff shows what changed after clicking
-$B is visible ".dashboard"  # assert the dashboard appeared
+# 4. Çalıştığını doğrula
+$B snapshot -D              # fark, tıkladıktan sonra neyin değiştiğini gösterir
+$B is visible ".dashboard"  # kontrol panelinin göründüğünü iddia et
 $B screenshot /tmp/after-login.png
 ```
 
-### Verify a deployment / check prod
+### Bir dağıtımı doğrulama / prod'ı kontrol etme
 
 ```bash
 $B goto https://yourapp.com
-$B text                          # read the page — does it load?
-$B console                       # any JS errors?
-$B network                       # any failed requests?
-$B js "document.title"           # correct title?
-$B is visible ".hero-section"    # key elements present?
+$B text                          # sayfayı oku — yükleniyor mu?
+$B console                       # JS hataları var mı?
+$B network                       # başarısız istekler var mı?
+$B js "document.title"           # başlık doğru mu?
+$B is visible ".hero-section"    # temel öğeler mevcut mu?
 $B screenshot /tmp/prod-check.png
 ```
 
-### Dogfood a feature end-to-end
+### Bir özelliği uçtan uca deneme kullanımı
 
 ```bash
-# Navigate to the feature
+# Özelliğe git
 $B goto https://app.example.com/new-feature
 
-# Take annotated screenshot — shows every interactive element with labels
+# Açıklamalı ekran görüntüsü al — her etkileşimli öğeyi etiketlerle gösterir
 $B snapshot -i -a -o /tmp/feature-annotated.png
 
-# Find ALL clickable things (including divs with cursor:pointer)
+# TÜM tıklanabilir öğeleri bul (cursor:pointer olan div'ler dahil)
 $B snapshot -C
 
-# Walk through the flow
-$B snapshot -i          # baseline
-$B click @e3            # interact
-$B snapshot -D          # what changed? (unified diff)
+# Akıştan geç
+$B snapshot -i          # temel
+$B click @e3            # etkileşim
+$B snapshot -D          # ne değişti? (birleştirilmiş fark)
 
-# Check element states
+# Öğe durumlarını kontrol et
 $B is visible ".success-toast"
 $B is enabled "#next-step-btn"
 $B is checked "#agree-checkbox"
 
-# Check console for errors after interactions
+# Etkileşimlerden sonra konsolda hata kontrol et
 $B console
 ```
 
-### Test responsive layouts
+### Responsive düzenleri test etme
 
 ```bash
-# Quick: 3 screenshots at mobile/tablet/desktop
+# Hızlı: mobil/tablet/masaüstü 3 ekran görüntüsü
 $B goto https://yourapp.com
 $B responsive /tmp/layout
 
-# Manual: specific viewport
+# Manuel: belirli görünüm alanı
 $B viewport 375x812     # iPhone
 $B screenshot /tmp/mobile.png
-$B viewport 1440x900    # Desktop
+$B viewport 1440x900    # Masaüstü
 $B screenshot /tmp/desktop.png
 
-# Element screenshot (crop to specific element)
+# Öğe ekran görüntüsü (belirli bir öğeye kırpma)
 $B screenshot "#hero-banner" /tmp/hero.png
 $B snapshot -i
 $B screenshot @e3 /tmp/button.png
 
-# Region crop
+# Bölge kırpma
 $B screenshot --clip 0,0,800,600 /tmp/above-fold.png
 
-# Viewport only (no scroll)
+# Yalnızca görünüm alanı (kaydırma yok)
 $B screenshot --viewport /tmp/viewport.png
 ```
 
-### Test file upload
+### Dosya yükleme testi
 
 ```bash
 $B goto https://app.example.com/upload
@@ -188,62 +189,62 @@ $B is visible ".upload-success"
 $B screenshot /tmp/upload-result.png
 ```
 
-### Test forms with validation
+### Doğrulama ile formları test etme
 
 ```bash
 $B goto https://app.example.com/form
 $B snapshot -i
 
-# Submit empty — check validation errors appear
-$B click @e10                        # submit button
-$B snapshot -D                       # diff shows error messages appeared
+# Boş gönder — doğrulama hatalarının göründüğünü kontrol et
+$B click @e10                        # gönder butonu
+$B snapshot -D                       # fark, hata mesajlarının göründüğünü gösterir
 $B is visible ".error-message"
 
-# Fill and resubmit
+# Doldur ve yeniden gönder
 $B fill @e3 "valid input"
 $B click @e10
-$B snapshot -D                       # diff shows errors gone, success state
+$B snapshot -D                       # fark, hataların gittiğini, başarı durumunu gösterir
 ```
 
-### Test dialogs (delete confirmations, prompts)
+### Diyalogları test etme (silme onayları, komut istemleri)
 
 ```bash
-# Set up dialog handling BEFORE triggering
-$B dialog-accept              # will auto-accept next alert/confirm
-$B click "#delete-button"     # triggers confirmation dialog
-$B dialog                     # see what dialog appeared
-$B snapshot -D                # verify the item was deleted
+# Diyalog işlemeyi tetiklemeden ÖNCE ayarla
+$B dialog-accept              # sonraki alert/confirm'i otomatik kabul eder
+$B click "#delete-button"     # onay diyalogunu tetikler
+$B dialog                     # hangi diyalogun göründüğünü gör
+$B snapshot -D                # öğenin silindiğini doğrula
 
-# For prompts that need input
-$B dialog-accept "my answer"  # accept with text
-$B click "#rename-button"     # triggers prompt
+# Girdi gerektiren komut istemleri için
+$B dialog-accept "my answer"  # metinle kabul et
+$B click "#rename-button"     # komut istemini tetikler
 ```
 
-### Test authenticated pages (import real browser cookies)
+### Kimlik doğrulamalı sayfaları test etme (gerçek tarayıcı çerezlerini içe aktar)
 
 ```bash
-# Import cookies from your real browser (opens interactive picker)
+# Gerçek tarayıcınızdan çerezleri içe aktar (etkileşimli seçici açar)
 $B cookie-import-browser
 
-# Or import a specific domain directly
+# Veya belirli bir alan adını doğrudan içe aktar
 $B cookie-import-browser comet --domain .github.com
 
-# Now test authenticated pages
+# Şimdi kimlik doğrulamalı sayfaları test et
 $B goto https://github.com/settings/profile
 $B snapshot -i
 $B screenshot /tmp/github-profile.png
 ```
 
-> **Cookie safety:** `cookie-import-browser` transfers real session data.
-> Only import cookies from browsers you control.
+> **Çerez güvenliği:** `cookie-import-browser` gerçek oturum verilerini aktarır.
+> Yalnızca kontrol ettiğiniz tarayıcılardan çerezleri içe aktarın.
 
-### Compare two pages / environments
+### İki sayfayı / ortamı karşılaştırma
 
 ```bash
 $B diff https://staging.app.com https://prod.app.com
 ```
 
-### Multi-step chain (efficient for long flows)
+### Çok adımlı zincir (uzun akışlar için verimli)
 
 ```bash
 echo '[
@@ -257,53 +258,53 @@ echo '[
 ]' | $B chain
 ```
 
-## Quick Assertion Patterns
+## Hızlı Doğrulama Kalıpları
 
 ```bash
-# Element exists and is visible
+# Öğe var ve görünür
 $B is visible ".modal"
 
-# Button is enabled/disabled
+# Buton etkin/devre dışı
 $B is enabled "#submit-btn"
 $B is disabled "#submit-btn"
 
-# Checkbox state
+# Onay kutusu durumu
 $B is checked "#agree"
 
-# Input is editable
+# Girdi düzenlenebilir
 $B is editable "#name-field"
 
-# Element has focus
+# Öğe odaklanmış
 $B is focused "#search-input"
 
-# Page contains text
+# Sayfa metin içeriyor
 $B js "document.body.textContent.includes('Success')"
 
-# Element count
+# Öğe sayısı
 $B js "document.querySelectorAll('.list-item').length"
 
-# Specific attribute value
-$B attrs "#logo"    # returns all attributes as JSON
+# Belirli öznitelik değeri
+$B attrs "#logo"    # tüm öznitelikleri JSON olarak döndürür
 
-# CSS property
+# CSS özelliği
 $B css ".button" "background-color"
 ```
 
-## Snapshot System
+## Anlık Görüntü Sistemi
 
 {{SNAPSHOT_FLAGS}}
 
-## Command Reference
+## Komut Referansı
 
 {{COMMAND_REFERENCE}}
 
-## Tips
+## İpuçları
 
-1. **Navigate once, query many times.** `goto` loads the page; then `text`, `js`, `screenshot` all hit the loaded page instantly.
-2. **Use `snapshot -i` first.** See all interactive elements, then click/fill by ref. No CSS selector guessing.
-3. **Use `snapshot -D` to verify.** Baseline → action → diff. See exactly what changed.
-4. **Use `is` for assertions.** `is visible .modal` is faster and more reliable than parsing page text.
-5. **Use `snapshot -a` for evidence.** Annotated screenshots are great for bug reports.
-6. **Use `snapshot -C` for tricky UIs.** Finds clickable divs that the accessibility tree misses.
-7. **Check `console` after actions.** Catch JS errors that don't surface visually.
-8. **Use `chain` for long flows.** Single command, no per-step CLI overhead.
+1. **Bir kez gezin, birçok kez sorgula.** `goto` sayfayı yükler; ardından `text`, `js`, `screenshot` hepsi yüklenen sayfaya anında erişir.
+2. **Önce `snapshot -i` kullanın.** Tüm etkileşimli öğeleri görün, ardından referansla tıklayın/doldurun. CSS seçici tahmini yok.
+3. **Doğrulama için `snapshot -D` kullanın.** Temel → eylem → fark. Tam olarak neyin değiştiğini görün.
+4. **Doğrulamalar için `is` kullanın.** `is visible .modal`, sayfa metnini ayrıştırmaktan daha hızlı ve daha güvenilirdir.
+5. **Kanıt için `snapshot -a` kullanın.** Açıklamalı ekran görüntüleri hata raporları için harikadır.
+6. **Karmaşık arayüzler için `snapshot -C` kullanın.** Erişilebilirlik ağacının kaçırdığı tıklanabilir div'leri bulur.
+7. **Eylemlerden sonra `console` kontrol edin.** Görsel olarak görünmeyen JS hatalarını yakalayın.
+8. **Uzun akışlar için `chain` kullanın.** Tek komut, adım başına CLI ek yükü yok.

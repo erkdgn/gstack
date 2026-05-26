@@ -1,169 +1,265 @@
-# On the LOC controversy
+# LOC Tartışması Üzerine
 
-Or: what happened when I mentioned how many lines of code I've been shipping, and what the numbers actually say.
+Yani: kaç satır kod gönderdiğimden bahsettiğimde olanlar ve sayılar gerçekte ne söylüyor.
 
-## The critique is right. And it doesn't matter.
+## Eleştiri haklı. Ve önemli değil.
 
-LOC is a garbage metric. Every senior engineer knows it. Dijkstra wrote in 1988 that lines of code shouldn't be counted as "lines produced" but as "lines spent" ([*On the cruelty of really teaching computing science*, EWD1036](https://www.cs.utexas.edu/~EWD/transcriptions/EWD10xx/EWD1036.html)). The old line (widely attributed to Bill Gates, sourcing murky) puts it more memorably: measuring programming progress by LOC is like measuring aircraft building progress by weight. If you measure programmer productivity in lines of code, you're measuring the wrong thing. This has been true for 40 years and it's still true.
+LOC çöp bir metriktir. Her kıdemli mühendis bilir. Dijkstra 1988'de kod satırlarının
+"üretilen satırlar" olarak değil, "harcanan satırlar" olarak sayılması gerektiğini yazdı
+([*On the cruelty of really teaching computing science*, EWD1036](https://www.cs.utexas.edu/~EWD/transcriptions/EWD10xx/EWD1036.html)). Eski söz (geniş ölçüde Bill Gates'e atfedilir, kaynağı belirsiz)
+daha akılda kalıcı bir şekilde söyler: programlama ilerlemesini LOC ile ölçmek, uçak
+inşa etme ilerlemesini ağırlıkla ölçmek gibidir. Programcı verimliliğini kod satırlarında
+ölçerseniz, yanlış şeyi ölçersiniz. Bu 40 yıldır doğruydu ve hala doğru.
 
-I posted that in the last 60 days I'd shipped 600,000 lines of production code. The replies came in fast:
+Son 60 günde 600.000 satır üretim kodu gönderdiğimi yayınladım. Yanıtlar hızla geldi:
 
-- "That's just AI slop."
-- "LOC is a meaningless metric. Every senior engineer in the last 40 years said so."
-- "Of course you produced 600K lines. You had an AI writing boilerplate."
-- "More lines is bad, not good."
-- "You're confusing volume with productivity. Classic PM brain."
-- "Where are your error rates? Your DAUs? Your revert counts?"
-- "This is embarrassing."
+- "Bu sadece AI çöpü."
+- "LOC anlamsız bir metriktir. Son 40 yıldaki her kıdemli mühendis bunu söyledi."
+- "Elbette 600K satır ürettin. Bir AI boilerplate yazıyordu."
+- "Daha fazla satır kötü, iyi değil."
+- "Hacmi verimlilikle karıştırıyorsun. Klasik PM beyni."
+- "Hata oranların nerede? DAU'ların nerede? Geri alma sayıların nerede?"
+- "Bu utanç verici."
 
-Some of those are right. Here's what happens when you take the smart version of the critique seriously and do the math anyway.
+Bunlardan bazıları doğru. Akıllı eleştiri versiyonunu ciddiye alıp yine de matematiği
+yaptığınızda olan şey şu.
 
-## Three branches of the AI coding critique
+## AI kodlama eleştirisinin üç dalı
 
-They get collapsed into one, but they're different arguments.
+Bunlar tek bir argümanda birleştiriliyor, ama farklı argümanlar.
 
-**Branch 1: LOC doesn't measure quality.** True. Always has been. A 50-line well-factored library beats a 5,000-line bloated one. This was true before AI and it's true now. It was never a killer argument. It was a reminder to think about what you're measuring.
+**Dal 1: LOC kaliteyi ölçmez.** Doğru. Her zaman öyleydi. İyi yapılandırılmış 50 satırlık
+bir kütüphane, şişirilmiş 5.000 satırlık bir kütüphaneye karşı daha iyidir. Bu AI'dan
+önce de doğruydu ve şimdi de doğru. Bu hiçbir zaman öldürücü bir argüman değildi. Ne
+ölçtüğünüzü düşünmek için bir hatırlatmaydı.
 
-**Branch 2: AI inflates LOC.** True. LLMs generate verbose code by default. More boilerplate. More defensive checks. More comments. More tests. Raw line counts go up even when "real work done" didn't.
+**Dal 2: LOC'u şişirir.** Doğru. LLM'ler varsayılan olarak ayrıntılı kod üretir. Daha
+fazla boilerplate. Daha fazla savunma kontrolü. Daha fazla yorum. Daha fazla test. "Gerçek
+yapılan iş" artmadığında bile ham satır sayıları artar.
 
-**Branch 3: Therefore bragging about LOC is embarrassing.** This is where the argument jumps the track.
+**Dal 3: Bu nedenle LOC hakkında övünmek utanç vericidir.** İşte argümanın raydan
+çıktığı yer.
 
-Branch 2 is the interesting one. If raw LOC is inflated by some factor, the honest thing is to compute the deflation and report the deflated number. That's what this post does.
+Dal 2 ilginç olan. Ham LOC bir çarpanla şişirilmişse, dürüst olan şey sönümlemeyi
+hesaplamak ve sönümlenmiş sayıyı raporlamaktır. Bu yazı tam olarak bunu yapıyor.
 
-## The math
+## Matematik
 
-### Raw numbers
+### Ham sayılar
 
-I wrote a script ([`scripts/garry-output-comparison.ts`](../scripts/garry-output-comparison.ts)) that enumerates every commit I authored across all 41 repos owned by `garrytan/*` on GitHub — 15 public, 26 private — in 2013 and 2026. For each commit, it counts logical lines added (non-blank, non-comment). The 2013 corpus includes Bookface, the YC-internal social network I built that year.
+41 repo'nun tümünde yazarı olduğum her commit'i listeleyen bir betik yazdım
+([`scripts/garry-output-comparison.ts`](../scripts/garry-output-comparison.ts)) —
+`garrytan/*` altında 15 genel, 26 özel — 2013 ve 2026'da. Her commit için mantıksal
+satır eklemelerini (boş olmayan, yorum olmayan) sayar. 2013 derlemesi, o yıl inşa
+ettiğim YC-içerideki sosyal ağ Bookface'i içerir.
 
-One repo excluded from 2026: `tax-app` (demo for a YC video, not production work). Baked into the script's `EXCLUDED_REPOS` constant. Run it yourself.
+2026'dan bir repo hariç: `tax-app` (bir YC videosu için demo, üretim çalışması değil).
+Betiğin `EXCLUDED_REPOS` sabitine eklenmiştir. Kendiniz çalıştırın.
 
-2013 was a full year. 2026 is day 108 as of this writing (April 18).
+2013 tam bir yıldı. 2026 bu yazı itibarıyla 108. gündür (18 Nisan).
 
-|                  | 2013 (full year) | 2026 (108 days) | Multiple |
+|                  | 2013 (tam yıl) | 2026 (108 gün) | Kat |
 |------------------|----------------:|----------------:|---------:|
-| Logical SLOC     |           5,143 |       1,233,062 |     240x |
-| Logical SLOC/day |              14 |          11,417 |     810x |
-| Commits          |              71 |             351 |     4.9x |
-| Files touched    |             290 |          13,629 |      47x |
-| Active repos     |               4 |              15 |    3.75x |
+| Mantıksal SLOC     |           5.143 |       1.233.062 |     240x |
+| Mantıksal SLOC/gün |              14 |          11.417 |     810x |
+| Commitler          |              71 |             351 |     4.9x |
+| Değiştirilen dosyalar    |             290 |          13.629 |      47x |
+| Aktif repolar     |               4 |              15 |    3.75x |
 
-### "14 lines per day? That's pathetic."
+### "Günde 14 satır? Bu acınası."
 
-It was. That's the point.
+Öyleydi. Soru bu.
 
-In 2013 I was a YC partner, then a cofounder at Posterous shipping code nights and weekends. 14 logical lines per day was my actual part-time output while holding down a real job. Historical research puts professional full-time programmer output in a wide band depending on project size and study: Fred Brooks cited ~10 lines/day for systems programming in *The Mythical Man-Month* (OS/360 observations), Capers Jones measured roughly 16-38 LOC/day across thousands of projects, and Steve McConnell's *Code Complete* reports 20-125 LOC/day for small projects (10K LOC) down to 1.5-25 for large projects (10M LOC) — it's size-dependent, not a single number.
+2013'te bir YC ortağıydım, ardından Posterous'ta geceleri ve hafta sonları kod gönderen
+bir kurucu ortaktım. Gerçek işimi yaparken günde 14 mantıksal satır benim gerçek yarı
+zamanlı çıktımdı. Tarihsel araştırma, proje boyutuna ve çalışmaya bağlı olarak profesyonel
+tam zamanlı programcı çıktısını geniş bir bantta gösterir: Fred Brooks *The Mythical
+Man-Month* kitabında sistem programlama için ~10 satır/gün (OS/360 gözlemleri) alıntılar,
+Capers Jones binlerce proje boyunca kabaca 16-38 LOC/gün ölçer ve Steve McConnell'ın
+*Code Complete* kitabı küçük projeler (10K LOC) için 20-125 LOC/gün, büyük projeler
+(10M LOC) için 1.5-25'e kadar raporlar — proje boyutuna bağlı, tek bir sayı değil.
 
-My 2013 baseline isn't cherry-picked. It's normal for a part-time coder with a day job. If you think the right baseline is 50 (3.5x higher), the 2026 multiple drops from 810x to 228x. Still high.
+2013 temelim çerez seçilmiş değil. Gerçek bir işi olan yarı zamanlı bir kodlayıcı için
+normal. Doğru temelin 50 olduğunu düşünüyorsanız (3.5 kat daha yüksek), 2026 katı
+810x'ten 228x'e düşer. Hala yüksek.
 
-### Two deflations
+### İki sönümleme
 
-The standard response to "raw LOC is garbage" is **logical SLOC** (source lines of code, non-comment non-blank). Tools like `cloc` and `scc` have computed this for 20 years. Same code, fluff stripped: no blank lines, no single-line comments, no comment block bodies, no trailing whitespace.
+"Ham LOD çöptür" standart yanıtı **mantıksal SLOC**'tur (kaynak kod satırları,
+yorum olmayan boş olmayan). `cloc` ve `scc` gibi araçlar bunu 20 yıldır hesaplıyor.
+Aynı kod, dolgu çıkarılmış: boş satır yok, tek satırlık yorum yok, yorum bloğu gövdesi
+yok, sondaki boşluk yok.
 
-But logical SLOC doesn't eliminate AI inflation entirely. AI writes 2-3 defensive null checks where a senior engineer would write zero. AI inlines try/catch around things that don't throw. AI spells out `const result = foo(); return result` instead of `return foo()`.
+Ancak mantıksal SLOC AI şişirmesini tamamen ortadan kaldırmaz. AI, kıdemli bir
+mühendisin sıfır yazacağı yerde 2-3 savunma null kontrolü yazar. AI, atmayan şeylerin
+etrafında try/catch satır içi yapar. AI, `return foo()` yerine `const result = foo(); return result` yazar.
 
-So let's apply a **second deflation**. Assume AI-generated code is 2x more verbose than senior hand-crafted code at the logical level. That's aggressive — most measurements I've seen put the multiplier at 1.3-1.8x — but it's the upper bound a skeptic would demand.
+O halde **ikinci bir sönümleme** uygulayalım. AI tarafından üretilen kodun mantıksal
+düzeyde kıdemli el yapımı koddan 2 kat daha ayrıntılı olduğunu varsayalım. Bu agresif —
+gördüğüm ölçümlerin çoğu çarpanı 1.3-1.8x koyuyor — ama bir şüphecinin talep edeceği üst
+sınır.
 
-- My 2026 per-day rate, NCLOC: **11,417**
-- With 2x AI-verbosity deflation: **5,708** logical lines per day
-- Multiple on daily pace with both deflations: **408x**
+- 2026 günlük oranım, NCLOC: **11.417**
+- 2x AI-ayrıntı sönümlemesiyle: **5.708** mantıksal satır/gün
+- Her iki sönümlemeyle günlük hızdaki kat: **408x**
 
-Now pick your priors:
+Şimdi önsellerinizi seçin:
 
-- At 5x deflation (unfounded but let's go): **162x**
-- At 10x (pathological): **81x**
-- At 100x (impossible — that's one line per minute sustained): **8x**
+- 5x sönümlemede (dayaksız ama gidelim): **162x**
+- 10x'te (patolojik): **81x**
+- 100x'te (imkansız — bu dakikada sürekli bir satırdır): **8x**
 
-The argument about the size of the coefficient doesn't change the conclusion. The number is large regardless.
+Katsayının büyüklüğü hakkındaki argüman sonucu değiştirmez. Sayı büyüktür, ne olursa olsun.
 
-### Weekly distribution
+### Haftalık dağılım
 
-"Your per-day number assumes uniform output. Show the distribution. If it's a single burst, your run-rate is bogus."
+"Günlük sayınız düzgün çıktı varsayıyor. Dağılımı gösterin. Tek bir sıçramaysa, çalışma
+hızınız sahte."
 
-Fair.
-
-```
-Week 1-4  (Jan):  ████████░░░░░░░░░  ~8,800/day
-Week 5-8  (Feb):  ████████████░░░░░  ~12,100/day
-Week 9-12 (Mar):  ██████████░░░░░░░  ~10,900/day
-Week 13-15 (Apr): █████████████░░░░  ~13,200/day
-```
-
-It's not a spike. The rate has been approximately consistent and slightly increasing. Run the script yourself.
-
-## The quality question
-
-This is the most legitimate critique, channeled through the [David Cramer](https://x.com/zeeg) voice: OK, you're pushing more lines. Where are your error rates? Your post-merge reverts? Your bug density? If you're typing at 10x speed but shipping 20x more bugs, you're not leveraged, you're making noise at scale.
-
-Fair. Here's the data:
-
-**Reverts.** `git log --grep="^revert" --grep="^Revert" -i` across the 15 active repos: 7 reverts in 351 commits = **2.0% revert rate**. For context, mature OSS codebases typically run 1-3%. Run the same command on whatever you consider the bar and compare.
-
-**Post-merge fixes.** Commits matching `^fix:` that reference a prior commit on the same branch: 22 of 351 = **6.3%**. Healthy fix cycle. A zero-fix rate would mean I'm not catching my own mistakes.
-
-**Tests.** This is the thing that actually matters, and it's the thing that changed everything for me. Early in 2026, I was shipping without tests and getting destroyed in bug land. Then I hit 30% test-to-code ratio, then 100% coverage on critical paths, and suddenly I could fly. Tests went from ~100 across all repos in January to **over 2,000 now**. They run in CI. They catch regressions. Every gstack PR has a coverage audit in the PR body.
-
-The real insight: testing at multiple levels is what makes AI-assisted coding actually work. Unit tests, E2E tests, LLM-as-judge evals, smoke tests, slop scans. Without those layers, you're just generating confident garbage at high speed. With them, you have a verification loop that lets the AI iterate until the code is actually correct.
-
-gstack's core real-code feature — the thing that isn't just markdown prompts — is a **Playwright-based CLI browser** I wrote specifically so I could stop manually black-box testing my stuff. `/qa` opens a real browser, navigates your staging URL, and runs automated checks. That's 2,000+ lines of real systems code (server, CDP inspector, snapshot engine, content security, cookie management) that exists because testing is the unlock, not the overhead.
-
-**Slop scan.** A third party — [Ben Vinegar](https://x.com/bentlegen), founding engineer at Sentry — built a tool called [slop-scan](https://github.com/benvinegar/slop-scan) specifically to measure AI code patterns. Deterministic rules, calibrated against mature OSS baselines. Higher score = more slop. He ran it on gstack and we scored 5.24, the worst he'd measured at the time. I took the findings seriously, refactored, and cut the score by 62% in one session. Run `bun test` and watch 2,000+ tests pass.
-
-**Review rigor.** Every gstack branch goes through CEO review, Codex outside-voice review, DX review, and eng review. Often 2-3 passes of each. The `/plan-tune` skill I just shipped had a scope ROLLBACK from the CEO expansion plan because Codex's outside-voice review surfaced 15+ findings my four Claude reviews missed. The review infrastructure catches the slop. It's visible in the repo. Anyone can read it.
-
-## What I'll concede
-
-I'm going to steelman harder than the critics steelmanned themselves:
-
-**Greenfield vs maintenance.** 2026 numbers are dominated by new-project code. Mature-codebase maintenance produces fewer lines per day. If you're asking "can Garry 100x the team maintaining 10 million lines of legacy Java at a bank," my number doesn't prove that. Someone else will have to run their own script on a different context.
-
-**The 2013 baseline has survivorship bias.** My 2013 public activity was low. This analysis includes Bookface (private, 22 active weeks) which was my biggest project that year, so the bias is smaller than it looks. It's not zero. If the true 2013 rate was 50/day instead of 14, the multiple at current pace is 228x instead of 810x. Still high.
-
-**Quality-adjusted productivity isn't fully proven.** I don't have a clean bug-density comparison between 2013-me and 2026-me. What I can say: revert rate is in the normal band, fix rate is healthy, test coverage is real, and the adversarial review process caught 15+ issues on the most recent plan. That's evidence, not proof. A skeptic can discount it.
-
-**"Shipped" means different things across eras.** Some 2013 products shipped and died. Some 2026 products may share that fate. If two years from now 80% of what I shipped this year is dead, the critique "you built a bunch of unused stuff" will have teeth. I accept that reality check.
-
-**Time to first user is the metric that matters, not LOC.** The 60-day cycle from "I wish this existed" to "it exists and someone is using it" is the real shift. LOC is downstream evidence. The right metric is "shipped products per quarter" or "working features per week." Those went up by a similar multiple.
-
-## What those lines became
-
-gstack is not a hypothetical. It's a product with real users:
-
-- **75,000+ GitHub stars** in 5 weeks
-- **14,965 unique installations** (opt-in telemetry)
-- **305,309 skill invocations** recorded since January 2026
-- **~7,000 weekly active users** at peak
-- **95.2% success rate** across all skill runs (290,624 successes / 305,309 total)
-- **57,650 /qa runs**, **28,014 /plan-eng-review runs**, **24,817 /office-hours sessions**, **18,899 /ship workflows**
-- **27,157 sessions used the browser** (real Playwright, not toy)
-- Median session duration: **2 minutes**. Average: **6.4 minutes**.
-
-Top skills by usage:
+Adil.
 
 ```
-/qa               57,650  ████████████████████████████
-/plan-eng-review  28,014  ██████████████
-/office-hours     24,817  ████████████
-/ship             18,899  █████████
-/browse           13,675  ██████
-/review           13,459  ██████
-/plan-ceo-review  12,357  ██████
+Hafta 1-4  (Oca):  ████████░░░░░░░░░  ~8.800/gün
+Hafta 5-8  (Şub):  ████████████░░░░░  ~12.100/gün
+Hafta 9-12 (Mar):  ██████████░░░░░░░  ~10.900/gün
+Hafta 13-15 (Nis): █████████████░░░░  ~13.200/gün
 ```
 
-These aren't scaffolds sitting in a drawer. Thousands of developers run these skills every day.
+Bu bir sıçrama değil. Hız yaklaşık olarak tutarlı ve hafifçe artıyor. Betiği kendiniz
+çalıştırın.
 
-## What this means
+## Kalite sorusu
 
-I am not saying engineers are going away. Nobody serious thinks that.
+Bu en meşru eleştiri, [David Cramer](https://x.com/zeeg) sesinden kanallanmış: Tamam,
+daha fazla satır itiyorsun. Hata oranların nerede? Birleştirmeden sonraki geri almaların?
+Hata yoğunluğun? 10 kat hızda yazıp 20 kat daha fazla hata gönderiyorsan, verimli
+değilsin, ölçekli gürültü yapıyorsun.
 
-I am saying engineers can fly now. One engineer in 2026 has the output of a small team in 2013, working the same hours, at the same day job, with the same brain. The code-generation cost curve collapsed by two orders of magnitude.
+Adil. İşte veri:
 
-The interesting part of the number isn't the volume. It's the rate. And the rate isn't a statement about me. It's a statement about the ground underneath all software engineering.
+**Geri almalar.** 15 aktif repo boyunca `git log --grep="^revert" --grep="^Revert" -i`:
+351 commit'te 7 geri alma = **%2.0 geri alma oranı**. Bağlam olarak, olgun OSS kod
+tabanları tipik olarak %1-3 çalışır. Çubuk olarak neyi kabul ettiğinizi düşünün ve aynı
+komutu çalıştırıp karşılaştırın.
 
-2013 me shipped about 14 logical lines per day. Normal for a part-time coder with a real job. 2026 me is shipping 11,417 logical lines per day. While still running YC full-time. Same day job. Same free time. Same person.
+**Birleştirmeden sonraki düzeltmeler.** Aynı dalda önceki bir commit'e referans veren
+`^fix:` ile eşleşen commitler: 351'in 22'si = **%6.3**. Sağlıklı düzeltme döngüsü. Sıfır
+düzeltme oranı, kendi hatalarımı yakalamadığım anlamına gelirdi.
 
-The delta isn't that I became a better programmer. If anything, my mental model of coding has atrophied. The delta is that AI let me actually ship the things I always wanted to build. Small tools. Personal products. Experiments that used to die in my notebook because the time cost to build them was too high. The gap between "I want this tool" and "this tool exists and I'm using it" collapsed from 3 weeks to 3 hours.
+**Testler.** Gerçekte önemli olan şey budur ve benim için her şeyi değiştiren şey budur.
+2026'nın başında, testler olmadan kod gönderiyordum ve hata diyarında mahvoluyordum.
+Ardından %30 test-kod oranına, ardından kritik yollarda %100 kapsama ulaştım ve aniden
+uçabiliyordum. Testler Ocak ayında tüm repolarda ~100'den şimdi **2.000'den fazla** oldu.
+CI'da çalışıyorlar. Regresyonları yakalıyorlar. Her gstack PR'sinin gövdesinde bir kapsam
+denetimi var.
 
-Here's the script: [`scripts/garry-output-comparison.ts`](../scripts/garry-output-comparison.ts). Run it on your own repos. Show me your numbers. The argument isn't about me — it's about whether the ground moved.
+Gerçek içgörü: birden fazla düzeyde test, AI destekli kodlamayı gerçekten çalışır kılan
+şeydir. Birim testleri, uçtan uca testler, LLM-yargıç değerlendirmeleri, duman testleri,
+çöp taramaları. Bu katmanlar olmadan, yüksek hızda kendinden emin çöp üretiyorsunuz.
+Bunlarla, kod gerçekten doğru olana kadar AI'nın yineleme yapmasını sağlayan bir
+doğrulama döngünüz var.
 
-I'm betting it did for you too.
+gstack'in gerçek kod özelliği —sadece markdown komutları olmayan şey— özellikle
+şaşelerimi elle kara-kutu test etmeyi bırakabilmem için yazdığım **Playwright tabanlı
+bir CLI tarayıcısıdır.** `/qa` gerçek bir tarayıcı açar, hazırlık URL'nize gider ve
+otomatik denetimler çalıştırır. Bu, testin kilidin açılması, yük değil olması nedeniyle
+var olan 2.000+ satırlık gerçek sistem kodudur (sunucu, CDP denetçisi, anlık görüntü
+motoru, içerik güvenliği, çerez yönetimi).
+
+**Çöp taraması.** Üçüncü bir taraf — Sentry'nin kurucu mühendisi [Ben Vinegar](https://x.com/bentlegen)
+— özellikle AI kod örüntülerini ölçmek için [slop-scan](https://github.com/benvinegar/slop-scan)
+adında bir araç yaptı. Belirleyici kurallar, olgun OSS temellerine karşı kalibre edilmiş.
+Daha yüksek puan = daha fazla çöp. Bunu gstack üzerinde çalıştırdı ve 5.24 puan aldık,
+o zaman ölçtüğü en kötü. Bulguları ciddiye aldım, yeniden düzenledim ve bir oturumda
+puanı %62 düşürdüm. `bun test` çalıştırın ve 2.000+ testin geçtiğini izleyin.
+
+**İnceleme ciddiyeti.** Her gstack dalı CEO incelemesi, Codex dış-ses incelemesi, DX
+incelemesi ve mühendislik incelemesinden geçer. Genellikle her birinin 2-3 geçişi.
+Az önce gönderdiğim `/plan-tune` yeteneği, dört Claude incelememin kaçırığı 15+ bulgu
+ortaya çıkaran Codex dış-ses incelemesi nedeniyle bir kapsam GERİ ALMA aldı. İnceleme
+altyapısı çöpü yakalar. Repoda görünür. Herkes okuyabilir.
+
+## Kabul edeceğim şey
+
+Eleştirmenlerin kendilerini çeliklendirmelerinden daha sert çelikleyeceğim:
+
+**Yeşil alan vs bakım.** 2026 sayıları yeni proje koduna hakim. Olgun kod tabanı bakımı
+günde daha az satır üretir. "Garry bir bankadaki 10 milyon satırlık eski Java'yı koruyan
+ekibi 100x yapabilir mi?" diye soruyorsanız, sayım bunu kanıtlamıyor. Başka biri kendi
+betiklerini farklı bir bağlamda çalıştırmak zorunda.
+
+**2013 temelinin hayatta kalma yanlılığı var.** 2013 genel etkinliğim düşüktü. Bu analiz
+Bookface'i (özel, 22 aktif hafta) içeriyor — o yılki en büyük projemdi — bu nedenle
+yanlılık göründüğünden daha küçük. Sıfır değil. Gerçek 2013 hızı günde 14 yerine 50
+ise, mevcut hızdaki kat 810x yerine 228x'tir. Hala yüksek.
+
+**Kaliteye göre ayarlanmış verimlilik tam olarak kanıtlanmış değil.** 2013-ben ile
+2026-ben arasında temiz bir hata yoğunluğu karşılaştırmam yok. Söyleyebileceğim şey:
+geri alma oranı normal bantta, düzeltme oranı sağlıklı, test kapsamı gerçek ve en son
+plandaki sertluk inceleme süreci 15+ sorunu yakaladı. Bu kanıt, ispat değil. Bir
+şüpheci bunu düşebilir.
+
+**"Gönderildi" farklı çağlarda farklı anlamlara gelir.** Bazı 2013 ürünleri gönderildi
+ve öldü. Bazı 2026 ürünleri aynı kaderi paylaşabilir. İki yıl sonra bu yıl gönderdiklerimin
+%80'i ölüyse, "bir sürü kullanılmayan şey inşa ettin" eleştirisinin dişleri olacak. Bu
+gerçeklik denetimini kabul ediyorum.
+
+**İlk kullanıcıya ulaşma süresi, LOC değil, önemli olan metriktir.** "Keşke bu varolsaydı"
+den "var ve biri kullanıyor" noktasına 60 günlük döngü, gerçek kaymadır. LOC aşağı
+akan kanıttır. Doğru metriktir "çeyrekte gönderilen ürünler" veya "haftada çalışan
+özellikler" tir. Bunlar benzer bir kat ile arttı.
+
+## Bu satırlar ne oldu
+
+gstack bir varsayım değil. Gerçek kullanıcıları olan bir ürün:
+
+- 5 haftada **75.000+ GitHub yıldızı**
+- **14.965 benzersiz kurulum** (katılım telemetrisi)
+- Ocak 2026'dan beri kaydedilen **305.309 yetenek çağrısı**
+- En yüksek noktada **~7.000 haftalık aktif kullanıcı**
+- Tüm yetenek çalıştırmalarında **%95.2 başarı oranı** (290.624 başarı / 305.309 toplam)
+- **57.650 /qa çalıştırması**, **28.014 /plan-eng-review çalıştırması**, **24.817 /office-hours oturumu**, **18.899 /ship iş akışı**
+- **27.171 oturum tarayıcı kullandı** (gerçek Playwright, oyuncak değil)
+- Medyan oturum süresi: **2 dakika**. Ortalama: **6.4 dakika**.
+
+Kullanıma göre en çok kullanılan yetenekler:
+
+```
+/qa               57.650  ████████████████████████████
+/plan-eng-review  28.014  ██████████████
+/office-hours     24.817  ████████████
+/ship             18.899  █████████
+/browse           13.675  ██████
+/review           13.459  ██████
+/plan-ceo-review  12.357  ██████
+```
+
+Bunlar bir çekmecede duran iskeletler değil. Binlerce geliştirici bu yetenekleri her gün
+çalıştırıyor.
+
+## Bu ne anlama geliyor
+
+Mühendislerin gideceğini söylemiyorum. Ciddi kimse öyle düşünmüyor.
+
+Mühendislerin artık uçabileceğini söylüyorum. 2026'da bir mühendis, aynı saatleri, aynı
+işte, aynı beyinle 2013'te küçük bir ekibin çıktısına sahip. Kod üretim maliyet eğrisi
+iki büyüklük mertebesi düştü.
+
+Sayının ilginç kısmı hacim değil. Hız. Ve hız benim hakkımda bir ifade değil. Tüm
+yazılım mühendisliğinin altındaki zemin hakkında bir ifade.
+
+2013 beni günde yaklaşık 14 mantıksal satır gönderdim. Gerçek işi olan yarı zamanlı bir
+kodlayıcı için normal. 2026 beni günde 11.417 mantıksal satır gönderiyorum. Hala YC'yi
+tam zamanlı yönetirken. Aynı iş. Aynı boş zaman. Aynı kişi.
+
+Fark, daha iyi bir programcı olduğum değil. Varsa, kodlama zihinsel modelim körelmiş.
+Fark, AI'nin inşa etmek istediğim şeyleri gerçekten göndermeme izin vermesi. Küçük
+araçlar. Kişisel ürünler. İnşa etme maliyeti çok yüksek olduğu için not defterimde ölen
+deneyler. "Bu aracı istiyorum" ile "bu araç var ve kullanıyorum" arasındaki boşluk 3
+haftadan 3 saate düştü.
+
+İşte betik: [`scripts/garry-output-comparison.ts`](../scripts/garry-output-comparison.ts).
+Kendi repolarınızda çalıştırın. Sayılarınızı gösterin. Argüman benim hakkımda değil —
+zeminin hareket edip etmediği hakkında.
+
+Benim için ettiğine bahse giriyorum.

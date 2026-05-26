@@ -1,163 +1,158 @@
-# Bun-Native Prompt Injection Classifier — Research Plan
+# Bun-Yerel İstem Enjeksiyonu Sınıflandırıcı — Araştırma Planı
 
-**Status:** P3 research / early prototype
-**Branch:** `garrytan/prompt-injection-guard`
-**Skeleton:** `browse/src/security-bunnative.ts`
-**TODOS anchor:** "Bun-native 5ms DeBERTa inference (XL, P3 / research)"
+**Durum:** P3 araştırma / erken prototip
+**Dal:** `garrytan/prompt-injection-guard`
+**İskelet:** `browse/src/security-bunnative.ts`
+**TODOK çapası:** "Bun-native 5ms DeBERTa inference (XL, P3 / research)"
 
-## The problem this solves
+## Çözdüğü sorun
 
-The compiled `browse/dist/browse` binary cannot link `onnxruntime-node`
-because Bun's `--compile` produces a single-file executable that
-dlopens dependencies from a temp extract dir, and native .dylib loading
-fails from that dir (documented oven-sh/bun#3574, #18079 + verified in
-CEO plan §Pre-Impl Gate 1).
+Derlenmiş `browse/dist/browse` ikili dosyası `onnxruntime-node` bağlayamaz çünkü
+Bun'un `--compile` seçeneği, bağımlılıkları geçici bir çıkarma dizininden dlopen eden
+tek dosyalık bir çalıştırılabilir dosya üretir ve bu dizinden yerel .dylib yükleme
+başarısız olur (belgelenmiş oven-sh/bun#3574, #18079 + CEO planı §Ön-Uygulama Geçidi 1).
 
-Today's mitigation (branch-2 architecture): the ML classifier runs only
-in `sidebar-agent.ts` (non-compiled bun script) via
-`@huggingface/transformers`. Server.ts (compiled) has zero ML — relies on
-canary + architectural controls (XML framing + command allowlist).
+Mevcut azaltım (dal-2 mimarisi): ML sınıflandırıcı sadece `sidebar-agent.ts`'te
+(derlenmemiş bun betiği) `@huggingface/transformers` aracılığıyla çalışır.
+Server.ts (derlenmiş) sıfır ML içerir — kanarya + mimari kontrollere güvenir
+(XML çerçeveleme + komut izin verilenler listesi).
 
-Problem with branch-2: the classifier can only scan what the sidebar-agent
-sees. Any content path that stays inside the compiled binary (direct user
-input on its way out, canary check only) misses the ML layer.
+Dal-2 ile sorun: sınıflandırıcı sadece sidebar-agent'in gördüğünü tarayabilir.
+Derlenmiş ikili içinde kalan herhangi bir içerik yolu (çıkışta doğrudan kullanıcı
+girdisi, sadece kanarya kontrolü) ML katmanını atlar.
 
-A from-scratch Bun-native classifier — no native modules, no onnxruntime —
-would let the compiled binary run full ML defense everywhere.
+Sıfırdan bir Bun-yerel sınıflandırıcı — yerel modül yok, onnxruntime yok — derlenmiş
+ikilinin her yerde tam ML savunmasını çalıştırmasına izin verir.
 
-## Target numbers
+## Hedef sayılar
 
-| Metric | Current (WASM in non-compiled Bun) | Target (Bun-native) |
+| Metrik | Mevcut (derlenmemiş Bun'da WASM) | Hedef (Bun-yerel) |
 |---|---|---|
-| Cold-start | ~500ms (WASM init) | <100ms (embeddings mmap'd) |
-| Steady-state p50 | ~10ms | ~5ms |
-| Steady-state p95 | ~30ms | ~15ms |
-| Works in compiled binary | NO | YES (primary goal) |
-| macOS arm64 | ok (WASM) | target-first |
-| macOS x64 | ok (WASM) | stretch |
-| Linux amd64 | ok (WASM) | stretch |
+| Soğuk-başlangıç | ~500ms (WASM başlatma) | <100ms (gömüler mmap) |
+| Kararlı-durum p50 | ~10ms | ~5ms |
+| Kararlı-durum p95 | ~30ms | ~15ms |
+| Derlenmiş ikilide çalışır | HAYIR | EVET (birincil hedef) |
+| macOS arm64 | iyi (WASM) | hedef-ilk |
+| macOS x64 | iyi (WASM) | uzatma |
+| Linux amd64 | iyi (WASM) | uzatma |
 
-## Architecture
+## Mimari
 
-Three building blocks, ranked by leverage:
+Üç yapı taşı, kaldıraç sırasına göre:
 
-### 1. Tokenizer (DONE — shipped in security-bunnative.ts)
+### 1. Simgeleştirici (TAMAMLANDI — security-bunnative.ts'te gönderildi)
 
-Pure-TS WordPiece encoder that reads HuggingFace `tokenizer.json`
-directly and produces the same `input_ids` sequence as transformers.js
-for BERT-small vocab.
+HuggingFace `tokenizer.json`'u doğrudan okuyan ve transformers.js ile aynı
+`input_ids` dizisini üreten saf-TS WordPiece kodlayıcı.
 
-**Why native tokenizer matters on its own:** tokenization allocates a
-lot of small arrays in the transformers.js path. Our pure-TS version
-skips the Tensor-allocation overhead. Modest speedup (~5x tokenizer
-alone), but more importantly: removes the async boundary, so the cold
-path starts with zero dynamic imports.
+**Kendi başına neden yerel simgeleştirici önemli:** Simgeleştirme, transformers.js
+yolunda çok sayıda küçük dizi ayrırır. Saf-TS sürümümüz Tensor-ayırma yükünü
+atlar. Mütevazı hız artışı (~5x sadece simgeleştirici), ama daha önemlisi:
+asenkron sınırı kaldırır, böylece soğuk yol sıfır dinamik içe aktarma ile başlar.
 
-**Test coverage:** `browse/test/security-bunnative.test.ts` asserts
-our `input_ids` matches transformers.js output on 20 fixture strings.
+**Test kapsamı:** `browse/test/security-bunnative.test.ts`, 20 fixture dizesi
+üzerinde `input_ids`'imizin transformers.js çıktısıyla eşleştiğini doğrular.
 
-### 2. Forward pass (RESEARCH — multi-week)
+### 2. İleri geçiş (ARAŞTIRMA — çok haftalı)
 
-The hard part. BERT-small has:
-  * 12 transformer layers
-  * Hidden size 512, attention heads 8
-  * ~30M params total
+Zor kısım. BERT-küçük şunlara sahiptir:
+  * 12 dönüştürücü katman
+  * Gizli boyut 512, dikkat başları 8
+  * Toplam ~30M parametre
 
-Each forward pass is:
-  1. Embedding lookup (ids → 512-dim vectors)
-  2. Positional encoding add
-  3. 12 × (self-attention + FFN + LayerNorm)
-  4. Pooler (CLS token projection)
-  5. Classifier head (2-way sigmoid)
+Her ileri geçiş:
+  1. Gömme arama (id'ler → 512-boyutlu vektörler)
+  2. Konumsal kodlama ekleme
+  3. 12 × (öz-dikkat + FFN + KatmanNorm)
+  4. Havuzlayıcı (CLS belirteci izdüşümü)
+  5. Sınıflandırıcı baş (2-yollu sigmoid)
 
-Hot path is the 12 matmuls per transformer layer. Each is ~512×512×{seq_len}.
-At seq_len=128 that's ~100 matmuls of shape (128, 512) @ (512, 512).
+Sıcak yol, dönüştürücü katmanı başına 12 matris çarpımıdır. Her biri ~512×512×{seq_len}.
+seq_len=128'de, bu ~100 (128, 512) @ (512, 512) şeklinde matris çarpımı.
 
-**Two viable approaches:**
+**İki uygulanabilir yaklaşım:**
 
-**Approach A: Pure-TS with Float32Array + SIMD**
-  * Use Bun's typed array support + SIMD intrinsics (when they land in
-    Bun stable — currently wasm-only)
-  * Implementation: ~2000 LOC of careful numerics. LayerNorm, GELU,
-    softmax, scaled dot-product attention all hand-written.
-  * Latency estimate: ~30-50ms on M-series (meaningfully slower than
-    WASM which uses WebAssembly SIMD)
-  * VERDICT: not worth it standalone. Pure-TS can't beat WASM at matmul.
+**Yaklaşım A: Float32Array + SIMD ile Saf-TS**
+  * Bun'un tip dizisi desteği + SIMD iç işlevlerini kullanın (Bun kararlı sürümünde
+    kullanılabilir olduğunda — şu anda sadece wasm)
+  * Uygulama: ~2000 SATIR dikkatli sayısal hesaplama. KatmanNorm, GELU,
+    softmax, ölçeklenmiş nokta-çarpım dikkati hepsi el ile yazılmış.
+  * Gecikme tahmini: M-serisinde ~30-50ms (WASM'dan anlamlı şekilde yavaş,
+    çünkü WASM WebAssembly SIMD kullanır)
+  * KARAR: tek başına değmez. Saf-TS matris çarpımında WASM'ı yenemez.
 
-**Approach B: Bun FFI + Apple Accelerate**
-  * Use `bun:ffi` to call Apple's Accelerate framework (cblas_sgemm).
-    On M-series, cblas_sgemm for 768×768 matmul is ~0.5ms.
-  * Weights stored as Float32Array (loaded from ONNX initializer tensors
-    at startup), tokenizer in TS, matmul via FFI, activations in pure TS.
-  * Implementation: ~1000 LOC. The numerics are the same, but the bulk
-    work is offloaded to BLAS.
-  * Latency estimate: 3-6ms p50 (meets target).
-  * RISK: macOS-only. Linux would need OpenBLAS via FFI (different
-    symbol layout). Windows is a whole separate story.
-  * VERDICT: viable for macOS-first gstack. Matches our existing ship
-    posture (compiled binaries only for Darwin arm64).
+**Yaklaşım B: Bun FFI + Apple Accelerate**
+  * Apple'ın Accelerate çerçevesini (cblas_sgemm) çağırmak için `bun:ffi` kullanın.
+    M-serisinde, 768×768 matris çarpımı için cblas_sgemm ~0.5ms'dir.
+  * Ağırlıklar Float32Array olarak saklanır (başlangıçta ONNX başlatıcı tensörlerinden
+    yüklenir), simgeleştirici TS'de, matris çarpımı FFI üzerinden, aktivasyonlar saf TS'de.
+  * Uygulama: ~1000 SATIR. Sayısal hesaplamalar aynı, ama toplu iş BLAS'e devredilir.
+  * Gecikme tahmini: 3-6ms p50 (hedefe uyar).
+  * RİSK: sadece macOS. Linux OpenBLAS FFI'ye ihtiyaç duyar (farklı sembol düzeni).
+    Windows tamamen ayrı bir hikaye.
+  * KARAR: macOS-ilk gstack için uygulanabilir. Mevcut gönderim duruşumuzla eşleşir
+    (derlenmiş ikililer sadece Darwin arm64 için).
 
-**Approach C: WebGPU in Bun**
-  * Bun gained WebGPU support in 1.1.x. transformers.js already has a
-    WebGPU backend. Could we route native Bun through it?
-  * RISK: WebGPU in headless server context on macOS requires a proper
-    display context. Unclear if it works from a compiled bun binary.
-  * STATUS: unexplored. Might be the winning path — worth a spike.
+**Yaklaşım C: Bun'da WebGPU**
+  * Bun 1.1.x'te WebGPU desteği kazandı. transformers.js zaten bir WebGPU arka uca sahip.
+    Yerel Bun'u bunun üzerinden yönlendirebilir miyiz?
+  * RİSK: macOS'ta başsız sunucu bağlamında WebGPU uygun bir görüntü bağlamı gerektirir.
+    Derlenmiş bir bun ikilisinden çalışıp çalışmadığı belirsiz.
+  * DURUM: keşfedilmemiş. Kazan yol olabilir — bir araştırma değer.
 
-### 3. Weight loading (EASY — shipped)
+### 3. Ağırlık yükleme (KOLAY — gönderildi)
 
-ONNX initializer tensors can be extracted once at build time into a
-flat binary blob that `bun:ffi` can `mmap()`. Net result: zero
-decompression at runtime. The skeleton doesn't do this yet (it loads
-via transformers.js), but the plan is simple enough that the weight
-loader is the first thing to build once Approach B is picked.
+ONNX başlatıcı tensörleri, derleme zamanında `bun:ffi`'nin `mmap()` yapabileceği
+düz bir ikili yığına bir kez çıkarılabilir. Net sonuç: çalışma zamanında sıfır
+açma. İskelet bunu henüz yapmıyor (transformers.js üzerinden yükler), ancak plan
+yeterince basit ki ağırlık yükleyici, Yaklaşım B seçildikten sonra inşa edilecek
+ilk şey.
 
-## Milestones
+## Kilometre taşları
 
-1. **Tokenizer + bench harness** (SHIPPED)
-   Tokenizer passes correctness test. Benchmark records current WASM
-   baseline at 10ms p50.
+1. **Simgeleştirici + kıyaslama donanımı** (GÖNDERİLDİ)
+   Simgeleştirici doğruluk testini geçirir. Kıyaslama, mevcut WASM taban çizgisini
+   10ms p50'de kaydeder.
 
-2. **Bun FFI proof-of-concept** — `cblas_sgemm` from Apple Accelerate,
-   time a 768×768 matmul. Confirm <1ms latency.
+2. **Bun FFI kavram kanıtı** — Apple Accelerate'den `cblas_sgemm`, 768×768
+   matris çarpımını zamanlayın. <1ms gecikmeyi doğrulayın.
 
-3. **Single transformer layer in FFI** — call cblas_sgemm for Q/K/V
-   projections, implement LayerNorm + softmax in TS. Compare output
-   against onnxruntime on the same input_ids. Must match within 1e-4
-   absolute error.
+3. **FFI'de tek dönüştürücü katman** — Q/K/V izdüşümleri için cblas_sgemm çağırın,
+   TS'de KatmanNorm + softmax uygulayın. Çıktıyı aynı input_ids üzerinde onnxruntime
+   çıktısıyla karşılaştırın. 1e-4 mutlak hata içinde eşleşmeli.
 
-4. **Full forward pass** — wire all 12 layers + pooler + classifier.
-   Correctness against onnxruntime across 100 fixture strings.
+4. **Tam ileri geçiş** — 12 katmanın tamamını + havuzlayıcı + sınıflandırıcı bağlayın.
+   100 fixture dizesi üzerinde onnxruntime'a karşı doğruluk.
 
-5. **Production swap** — replace the `classify()` body in
-   security-bunnative.ts. Delete the WASM fallback.
+5. **Üretim takası** — security-bunnative.ts'teki `classify()` gövdesini değiştirin.
+   WASM geri dönüşünü silin.
 
-6. **Quantization** — int8 matmul via Accelerate's cblas_sgemv_u8s8
-   (if available) or fall back to onnxruntime-extensions. ~50% memory
-   reduction, marginal speed win.
+6. **Niceleme** — Accelerate'in cblas_sgemv_u8s8'si ile int8 matris çarpımı
+   (müsaitse) veya onnxruntime-extensions'a geri dönüş. ~%50 bellek azaltma,
+   marjinal hız kazanımı.
 
-## Why not just ship this in v1?
+## Neden sadece v1'de göndermiyoruz?
 
-Correctness is the issue. Floating-point reimplementation of a
-pretrained transformer is a MULTI-WEEK engineering effort where every
-op needs epsilon-level agreement with the reference. Get the LayerNorm
-epsilon wrong and accuracy drifts silently. Get the softmax overflow
-handling wrong and the classifier produces garbage on long inputs.
+Doğruluk sorunu. Önceden eğitilmiş bir dönüştürücünün kayan nokta yeniden uygulaması,
+her işlemin referansla epsilon düzeyinde anlaşma gerektirdiği çok haftalık bir
+mühendislik çabasıdır. KatmanNorm epsilon'unu yanlış alırsanız doğruluk sessizce
+kaydırılır. Softmax taşma işlemeyi yanlış alırsanız sınıflandırıcı uzun girdilerde
+çöp üretir.
 
-Shipping that under a P0 security feature's PR is the wrong risk
-allocation. Ship the WASM path now (done), prove the interface
-(shipped via `classify()`), land native incrementally as a follow-up
-PR with its own correctness-regression test suite.
+Bunu P0 güvenlik özelliğinin PR'ı altında göndermek yanlış risk dağılımıdır. WASM
+yolunu şimdi gönderin (tamam), arayüzü kanıtlayın (`classify()` ile gönderildi),
+yereli artımlı olarak kendi doğruluk-gerileme test paketi ile bir takip PR olarak
+gönderin.
 
-## Benchmark
+## Kıyaslama
 
-Current baseline (from `browse/test/security-bunnative.test.ts`
-benchmark mode, measured on Apple M-series — YMMV on other hardware):
+Mevcut taban çizgisi (`browse/test/security-bunnative.test.ts` kıyaslama modundan,
+Apple M-serisinde ölçülmüştür — diğer donanımda farklılık gösterebilir):
 
-| Backend | p50 | p95 | p99 | Notes |
+| Arka uç | p50 | p95 | p99 | Notlar |
 |---|---|---|---|---|
-| transformers.js (WASM) | ~10ms | ~30ms | ~80ms | After warmup |
-| bun-native (stub — delegates) | same as WASM | | | Matches by design |
+| transformers.js (WASM) | ~10ms | ~30ms | ~80ms | Isınma sonrası |
+| bun-yerel (saplama — devreder) | WASM ile aynı | | | Tasarıma göre eşleşir |
 
-When Approach B (Accelerate FFI) lands, this row gets refreshed with
-the new numbers and the delta flagged in the commit message.
+Yaklaşım B (Accelerate FFI) geldiğinde, bu satır yeni sayılarla yenilenir
+ve delta işlem mesajında işaretlenir.

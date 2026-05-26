@@ -1,33 +1,33 @@
-# Plan: Snapshot Dropdown/Autocomplete Interactive Element Detection
+# Plan: Snapshot Dropdown/Otomatik Tamamlama Etkileşimli Öğe Algılama
 
-## Problem
+## Sorun
 
-`snapshot -i` misses dropdown/autocomplete items on modern web apps. These elements:
-1. Are often `<div>`/`<li>` with click handlers but no semantic ARIA roles
-2. Live inside dynamically-created portals/popovers (floating containers)
-3. Don't appear in Playwright's accessibility tree (`ariaSnapshot()`)
+`snapshot -i`, modern web uygulamalarındaki dropdown/otomatik tamamlama öğelerini kaçırır. Bu öğeler:
+1. Genellikle anlamsal ARIA rolleri olmayan, tıklama işleyicilerine sahip `<div>`/`<li>` elementleridir
+2. Dinamik olarak oluşturulan portal/popover (yüzen konteynerler) içinde yer alır
+3. Playwright'ın erişilebilirlik ağacında (`ariaSnapshot()`) görünmez
 
-The `-C` flag (cursor-interactive scan) was designed for this but:
-- Requires separate flag — agents using `-i` don't get it automatically
-- Skips elements that HAVE an ARIA role (even if the ARIA tree missed them)
-- Doesn't prioritize popover/portal containers where dropdown items live
+`-C` bayrağı (imleç-etkileşimli tarama) bunun için tasarlanmıştır ancak:
+- Ayrı bir bayrak gerektirir — `-i` kullanan ajanlar bunu otomatik olarak almaz
+- ARIA rolü OLAN öğeleri atlar (ARIA ağacı onları kaçırmış olsa bile)
+- Dropdown öğelerinin bulunduğu popover/portal konteynerlerine öncelik vermez
 
-## Root Cause
+## Temel Neden
 
-Playwright's `ariaSnapshot()` builds from the browser's accessibility tree. Dynamically-rendered popovers (React portals, Radix Popover, etc.) may not be in the accessibility tree if:
-- The component doesn't set ARIA roles
-- The portal renders outside the scoped `body` locator's subtree timing
-- The browser hasn't updated the accessibility tree yet after DOM mutation
+Playwright'ın `ariaSnapshot()` işlevi, tarayıcının erişilebilirlik ağacından oluşturulur. Dinamik olarak render edilen popover'lar (React portal'leri, Radix Popover vb.) aşağıdaki durumlarda erişilebilirlik ağacında bulunmayabilir:
+- Bileşen ARIA rolleri ayarlamamışsa
+- Portal, kapsamlı `body` konumlayıcısının alt ağacı zamanlaması dışında render ediliyorsa
+- Tarayıcı, DOM mutasyonundan sonra erişilebilirlik ağacını henüz güncellememişse
 
-## Changes
+## Değişiklikler
 
-### 1. Auto-enable cursor-interactive scan with `-i` flag
+### 1. `-i` bayrağı ile imleç-etkileşimli taramayı otomatik etkinleştir
 
-**File:** `browse/src/snapshot.ts`
+**Dosya:** `browse/src/snapshot.ts`
 
-When `-i` (interactive) is passed, automatically include the cursor-interactive scan. This means agents always see clickable non-ARIA elements when they ask for interactive elements.
+`-i` (etkileşimli) geçirildiğinde, imleç-etkileşimli taramayı otomatik olarak dahil et. Bu, ajanlar etkileşimli öğeler istediğinde her zaman tıklanabilir ARIA-olmayan öğeleri görebileceği anlamına gelir.
 
-The `-C` flag remains as a standalone option for non-interactive snapshots.
+`-C` bayrağı, etkileşimli olmayan snapshot'lar için bağımsız bir seçenek olarak kalır.
 
 ```
 if (opts.interactive) {
@@ -35,68 +35,68 @@ if (opts.interactive) {
 }
 ```
 
-### 2. Add popover/portal priority scanning
+### 2. Popover/portal öncelikli tarama ekle
 
-**File:** `browse/src/snapshot.ts` (inside cursor-interactive evaluate block)
+**Dosya:** `browse/src/snapshot.ts` (imleç-etkileşimli değerlendirme bloğu içinde)
 
-Before the general cursor:pointer scan, specifically scan for visible floating containers (popovers, dropdowns, menus) and include ALL their direct children as interactive:
+Genel cursor:pointer taramasından önce, görünür yüzen konteynerleri (popover'lar, dropdown'lar, menüler) özel olarak tara ve tüm doğrudan alt öğelerini etkileşimli olarak dahil et:
 
-Detection heuristics for floating containers:
-- `position: fixed` or `position: absolute` with `z-index >= 10`
-- Has `role="listbox"`, `role="menu"`, `role="dialog"`, `role="tooltip"`, `[data-radix-popper-content-wrapper]`, `[data-floating-ui-portal]`, etc.
-- Appeared recently in the DOM (not in initial page load)
-- Is visible (`offsetParent !== null` or `position: fixed`)
+Yüzen konteynerler için algılama buluşsal yöntemleri:
+- `position: fixed` veya `z-index >= 10` ile `position: absolute`
+- `role="listbox"`, `role="menu"`, `role="dialog"`, `role="tooltip"`, `[data-radix-popper-content-wrapper]`, `[data-floating-ui-portal]` vb. içeriğe sahip
+- Yakın zamanda DOM'a eklenmiş (ilk sayfa yüklemesinde olmayan)
+- Görünür (`offsetParent !== null` veya `position: fixed`)
 
-For each floating container, include child elements that:
-- Have text content
-- Are visible
-- Have cursor:pointer OR onclick OR role="option" OR role="menuitem"
-- Tag with reason `popover-child` for clarity
+Her yüzen konteyner için, şu alt öğeleri dahil et:
+- Metin içeriğine sahip
+- Görünür
+- cursor:pointer VEYA onclick VEYA role="option" VEYA role="menuitem" içeriğine sahip
+- Netlik için `popover-child` nedeni ile etiketle
 
-### 3. Remove the `hasRole` skip in cursor-interactive scan
+### 3. İmleç-etkileşimli taramadaki `hasRole` atlamasını kaldır
 
-**File:** `browse/src/snapshot.ts`
+**Dosya:** `browse/src/snapshot.ts`
 
-Currently: `if (hasRole) continue;` — skips any element with an ARIA role, assuming the ARIA tree already captured it.
+Şu anki durum: `if (hasRole) continue;` — herhangi bir ARIA rolüne sahip öğeyi atlar, ARIA ağacının onu zaten yakaladığını varsayar.
 
-Problem: if the ARIA tree MISSED the element (timing, portal, bad DOM structure), it falls through both systems.
+Sorun: ARIA ağacı öğeyi KAÇIRDIYSA (zamanlama, portal, bozuk DOM yapısı), iki sistemden de düşer.
 
-Fix: Only skip if the element's role is in `INTERACTIVE_ROLES` AND it was actually captured in the main refMap. Otherwise include it.
+Çözüm: Yalnızca öğenin rolü `INTERACTIVE_ROLES` içindeyse VE aslında ana refMap'te yakalandıysa atla. Aksi takdirde dahil et.
 
-Since we can't easily check the refMap from inside `page.evaluate()`, the simpler fix: remove the `hasRole` skip entirely for elements inside detected floating containers. For elements outside floating containers, keep the `hasRole` skip as-is (to avoid duplicates in normal page content).
+`page.evaluate()` içinden refMap'i kolayca kontrol edemediğimizden, daha basit çözüm: algılanan yüzen konteynerler içindeki öğeler için `hasRole` atlamasını tamamen kaldır. Yüzen konteynerler dışındaki öğeler için, normal sayfa içeriğinde yinelenenleri önlemek adına `hasRole` atlamasını olduğu gibi tut.
 
-### 4. Add dropdown test fixture and tests
+### 4. Dropdown test fikstürü ve testleri ekle
 
-**File:** `browse/test/fixtures/dropdown.html`
+**Dosya:** `browse/test/fixtures/dropdown.html`
 
-HTML page with:
-- A combobox input that shows a dropdown on focus/type
-- Dropdown items as `<div>` with click handlers (no ARIA roles)
-- Dropdown items as `<li>` with `role="option"`
-- A React-portal-style container (`position: fixed`, high z-index)
+Şunları içeren HTML sayfası:
+- Odak/yazma sırasında dropdown gösteren combobox girdisi
+- Tıklama işleyicilerine sahip `<div>` olarak dropdown öğeleri (ARIA rolleri yok)
+- `role="option"` ile `<li>` olarak dropdown öğeleri
+- React-portal tarzı konteyner (`position: fixed`, yüksek z-index)
 
-**File:** `browse/test/snapshot.test.ts`
+**Dosya:** `browse/test/snapshot.test.ts`
 
-New test cases:
-- `snapshot -i` on dropdown page finds dropdown items via cursor scan
-- `snapshot -i` on dropdown page includes popover-child elements
-- `@c` refs from dropdown scan are clickable
-- Elements inside floating containers with ARIA roles are captured even when ARIA tree misses them
+Yeni test durumları:
+- Dropdown sayfasında `snapshot -i`, imleç taraması ile dropdown öğelerini bulur
+- Dropdown sayfasında `snapshot -i`, popover-child öğelerini dahil eder
+- Dropdown taramasından `@c` referansları tıklanabilirdir
+- ARIA rollerine sahip yüzen konteynerler içindeki öğeler, ARIA ağacı onları kaçırsa bile yakalanır
 
-## Rollout Risk
+## Yayına Riski
 
-**Low.** The `-C` scan is additive — it only adds `@c` refs, never removes `@e` refs. The change to auto-enable it with `-i` increases output size but agents already handle mixed ref types.
+**Düşük.** `-C` taraması ekleme niteliğindedir — yalnızca `@c` referansları ekler, hiçbir zaman `@e` referanslarını kaldırmaz. `-i` ile otomatik etkinleştirme değişikliği çıktı boyutunu artırır ancak ajanlar zaten karışık referans türlerini işleyebilmektedir.
 
-**One concern:** The `-C` scan queries ALL elements (`document.querySelectorAll('*')`) which can be slow on heavy pages. For the popover-specific scan, we limit to elements inside detected floating containers, which is fast (small subtree).
+**Bir endişe:** `-C` taraması TÜM öğeleri sorgular (`document.querySelectorAll('*')`) ve bu ağır sayfalarda yavaş olabilir. Popover'a özel tarama için, algılanan yüzen konteynerler içindeki öğelerle sınırlıyoruz, bu da hızlıdır (küçük alt ağaç).
 
-## Testing
+## Test
 
 ```bash
 cd /data/gstack/browse && bun test snapshot
 ```
 
-## Files Changed
+## Değiştirilen Dosyalar
 
-1. `browse/src/snapshot.ts` — auto-enable -C with -i, popover scanning, remove hasRole skip in floating containers
-2. `browse/test/fixtures/dropdown.html` — new test fixture
-3. `browse/test/snapshot.test.ts` — new dropdown/popover test cases
+1. `browse/src/snapshot.ts` — -C'yi -i ile otomatik etkinleştir, popover taraması, yüzen konteynerlerde hasRole atlamasını kaldır
+2. `browse/test/fixtures/dropdown.html` — yeni test fikstürü
+3. `browse/test/snapshot.test.ts` — yeni dropdown/popover test durumları

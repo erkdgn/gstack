@@ -32,7 +32,7 @@ function showStatusPill(connected, refs) {
     return;
   }
 
-  const refText = refCount > 0 ? ` · ${refCount} refs` : '';
+  const refText = refCount > 0 ? ` · ${refCount} referans` : '';
   statusPill.innerHTML = `<span class="gstack-pill-dot"></span> gstack${refText}`;
   statusPill.style.display = 'flex';
   statusPill.style.opacity = '1';
@@ -94,7 +94,7 @@ function renderRefPanel(refs) {
 
   const header = document.createElement('div');
   header.className = 'gstack-ref-panel-header';
-  header.textContent = `gstack refs (${refs.length})`;
+  header.textContent = `gstack referansları (${refs.length})`;
   header.style.cssText = 'pointer-events: auto; cursor: move;';
   panel.appendChild(header);
 
@@ -118,7 +118,7 @@ function renderRefPanel(refs) {
   if (refs.length > 30) {
     const more = document.createElement('div');
     more.className = 'gstack-ref-panel-more';
-    more.textContent = `+${refs.length - 30} more`;
+    more.textContent = `+${refs.length - 30} daha`;
     list.appendChild(more);
   }
   panel.appendChild(list);

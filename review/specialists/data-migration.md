@@ -1,48 +1,48 @@
-# Data Migration Specialist Review Checklist
+# Veri Göç Uzman İnceleme Kontrol Listesi
 
-Scope: When SCOPE_MIGRATIONS=true
-Output: JSON objects, one finding per line. Schema:
-{"severity":"CRITICAL|INFORMATIONAL","confidence":N,"path":"file","line":N,"category":"data-migration","summary":"...","fix":"...","fingerprint":"path:line:data-migration","specialist":"data-migration"}
-Optional: line, fix, fingerprint, evidence, test_stub.
-If no findings: output `NO FINDINGS` and nothing else.
+Kapsam: SCOPE_MIGRATIONS=true olduğunda
+Çıktı: JSON nesneleri, satır başına bir bulgu. Şema:
+{"severity":"CRITICAL|INFORMATIONAL","confidence":N,"path":"dosya","line":N,"category":"data-migration","summary":"...","fix":"...","fingerprint":"path:line:data-migration","specialist":"data-migration"}
+İsteğe bağlı: line, fix, fingerprint, evidence, test_stub.
+Bulgu yoksa: `NO FINDINGS` çıktısı ve başka hiçbir şey.
 
 ---
 
-## Categories
+## Kategoriler
 
-### Reversibility
-- Can this migration be rolled back without data loss?
-- Is there a corresponding down/rollback migration?
-- Does the rollback actually undo the change or just no-op?
-- Would rolling back break the current application code?
+### Geri Döndürülebilirlik
+- Bu göç veri kaybı olmaksızın geri alınabilir mi?
+- Karşılık gelen bir down/geri alma göçü var mı?
+- Geri alma gerçekten değişikliği mi geri alıyor yoksa sadece no-op mu?
+- Geri alma mevcut uygulama kodunu bozar mı?
 
-### Data Loss Risk
-- Dropping columns that still contain data (add deprecation period first)
-- Changing column types that truncate data (varchar(255) → varchar(50))
-- Removing tables without verifying no code references them
-- Renaming columns without updating all references (ORM, raw SQL, views)
-- NOT NULL constraints added to columns with existing NULL values (needs backfill first)
+### Veri Kaybı Riski
+- Hala veri içeren sütunları düşürmek (önce kullanım dışı bırakma dönemi ekleyin)
+- Verileri kesen sütun türü değişiklikleri (varchar(255) → varchar(50))
+- Kodun bunlara referans vermediğini doğrulamadan tabloları kaldırmak
+- Tüm referansları güncellemeden sütunları yeniden adlandırmak (ORM, ham SQL, görünümler)
+- Mevcut NULL değerleri olan sütunlara eklenen NOT NULL kısıtlamaları (önce geri doldurma gerekir)
 
-### Lock Duration
-- ALTER TABLE on large tables without CONCURRENTLY (PostgreSQL)
-- Adding indexes without CONCURRENTLY on tables with >100K rows
-- Multiple ALTER TABLE statements that could be combined into one lock acquisition
-- Schema changes that acquire exclusive locks during peak traffic hours
+### Kilit Süresi
+- Büyük tablolarda CONCURRENTLY olmaksızın ALTER TABLE (PostgreSQL)
+- >100K satırlı tablolarda CONCURRENTLY olmaksızın indeks ekleme
+- Tek bir kilit ediniminde birleştirilebilecek birden fazla ALTER TABLE ifadesi
+- Yoğun trafik saatlerinde özel kilitler edinen şema değişiklikleri
 
-### Backfill Strategy
-- New NOT NULL columns without DEFAULT value (requires backfill before constraint)
-- New columns with computed defaults that need batch population
-- Missing backfill script or rake task for existing records
-- Backfill that updates all rows at once instead of batching (locks table)
+### Geri Doldurma Stratejisi
+- DEFAULT değeri olmaksızın yeni NOT NULL sütunlar (kısıtlamadan önce geri doldurma gerekir)
+- Toplu olarak doldurulması gereken hesaplanmış varsayılanlara sahip yeni sütunlar
+- Mevcut kayıtlar için eksik geri doldurma betiği veya rake görevi
+- Toplu işlemek yerine tüm satırları tek seferde güncelleyen geri doldurma (tabloyu kilitler)
 
-### Index Creation
-- CREATE INDEX without CONCURRENTLY on production tables
-- Duplicate indexes (new index covers same columns as existing one)
-- Missing indexes on new foreign key columns
-- Partial indexes where a full index would be more useful (or vice versa)
+### İndeks Oluşturma
+- Üretim tablolarında CONCURRENTLY olmaksızın CREATE INDEX
+- Yinelenen indeksler (yeni indeks mevcut olanla aynı sütunları kapsıyor)
+- Yeni yabancı anahtar sütunlarında eksik indeksler
+- Tam indeksin daha yararlı olacağı (veya tam tersi) kısmi indeksler
 
-### Multi-Phase Safety
-- Migrations that must be deployed in a specific order with application code
-- Schema changes that break the current running code (deploy code first, then migrate)
-- Migrations that assume a deploy boundary (old code + new schema = crash)
-- Missing feature flag to handle mixed old/new code during rolling deploy
+### Çok Aşamalı Güvenlik
+- Uygulama koduyla belirli bir sırayla dağıtılması gereken göçler
+- Mevcut çalışan kodu bozan şema değişiklikleri (önce kodu dağıtın, sonra göç geçirin)
+- Dağıtım sınırı varsayan göçler (eski kod + yeni şema = çökme)
+- Yuvarlanan dağıtım sırasında karışık eski/yeni kodu ele almak için eksik özellik bayrağı

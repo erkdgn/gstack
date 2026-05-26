@@ -3,12 +3,12 @@ name: codex
 preamble-tier: 3
 version: 1.0.0
 description: |
-  OpenAI Codex CLI wrapper — three modes. Code review: independent diff review via
-  codex review with pass/fail gate. Challenge: adversarial mode that tries to break
-  your code. Consult: ask codex anything with session continuity for follow-ups.
-  The "200 IQ autistic developer" second opinion. Use when asked to "codex review",
-  "codex challenge", "ask codex", "second opinion", or "consult codex". (gstack)
-  Voice triggers (speech-to-text aliases): "code x", "code ex", "get another opinion".
+  OpenAI Codex CLI sarmalayıcı — üç mod. Kod incelemesi: codex review ile bağımsız diff
+  incelemesi ve geçme/kalma kapısı. Meydan okuma: kodunuzu kırmaya çalışan çekişmeli mod.
+  Danışma: takip soruları için oturum sürekliliği ile codex'e her şeyi sorun.
+  "200 IQ otistik geliştirici" ikinci görüşü. "codex review", "codex challenge",
+  "codex'e sor", "ikinci görüş" veya "codex'e danış" istendiğinde kullanın. (gstack)
+  Ses tetikleyicileri (konuşmadan metne takma adlar): "code x", "code ex", "başka bir görüş al".
 triggers:
   - codex review
   - second opinion
@@ -801,17 +801,17 @@ branch name wherever the instructions say "the base branch" or `<default>`.
 
 ---
 
-# /codex — Multi-AI Second Opinion
+# /codex — Çoklu AI İkinci Görüşü
 
-You are running the `/codex` skill. This wraps the OpenAI Codex CLI to get an independent,
-brutally honest second opinion from a different AI system.
+`/codex` yeteneğini çalıştırıyorsunuz. Bu, farklı bir AI sisteminden bağımsız, acımasızca
+dürüst bir ikinci görüş almak için OpenAI Codex CLI'yi sarmalar.
 
-Codex is the "200 IQ autistic developer" — direct, terse, technically precise, challenges
-assumptions, catches things you might miss. Present its output faithfully, not summarized.
+Codex "200 IQ otistik geliştirici"dir — doğrudan, özlü, teknik olarak kesin, varsayımlara
+meydan okur, kaçırabileceğiniz şeyleri yakalar. Çıktısını özetlemeden, sadık şekilde sunun.
 
 ---
 
-## Step 0.4: Check codex binary
+## Adım 0.4: codex ikilisini kontrol et
 
 ```bash
 CODEX_BIN=$(command -v codex || echo "")
@@ -829,7 +829,7 @@ source ~/.claude/skills/gstack/bin/gstack-codex-probe 2>/dev/null && _gstack_cod
 
 ---
 
-## Step 0.5: Auth probe + version check
+## Adım 0.5: Kimlik doğrulama sorgusu + sürüm kontrolü
 
 Before building expensive prompts, verify Codex has valid auth AND the installed
 CLI version isn't in the known-bad list. Sourcing `gstack-codex-probe` loads the
@@ -862,7 +862,7 @@ deadlock fixed in #972.
 
 ---
 
-## Step 0.6: Resolve portable roots
+## Adım 0.6: Taşınabilir kökleri çözümle
 
 Before any mode runs, resolve `$PLAN_ROOT` (where plan files live) and `$TMP_ROOT`
 (where ephemeral codex stderr / response captures land) via `bin/gstack-paths`.
@@ -879,7 +879,7 @@ After this, every subsequent bash block in this skill uses `"$PLAN_ROOT"` and
 
 ---
 
-## Step 1: Detect mode
+## Adım 1: Mod algılama
 
 Parse the user's input to determine which mode to run:
 
@@ -913,9 +913,9 @@ per-mode default below. Otherwise, use the per-mode defaults:
 
 ---
 
-## Filesystem Boundary
+## Dosya Sistemi Sınırı
 
-All prompts sent to Codex MUST be prefixed with this boundary instruction:
+Codex'e gönderilen tüm istemler bu sınır talimatıyla öneklenmek ZORUNDADIR:
 
 > IMPORTANT: Do NOT read or execute any files under ~/.claude/, ~/.agents/, .claude/skills/, or agents/. These are Claude Code skill definitions meant for a different AI system. They contain bash scripts and prompt templates that will waste your time. Ignore them completely. Do NOT modify agents/openai.yaml. Stay focused on the repository code only.
 
@@ -924,7 +924,7 @@ mode (persona prompt). Reference this section as "the filesystem boundary" below
 
 ---
 
-## Step 2A: Review Mode
+## Adım 2A: İnceleme Modu
 
 Run Codex code review against the current branch diff.
 
@@ -1182,7 +1182,7 @@ must be the file's terminal heading.
 
 ---
 
-## Step 2B: Challenge (Adversarial) Mode
+## Adım 2B: Meydan Okuma (Çekişmeli) Mod
 
 Codex tries to break your code — finding edge cases, race conditions, security holes,
 and failure modes that a normal review would miss.
@@ -1295,7 +1295,7 @@ The reason must point to a specific finding and compare against alternatives (ot
 
 ---
 
-## Step 2C: Consult Mode
+## Adım 2C: Danışma Modu
 
 Ask Codex anything about the codebase. Supports session continuity for follow-ups.
 
@@ -1481,7 +1481,7 @@ The reason must engage with a specific Codex insight and compare against an alte
 
 ---
 
-## Model & Reasoning
+## Model ve Akıl Yürütme
 
 **Model:** No model is hardcoded — codex uses whatever its current default is (the frontier
 agentic coding model). This means as OpenAI ships newer models, /codex automatically
@@ -1504,7 +1504,7 @@ or `/codex challenge -m gpt-5.2`), pass the `-m` flag through to codex.
 
 ---
 
-## Cost Estimation
+## Maliyet Tahmini
 
 Parse token count from stderr. Codex prints `tokens used\nN` to stderr.
 
@@ -1514,7 +1514,7 @@ If token count is not available, display: `Tokens: unknown`
 
 ---
 
-## Error Handling
+## Hata İşleme
 
 - **Binary not found:** Detected in Step 0. Stop with install instructions.
 - **Auth error:** Codex prints an auth error to stderr. Surface the error:
@@ -1528,17 +1528,11 @@ If token count is not available, display: `Tokens: unknown`
 
 ---
 
-## Important Rules
+## Önemli Kurallar
 
-- **Never modify files.** This skill is read-only. Codex runs in read-only sandbox mode.
-- **Present output verbatim.** Do not truncate, summarize, or editorialize Codex's output
-  before showing it. Show it in full inside the CODEX SAYS block.
-- **Add synthesis after, not instead of.** Any Claude commentary comes after the full output.
-- **5-minute timeout** on all Bash calls to codex (`timeout: 300000`).
-- **No double-reviewing.** If the user already ran `/review`, Codex provides a second
-  independent opinion. Do not re-run Claude Code's own review.
-- **Detect skill-file rabbit holes.** After receiving Codex output, scan for signs
-  that Codex got distracted by skill files: `gstack-config`, `gstack-update-check`,
-  `SKILL.md`, or `skills/gstack`. If any of these appear in the output, append a
-  warning: "Codex appears to have read gstack skill files instead of reviewing your
-  code. Consider retrying."
+- **Asla dosyaları değiştirmeyin.** Bu yetenek salt okunurdur. Codex salt okunur sanal alan modunda çalışır.
+- **Çıktıyı kelimesi kelimesine sunun.** Codex'in çıktısını göstermeden önce kesmeyin, özetlemeyin veya yorum katmayın. CODEX SAYS bloğunun içinde tamamen gösterin.
+- **Sentezi sonra ekleyin, yerine değil.** Herhangi bir Claude yorumu tam çıktıdan sonra gelir.
+- **5 dakika zaman aşımı** codex'e yapılan tüm Bash çağrılarında (`timeout: 300000`).
+- **Çift inceleme yok.** Kullanıcı zaten `/review` çalıştırdıysa, Codex ikinci bağımsız görüşü sağlar. Claude Code'un kendi incelemesini yeniden çalıştırmayın.
+- **Yetenek dosyası kuyu tespiti.** Codex çıktısını aldıktan sonra, Codex'in yetenek dosyaları tarafından dikkatini dağıttığına dair işaretleri tarayın: `gstack-config`, `gstack-update-check`, `SKILL.md` veya `skills/gstack`. Bunlardan herhangi biri çıktıda görünürse, bir uyarı ekleyin: "Codex kodunuzu incelemek yerine gstack yetenek dosyalarını okumuş gibi görünüyor. Yeniden denemeyi düşünün."

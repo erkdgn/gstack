@@ -356,14 +356,14 @@
 
   function applyStyle(selector, property, value) {
     // Validate property name: alphanumeric + hyphens only
-    if (!/^[a-zA-Z-]+$/.test(property)) return { error: 'Invalid property name' };
+    if (!/^[a-zA-Z-]+$/.test(property)) return { error: 'Geçersiz özellik adı' };
     // Validate CSS value: block exfiltration vectors (url(), expression(), @import, javascript:, data:)
     if (/url\s*\(|expression\s*\(|@import|javascript:|data:/i.test(value)) {
-      return { error: 'CSS value contains blocked pattern' };
+      return { error: 'CSS değeri engellenen desen içeriyor' };
     }
 
     const el = findElement(selector);
-    if (!el) return { error: 'Element not found' };
+    if (!el) return { error: 'Öğe bulunamadı' };
 
     // Track original value for resetAll
     if (!originalStyles.has(el)) {
@@ -380,10 +380,10 @@
 
   function toggleClass(selector, className, action) {
     if (!/^[a-zA-Z0-9_-]+$/.test(className)) {
-      return { error: 'Invalid class name' };
+      return { error: 'Geçersiz sınıf adı' };
     }
     const el = findElement(selector);
-    if (!el) return { error: 'Element not found' };
+    if (!el) return { error: 'Öğe bulunamadı' };
 
     if (action === 'add') {
       el.classList.add(className);
@@ -397,10 +397,10 @@
 
   function injectCSS(id, css) {
     if (!/^[a-zA-Z0-9_-]+$/.test(id)) {
-      return { error: 'Invalid CSS injection id' };
+      return { error: 'Geçersiz CSS enjeksiyon kimliği' };
     }
     if (/url\s*\(|expression\s*\(|@import|javascript:|data:/i.test(css)) {
-      return { error: 'CSS contains blocked pattern (url, expression, @import)' };
+      return { error: 'CSS engellenen desen içeriyor (url, expression, @import)' };
     }
     const styleId = `gstack-inject-${id}`;
     let styleEl = document.getElementById(styleId);

@@ -1,147 +1,154 @@
-# Browser — Complete Reference
+# Browser — Tam Refer
 
-gstack's browser surface in one document. Headless Chromium daemon, ~70+
-commands, ref-based element selection, codifiable browser-skills, real-browser
-mode with a Chrome side panel, an in-sidebar Claude PTY, an ngrok pair-agent
-flow, and a layered prompt-injection defense — all behind a compiled CLI that
-prints plain text to stdout. ~100-200ms per call. Zero context-token overhead.
+gstack'in tarayıcı yüzeyi tek bir dokümanda. Headless Chromium daemon'ı, ~70+
+komut, referans tabanlı öğe seçimi, kodlanabilir tarayıcı becerileri, gerçek
+tarayıcı modu (Chrome yan paneli ile), kenar çubuğunda Claude PTY, ngrok
+eşli-ajan akışı ve katmanlı komut enjeksiyonu savunması — hepsi düz metin
+çıktısı veren derlenmiş bir CLI'nin arkasında. Çağrı başı ~100-200ms. Sıfır
+bağlam-token ek yükü.
 
-If you've used gstack in the last release or two, the productivity loop is the
-new headline: `/scrape <intent>` drives a page once, `/skillify` codifies the
-flow into a deterministic Playwright script, and the next `/scrape` on the
-same intent runs in ~200ms instead of ~30 seconds of agent re-exploration.
+Son bir veya iki sürümde gstack kullandıysanız, verimlilik döngüsü yeni başlık:
+`/scrape <niyet>` sayfayı bir kez tarar, `/skillify` bu akışı deterministik
+bir Playwright betiğine dönüştürür ve aynı niyetle tekrar `/scrape` çağırmak
+~30 saniyelik ajan yeniden keşfi yerine ~200ms'de çalışır.
 
 ---
 
-## Quick start
+## Hızlı başlangıç
 
 ```bash
-# One-time: build the binary (browse/dist/browse, ~58MB)
+# Bir kerelik: ikili dosyayı derle (browse/dist/browse, ~58MB)
 bun install && bun run build
 
-# Set $B once and forget about it
-B=./browse/dist/browse           # or ~/.claude/skills/gstack/browse/dist/browse
+# $B değişkenini bir kez ayarla, unut
+B=./browse/dist/browse           # veya ~/.claude/skills/gstack/browse/dist/browse
 
-# Drive a page
+# Bir sayfayı tara
 $B goto https://news.ycombinator.com
-$B snapshot -i                   # @e refs you can click/fill/inspect later
-$B click @e30                    # click ref 30 from the snapshot
-$B text                          # get clean page text
+$B snapshot -i                   # Daha sonra tıklayabileceğiniz/doldurabileceğiniz @e referansları
+$B click @e30                    # Anlık görüntüdeki 30 numaralı referansa tıkla
+$B text                          # Temiz sayfa metnini al
 $B screenshot /tmp/hn.png
 
-# Codify a repeated flow
+# Yinelenen bir akışı kodla
 /scrape latest hacker news stories
-/skillify                        # writes ~/.gstack/browser-skills/hn-front/...
-/scrape hacker news front page   # second call: 200ms via the codified skill
+/skillify                        # ~/.gstack/browser-skills/hn-front/... dizinine yazar
+/scrape hacker news front page   # İkinci çağrı: kodlanmış beceri üzerinden 200ms
+```
 
-# Watch Claude work in real time
-$B connect                       # headed Chromium + Side Panel extension
+```bash
+# Claude'un gerçek zamanlı çalışmasını izle
+$B connect                       # headed Chromium + Side Panel uzantısı
 ```
 
 ---
 
-## Table of contents
+## İçindekiler
 
-1. [What it is](#what-it-is)
-2. [The productivity loop — `/scrape` + `/skillify`](#the-productivity-loop)
-3. [Architecture](#architecture)
-4. [Command reference](#command-reference)
-5. [Snapshot system + ref-based selection](#snapshot-system)
-6. [Browser-skills runtime](#browser-skills-runtime)
-7. [Domain-skills (per-site agent notes)](#domain-skills)
-8. [Real-browser mode (`$B connect`)](#real-browser-mode) — including [`--headed` + `--proxy` + `--navigate` (v1.28.0.0)](#headed-mode--proxy--browser-native-downloads-v12800)
-9. [Side Panel + sidebar agent](#side-panel--sidebar-agent)
-10. [Pair-agent — remote agents over an ngrok tunnel](#pair-agent)
-11. [Authentication + tokens](#authentication)
-12. [Prompt-injection security stack (L1–L6)](#security-stack)
-13. [Screenshots, PDFs, visual inspection](#screenshots-pdfs-visual)
-14. [Local HTML — `goto file://` vs `load-html`](#local-html)
-15. [Batch endpoint](#batch-endpoint)
-16. [Console, network, dialog capture](#capture)
-17. [JS execution — `js` + `eval`](#js-execution)
-18. [Tabs, frames, state, watch, inbox](#tabs-frames-state)
-19. [CDP escape hatch + CSS inspector](#cdp)
-20. [Performance + scale](#performance)
-21. [Multi-workspace isolation](#multi-workspace)
-22. [Environment variables](#environment-variables)
-23. [Source map](#source-map)
-24. [Development + testing](#development)
-25. [Cross-references](#cross-references)
-26. [Acknowledgments](#acknowledgments)
-
----
-
-## What it is
-
-A compiled CLI binary that talks to a persistent local Chromium daemon over
-HTTP. The CLI is a thin client — it reads a state file, sends a command,
-prints the response to stdout. The daemon does the real work via
-[Playwright](https://playwright.dev/).
-
-Everything that was a Chrome MCP server in the early days now happens through
-plain stdout. No JSON-schema framing, no protocol negotiation, no persistent
-WebSocket — Claude's Bash tool already exists, so we use it.
-
-Three escalating modes:
-
-- **Headless** (default). Daemon runs Chromium with no visible window. Fastest,
-  cheapest, what skills like `/qa`, `/design-review`, `/benchmark` use by
-  default.
-- **Headed via `$B connect`**. Same daemon, but Chromium is visible (rebranded
-  as "GStack Browser") with the Side Panel extension auto-loaded. You watch
-  every command tick through in real time.
-- **Pair-agent over a tunnel**. Daemon binds a second listener that ngrok
-  forwards. A remote agent (Codex, OpenClaw, Hermes, anything that can speak
-  HTTP) drives your local browser through a 26-command allowlist with a
-  scoped, single-use token.
+1. [Nedir](#nedir)
+2. [Verimlilik döngüsü — `/scrape` + `/skillify`](#verimlilik-dongusu)
+3. [Mimari](#mimari)
+4. [Komut referansı](#komut-referansi)
+5. [Anlık görüntü sistemi + referans tabanlı seçim](#anlik-goruntu-sistemi)
+6. [Tarayıcı-becerileri çalışma zamanı](#tarayici-becerileri-calisma-zamani)
+7. [Alan-becerileri (site bazlı ajan notları)](#alan-becerileri)
+8. [Gerçek tarayıcı modu (`$B connect`)](#gercek-tarayici-modu) — [`--headed` + `--proxy` + `--navigate` (v1.28.0.0) dahil](#headed-modu--proxy--tarayici-yerel-indirmeler-v12800)
+9. [Yan Panel + kenar çubuğu ajanı](#yan-panel--kenar-cubugu-ajani)
+10. [Eşli-ajan — ngrok tüneli üzerinden uzak ajanlar](#esli-ajan)
+11. [Kimlik doğrulama + belirteçler](#kimlik-dogrulama)
+12. [Komut enjeksiyonu güvenlik yığını (L1–L6)](#guvenlik-yigini)
+13. [Ekran görüntüleri, PDF'ler, görsel inceleme](#ekran-goruntuleri-pdf-gorsel)
+14. [Yerel HTML — `goto file://` vs `load-html`](#yerel-html)
+15. [Toplu iş uç noktası](#toplu-is-uc-noktasi)
+16. [Konsol, ağ, iletişim kutusu yakalama](#yakalama)
+17. [JS yürütme — `js` + `eval`](#js-yurutme)
+18. [Sekmeler, çerçeveler, durum, izleme, gelen kutusu](#sekmeler-cerceveler-durum)
+19. [CDP acil çıkış + CSS denetçisi](#cdp)
+20. [Performans + ölçek](#performans)
+21. [Çoklu-çalışma alanı izolasyonu](#coklu-calisma-alani)
+22. [Ortam değişkenleri](#ortam-degiskenleri)
+23. [Kaynak haritası](#kaynak-haritasi)
+24. [Geliştirme + test](#gelistirme)
+25. [Çapraz referanslar](#capraz-referanslar)
+26. [Teşekkürler](#tesekkurler)
 
 ---
 
-## The productivity loop
+## Nedir
 
-The shipped headline of v1.19.0.0. Two gstack skills wrap the browser-skills
-runtime so the second time you ask Claude to scrape a page, it runs in ~200ms.
+Derlenmiş bir CLI ikili dosyası, HTTP üzerinden kalıcı bir yerel Chromium
+daemon'ı ile iletişim kurar. CLI ince bir istemcidir — bir durum dosyası okur,
+bir komut gönderir, yanıtı stdout'a yazdırır. Daemon asıl işi
+[Playwright](https://playwright.dev/) üzerinden yapar.
 
-### `/scrape <intent>`
+Erken dönemlerde bir Chrome MCP sunucusu olan her şey artık düz stdout üzerinden
+gerçekleşiyor. JSON-schema çerçeveleme yok, protokol müzakeresi yok, kalıcı
+WebSocket yok — Claude'un Bash aracı zaten var, o yüzden onu kullanıyoruz.
 
-One entry point for pulling page data. Three paths under the hood:
+Üç artan mod:
 
-1. **Match path (~200ms)** — agent runs `$B skill list`, semantically matches
-   the intent against each skill's `triggers:` array + `description` + `host`,
-   and runs `$B skill run <name>` if a confident match exists.
-2. **Prototype path (~30s)** — no match, agent drives the page with `$B goto`,
-   `$B text`, `$B html`, `$B links`, etc., returns the JSON, and appends a
-   one-line "say `/skillify`" suggestion.
-3. **Mutating-intent refusal** — verbs like *submit*, *click*, *fill* route
-   to `/automate` (Phase 2b, P0 in `TODOS.md`). `/scrape` is read-only by
-   contract.
+- **Headless** (varsayılan). Daemon Chromium'u görünür bir pencere olmadan
+  çalıştırır. En hızlı, en ucuz; `/qa`, `/design-review`, `/benchmark` gibi
+  beceriler varsayılan olarak bunu kullanır.
+- **`$B connect` ile Headed**. Aynı daemon, ancak Chromium görünür (GStack
+  Browser olarak yeniden markalanmış) ve Side Panel uzantısı otomatik yüklenmiş.
+  Her komutu gerçek zamanlı olarak işlerken izlersiniz.
+- **Tünel üzerinden eşli-ajan**. Daemon, ngrok'un yönlendirdiği ikinci bir
+  dinleyici bağlar. Uzak bir ajan (Codex, OpenClaw, Hermes, HTTP konuşabilen
+  herhangi bir şey) kapsamlı, tek kullanımlık bir belirteç ile 26 komutluk bir
+  izin listesi üzerinden yerel tarayıcınızı kontrol eder.
+
+---
+
+## Verimlilik döngüsü
+
+v1.19.0.0'ın sunulan başlığı. İki gstack becerisi, tarayıcı-becerileri çalışma
+zamanını sarmalar, böylece Claude'a ikinci kez bir sayfayı kazımasını
+istediğinizde ~200ms'de çalışır.
+
+### `/scrape <niyet>`
+
+Sayfa verisi çekmek için tek giriş noktası. Kaput altında üç yol:
+
+1. **Eşleşme yolu (~200ms)** — ajan `$B skill list` çalıştırır, niyeti her
+   becerinin `triggers:` dizisi + `description` + `host` ile anlamsal olarak
+   eşleştirir ve güvenilir bir eşleşme varsa `$B skill run <name>` çalıştırır.
+2. **Prototip yolu (~30s)** — eşleşme yok, ajan sayfayı `$B goto`, `$B text`,
+   `$B html`, `$B links` vb. ile tarar, JSON'u döndürür ve "`/skillify` de"
+   tek satırlık bir öneri ekler.
+3. **Değiştirici-niyet reddi** — *submit*, *click*, *fill* gibi fiiller
+   `/automate`'e yönlendirilir (Aşama 2b, `TODOS.md`'de P0). `/scrape` sözleşme
+   gereği salt okunurdur.
 
 ### `/skillify`
 
-Codifies the most recent successful `/scrape` prototype into a permanent
-browser-skill on disk. Eleven steps, three locked contracts:
+En başarılı `/scrape` prototipini kalıcı bir tarayıcı-becerisi olarak diske
+kodla. On bir adım, üç kilitli sözleşme:
 
-- **D1 — Provenance guard.** Walks back ≤10 agent turns for a clearly-bounded
-  `/scrape` result. Refuses with one specific message if cold. No silent
-  synthesis from chat fragments.
-- **D2 — Synthesis input slice.** Extracts ONLY the final-attempt `$B` calls
-  that produced the JSON the user accepted, plus the user's intent string.
-  Drops failed selectors, drops chat, drops earlier-session content.
-- **D3 — Atomic write.** Stages everything to `~/.gstack/.tmp/skillify-<spawnId>/`,
-  runs `$B skill test` against the temp dir, and only renames into the final
-  tier path on test pass + user approval. Test fail or rejection: `rm -rf` the
-  temp dir entirely. No half-written skill ever appears in `$B skill list`.
+- **D1 — Kaynak koruması.** Açıkça sınırlanmış bir `/scrape` sonucu için ≤10
+  ajan turuna kadar geriye doğru yürür. Soğuktan başlatılıyorsa belirli bir
+  mesajla reddeder. Sohbet parçalarından sessiz sentez yok.
+- **D2 — Sentez giriş dilimi.** YALNIZCA kullanıcının kabul ettiği JSON'u
+  üreten son denemenin `$B` çağrılarını ve kullanıcının niyet dizesini çıkarır.
+  Başarısız seçicileri atlar, sohbeti atlar, önceki oturum içeriğini atlar.
+- **D3 — Atomik yazma.** Her şeyi
+  `~/.gstack/.tmp/skillify-<spawnId>/` dizinine hazırlar, geçici dizine karşı
+  `$B skill test` çalıştırır ve yalnızca test geçtiğinde + kullanıcı onayında
+  son katman yoluna yeniden adlandırır. Test başarısız veya reddetme:
+  geçici dizinin tamamını `rm -rf`. Yarı yazılmış hiçbir beceri hiçbir zaman
+  `$B skill list`'te görünmez.
 
-Mutating-flow sibling `/automate` is split out as P0 in `TODOS.md` and ships
-on the next branch — same skillify machinery, per-mutating-step confirmation
-gate when running non-codified.
+Değiştirici-akış kardeşi `/automate`, `TODOS.md`'de P0 olarak ayrılmıştır ve
+bir sonraki dalda gönderilir — aynı skillify mekanizması, kodlanmamış
+çalıştırılırken adım başına onay kapısı.
 
-See [`docs/designs/BROWSER_SKILLS_V1.md`](docs/designs/BROWSER_SKILLS_V1.md)
-for the full design + decision trail.
+Tam tasarım + karar izi için
+[`docs/designs/BROWSER_SKILLS_V1.md`](docs/designs/BROWSER_SKILLS_V1.md)
+dosyasına bakın.
 
 ---
 
-## Architecture
+## Mimari
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -163,548 +170,571 @@ for the full design + decision trail.
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-### Daemon lifecycle
+### Daemon yaşam döngüsü
 
-1. **First call.** CLI checks `<project>/.gstack/browse.json` for a running
-   server. None found — it spawns `bun run browse/src/server.ts` in the
-   background. Daemon launches headless Chromium via Playwright, picks a
-   random port (10000–60000), generates a bearer token, writes the state
-   file (chmod 600), starts accepting requests. ~3 seconds.
-2. **Subsequent calls.** CLI reads the state file, sends an HTTP POST with
-   the bearer token, prints the response. ~100-200ms round trip.
-3. **Idle shutdown.** After 30 minutes of no commands, daemon shuts down and
-   cleans up the state file. Next call restarts it.
-4. **Crash recovery.** If Chromium crashes, the daemon exits immediately —
-   no self-healing, don't hide failure. CLI detects the dead daemon on the
-   next call and starts a fresh one.
+1. **İlk çağrı.** CLI çalışan bir sunucu için `<project>/.gstack/browse.json`
+   dosyasını kontrol eder. Bulamazsa — arka planda `bun run browse/src/server.ts`
+   çalıştırır. Daemon Playwright üzerinden headless Chromium başlatır, rastgele
+   bir port seçer (10000–60000), bir bearer token oluşturur, durum dosyasını
+   yazar (chmod 600), istekleri kabul etmeye başlar. ~3 saniye.
+2. **Sonraki çağrılar.** CLI durum dosyasını okur, bearer token ile bir HTTP POST
+   gönderir, yanıtı yazdırır. ~100-200ms gidiş-dönüş.
+3. **Boşta kapatma.** 30 dakika boyunca komut gelmezse daemon kapanır ve durum
+   dosyasını temizler. Sonraki çağrı yeniden başlatır.
+4. **Çökme kurtarma.** Chromium çökerse, daemon hemen çıkar — kendi kendini
+   iyileştirme yok, hatayı gizleme. CLI bir sonraki çağrıda ölü daemon'u tespit
+   eder ve yenisini başlatır.
 
-### Multi-workspace isolation
+### Çoklu-çalışma alanı izolasyonu
 
-Each project root (detected via `git rev-parse --show-toplevel`) gets its
-own daemon, port, state file, cookies, and logs. No cross-workspace
-collisions. State at `<project>/.gstack/browse.json`.
+Her proje kökü (`git rev-parse --show-toplevel` ile tespit edilir) kendi
+daemon'unu, portunu, durum dosyasını, çerezlerini ve günlüklerini alır.
+Çalışma alanları arası çakışma yok. Durum `<project>/.gstack/browse.json`
+konumunda.
 
-| Workspace | State file | Port |
-|-----------|-----------|------|
-| `/code/project-a` | `/code/project-a/.gstack/browse.json` | random (10000–60000) |
-| `/code/project-b` | `/code/project-b/.gstack/browse.json` | random (10000–60000) |
-
----
-
-## Command reference
-
-~70 commands across read, write, and meta. Selectors accept CSS, `@e` refs
-from `snapshot`, or `@c` refs from `snapshot -C`. Full table:
-
-### Reading
-
-| Command | Description |
-|---------|-------------|
-| `text [sel]` | Clean page text (or scoped to a selector) |
-| `html [sel]` | innerHTML, or full page HTML if no selector |
-| `links` | All links as `text → href` |
-| `forms` | Form fields as JSON |
-| `accessibility` | Full ARIA tree |
-| `media [--images\|--videos\|--audio] [sel]` | Media elements with URLs, dimensions, types |
-| `data [--jsonld\|--og\|--meta\|--twitter]` | Structured data: JSON-LD, OG, Twitter Cards, meta tags |
-
-### Inspection
-
-| Command | Description |
-|---------|-------------|
-| `js <expr>` | Run inline JavaScript expression in page context, return as string |
-| `eval <file>` | Run JS from a file (path under /tmp or cwd; same sandbox as `js`) |
-| `css <sel> <prop>` | Computed CSS value |
-| `attrs <sel\|@ref>` | Element attributes as JSON |
-| `is <prop> <sel\|@ref>` | State check: visible, hidden, enabled, disabled, checked, editable, focused |
-| `console [--clear\|--errors]` | Captured console messages |
-| `network [--clear]` | Captured network requests |
-| `dialog [--clear]` | Captured dialog messages |
-| `cookies` | All cookies as JSON |
-| `storage` / `storage set <key> <val>` | Read both localStorage + sessionStorage; set localStorage |
-| `perf` | Page load timings |
-| `inspect [sel] [--all] [--history]` | Deep CSS via CDP — full rule cascade, box model, computed styles |
-| `ux-audit` | Page structure for behavioral analysis: site ID, nav, headings, text blocks, interactive elements |
-| `cdp <Domain.method> [json-params]` | Raw CDP method dispatch (deny-default; allowlist in `cdp-allowlist.ts`) |
-
-### Navigation
-
-| Command | Description |
-|---------|-------------|
-| `goto <url>` | Navigate to URL (`http://`, `https://`, `file://`) |
-| `load-html <file>` | Load local HTML in memory (no `file://` URL; survives viewport scale changes) |
-| `back`, `forward`, `reload` | Standard nav |
-| `url` | Current page URL |
-| `wait <sel\|--networkidle\|--load>` | Wait for element, network idle, or page load (15s timeout) |
-
-### Interaction
-
-| Command | Description |
-|---------|-------------|
-| `click <sel\|@ref>` | Click element |
-| `fill <sel> <val>` | Fill input |
-| `select <sel> <val>` | Select dropdown option (value, label, or visible text) |
-| `hover <sel>` | Hover element |
-| `type <text>` | Type into focused element |
-| `press <key>` | Playwright keyboard key (case-sensitive: Enter, Tab, ArrowUp, Shift+Enter, Control+A, ...) |
-| `scroll [sel\|@ref]` | Scroll element into view, or jump to page bottom if no selector |
-| `viewport [<WxH>] [--scale <n>]` | Set viewport size + optional `deviceScaleFactor` 1-3 (retina screenshots) |
-| `upload <sel> <file> [...]` | Upload file(s) |
-| `dialog-accept [text]` | Auto-accept next alert/confirm/prompt; text is sent for prompts |
-| `dialog-dismiss` | Auto-dismiss next dialog |
-
-### Style + cleanup
-
-| Command | Description |
-|---------|-------------|
-| `style <sel> <prop> <val>` | Modify CSS property (with undo support) |
-| `style --undo [N]` | Undo last N style changes |
-| `cleanup [--ads\|--cookies\|--sticky\|--social\|--all]` | Remove page clutter |
-| `prettyscreenshot [--scroll-to <sel\|text>] [--cleanup] [--hide <sel>...] [path]` | Clean screenshot with optional cleanup, scroll, hide |
-
-### Visual
-
-| Command | Description |
-|---------|-------------|
-| `screenshot [--selector <css>] [--viewport] [--clip x,y,w,h] [--base64] [sel\|@ref] [path]` | Five modes: full page, viewport, element crop, region clip, base64 |
-| `pdf [path] [--format letter\|a4\|legal] [...]` | PDF with full layout: format, width/height, margins, header/footer templates, page numbers, --tagged for accessibility, --toc waits for Paged.js |
-| `responsive [prefix]` | Three screenshots: mobile (375x812), tablet (768x1024), desktop (1280x720) |
-| `diff <url1> <url2>` | Text diff between two URLs |
-
-### Cookies + headers
-
-| Command | Description |
-|---------|-------------|
-| `cookie <name>=<value>` | Set cookie on current page domain |
-| `cookie-import <json>` | Import cookies from JSON file |
-| `cookie-import-browser [browser] [--domain d]` | Import from installed Chromium browsers (interactive picker, or `--domain` for direct import) |
-| `header <name>:<value>` | Set custom request header (sensitive values auto-redacted) |
-| `useragent <string>` | Set user agent (triggers context recreation, invalidates refs) |
-
-### Tabs + frames
-
-| Command | Description |
-|---------|-------------|
-| `tabs` | List open tabs |
-| `tab <id>` | Switch to tab |
-| `newtab [url] [--json]` | Open new tab; `--json` returns `{tabId, url}` for programmatic use |
-| `closetab [id]` | Close tab |
-| `tab-each <command> [args...]` | Fan out a command across every open tab; returns JSON |
-| `frame <sel\|@ref\|--name n\|--url pattern\|main>` | Switch to iframe context (or back to main); clears refs |
-
-### Extraction
-
-| Command | Description |
-|---------|-------------|
-| `download <url\|@ref> [path] [--base64]` | Download URL or media element using browser cookies |
-| `scrape <images\|videos\|media> [--selector] [--dir] [--limit]` | Bulk download all media from page; writes `manifest.json` |
-| `archive [path]` | Save complete page as MHTML via CDP |
-
-### Snapshot
-
-| Command | Description |
-|---------|-------------|
-| `snapshot [-i] [-c] [-d N] [-s sel] [-D] [-a] [-o path] [-C]` | Accessibility tree with `@e` refs; `-i` interactive only, `-c` compact, `-d N` depth, `-s` scope, `-D` diff vs previous, `-a` annotated screenshot, `-C` cursor-interactive `@c` refs |
-
-### Server lifecycle
-
-| Command | Description |
-|---------|-------------|
-| `status` | Daemon health + mode (headless / headed / cdp) |
-| `stop` | Shut down daemon |
-| `restart` | Restart daemon |
-| `connect` | Launch headed GStack Browser with Side Panel extension |
-| `disconnect` | Close headed Chrome, return to headless |
-| `focus [@ref]` | Bring headed Chrome to foreground (macOS); `@ref` also scrolls into view |
-| `state save\|load <name>` | Save or load browser state (cookies + URLs) |
-
-### Handoff
-
-| Command | Description |
-|---------|-------------|
-| `handoff [reason]` | Open visible Chrome at current page for user takeover (CAPTCHA, MFA, complex auth) |
-| `resume` | Re-snapshot after user takeover, return control to AI |
-
-### Meta + chains
-
-| Command | Description |
-|---------|-------------|
-| `chain` (JSON via stdin) | Run a sequence of commands. Pipe `[["cmd","arg1",...],...]` to `$B chain`. Stops at first error. |
-| `inbox [--clear]` | List messages from sidebar scout inbox |
-| `watch [stop]` | Passive observation — periodic snapshots while user browses; `stop` returns summary |
-
-### Browser-skills runtime
-
-| Command | Description |
-|---------|-------------|
-| `skill list` | List all browser-skills with resolved tier (project > global > bundled) |
-| `skill show <name>` | Print SKILL.md |
-| `skill run <name> [--arg k=v...] [--timeout=Ns]` | Spawn the skill script with a per-spawn scoped token |
-| `skill test <name>` | Run the skill's `script.test.ts` against bundled fixtures |
-| `skill rm <name> [--global]` | Tombstone a user-tier skill |
-
-### Domain-skills
-
-| Command | Description |
-|---------|-------------|
-| `domain-skill save\|list\|show\|edit\|promote-to-global\|rollback\|rm <host?>` | Per-site agent notes (host derived from active tab). Lifecycle: quarantined → active (after N=3 successful uses without classifier flag) → global (explicit promote) |
-
-Aliases: `setcontent`, `set-content`, `setContent` → `load-html` (canonicalized
-before scope checks, so a read-scoped token can't use the alias to run a
-write command).
+| Çalışma alanı | Durum dosyası | Port |
+|---------------|---------------|------|
+| `/code/project-a` | `/code/project-a/.gstack/browse.json` | rastgele (10000–60000) |
+| `/code/project-b` | `/code/project-b/.gstack/browse.json` | rastgele (10000–60000) |
 
 ---
 
-## Snapshot system
+## Komut referansı
 
-The browser's key innovation is **ref-based element selection** built on
-Playwright's accessibility tree API. No DOM mutation. No injected scripts.
-Just Playwright's native AX API.
+Okuma, yazma ve meta olmak üzere ~70 komut. Seçiciler CSS, `snapshot`'tan `@e`
+referansları veya `snapshot -C`'den `@c` referansları kabul eder. Tam tablo:
 
-### How `@ref` works
+### Okuma
 
-1. `page.locator(scope).ariaSnapshot()` returns a YAML-like accessibility tree.
-2. The snapshot parser assigns refs (`@e1`, `@e2`, ...) to each element.
-3. For each ref, it builds a Playwright `Locator` (using `getByRole` + nth-child).
-4. The ref→Locator map is stored on `BrowserManager`.
-5. Later commands like `click @e3` look up the Locator and call `locator.click()`.
+| Komut | Açıklama |
+|-------|----------|
+| `text [sel]` | Temiz sayfa metni (veya bir seçiciye kapsamlı) |
+| `html [sel]` | innerHTML, veya seçici yoksa tam sayfa HTML'si |
+| `links` | Tüm bağlantılar `metin → href` olarak |
+| `forms` | Form alanları JSON olarak |
+| `accessibility` | Tam ARIA ağacı |
+| `media [--images\|--videos\|--audio] [sel]` | URL'ler, boyutlar, türler ile medya öğeleri |
+| `data [--jsonld\|--og\|--meta\|--twitter]` | Yapılandırılmış veri: JSON-LD, OG, Twitter Cards, meta etiketleri |
 
-### Ref staleness detection
+### İnceleme
 
-SPAs can mutate the DOM without navigation (React router, tab switches,
-modals). When this happens, refs collected from a previous `snapshot` may
-point to elements that no longer exist. `resolveRef()` runs an async
-`count()` check before using any ref — if the element count is 0, it throws
-immediately with a message telling the agent to re-run `snapshot`. Fails fast
-(~5ms) instead of waiting for Playwright's 30-second action timeout.
+| Komut | Açıklama |
+|-------|----------|
+| `js <ifade>` | Sayfa bağlamında satır içi JavaScript ifadesi çalıştır, dize olarak döndür |
+| `eval <dosya>` | Bir dosyadan JS çalıştır (/tmp veya cwd altındaki yol; `js` ile aynı sanal alan) |
+| `css <sel> <özellik>` | Hesaplanmış CSS değeri |
+| `attrs <sel\|@ref>` | Öğe öznitelikleri JSON olarak |
+| `is <özellik> <sel\|@ref>` | Durum kontrolü: visible, hidden, enabled, disabled, checked, editable, focused |
+| `console [--clear\|--errors]` | Yakalanan konsol mesajları |
+| `network [--clear]` | Yakalanan ağ istekleri |
+| `dialog [--clear]` | Yakalanan iletişim kutusu mesajları |
+| `cookies` | Tüm çerezler JSON olarak |
+| `storage` / `storage set <anahtar> <değer>` | localStorage + sessionStorage'ı oku; localStorage'a yaz |
+| `perf` | Sayfa yükleme zamanlamaları |
+| `inspect [sel] [--all] [--history]` | CDP üzerinden derin CSS — tam kural basamaklaması, kutu modeli, hesaplanmış stiller |
+| `ux-audit` | Davranışsal analiz için sayfa yapısı: site kimliği, navigasyon, başlıklar, metin blokları, etkileşimli öğeler |
+| `cdp <Domain.method> [json-params]` | Ham CDP metod gönderimi (reddet-varsayılan; `cdp-allowlist.ts`'te izin listesi) |
 
-### Extended snapshot features
+### Navigasyon
 
-- **`--diff` (`-D`).** Stores each snapshot as a baseline. On the next `-D`
-  call, returns a unified diff showing what changed. Use this to verify that
-  an action (click, fill, etc.) actually worked.
-- **`--annotate` (`-a`).** Injects temporary overlay divs at each ref's
-  bounding box, takes a screenshot with ref labels visible, then removes the
-  overlays. Use `-o <path>` to control the output.
-- **`--cursor-interactive` (`-C`).** Scans for non-ARIA interactive elements
-  (divs with `cursor:pointer`, `onclick`, `tabindex>=0`) using `page.evaluate`.
-  Assigns `@c1`, `@c2`... refs with deterministic `nth-child` CSS selectors.
-  These are elements the ARIA tree misses but users can still click.
+| Komut | Açıklama |
+|-------|----------|
+| `goto <url>` | URL'ye git (`http://`, `https://`, `file://`) |
+| `load-html <dosya>` | Yerel HTML'yi bellekte yükle (`file://` URL yok; görüntü alanı ölçek değişikliklerinden etkilenmez) |
+| `back`, `forward`, `reload` | Standart navigasyon |
+| `url` | Geçerli sayfa URL'si |
+| `wait <sel\|--networkidle\|--load>` | Öğe, ağ boşta veya sayfa yüklemesi bekle (15s zaman aşımı) |
+
+### Etkileşim
+
+| Komut | Açıklama |
+|-------|----------|
+| `click <sel\|@ref>` | Öğeye tıkla |
+| `fill <sel> <değer>` | Girdiyi doldur |
+| `select <sel> <değer>` | Açılır menü seçeneği seç (değer, etiket veya görünür metin) |
+| `hover <sel>` | Öğenin üzerine gel |
+| `type <metin>` | Odaklanmış öğeye yaz |
+| `press <tuş>` | Playwright klavye tuşu (büyük/küçük harf duyarlı: Enter, Tab, ArrowUp, Shift+Enter, Control+A, ...) |
+| `scroll [sel\|@ref]` | Öğeyi görünüme kaydır, veya seçici yoksa sayfa altına atla |
+| `viewport [<GxY>] [--scale <n>]` | Görüntü alanı boyutu + isteğe bağlı `deviceScaleFactor` 1-3 (retina ekran görüntüleri) |
+| `upload <sel> <dosya> [...]` | Dosya(lar) yükle |
+| `dialog-accept [metin]` | Sonraki alert/confirm/prompt'u otomatik kabul et; prompt'lar için metin gönderilir |
+| `dialog-dismiss` | Sonraki iletişim kutusunu otomatik reddet |
+
+### Stil + temizlik
+
+| Komut | Açıklama |
+|-------|----------|
+| `style <sel> <özellik> <değer>` | CSS özelliğini değiştir (geri alma desteği ile) |
+| `style --undo [N]` | Son N stil değişikliğini geri al |
+| `cleanup [--ads\|--cookies\|--sticky\|--social\|--all]` | Sayfa kalabalığını kaldır |
+
+| Komut | Açıklama |
+|-------|----------|
+| `prettyscreenshot [--scroll-to <sel\|metin>] [--cleanup] [--hide <sel>...] [yol]` | İsteğe bağlı temizlik, kaydırma, gizleme ile temiz ekran görüntüsü |
+
+### Görsel
+
+| Komut | Açıklama |
+|-------|----------|
+| `screenshot [--selector <css>] [--viewport] [--clip x,y,w,h] [--base64] [sel\|@ref] [yol]` | Beş mod: tam sayfa, görüntü alanı, öğe kırpma, bölge kırpma, base64 |
+| `pdf [yol] [--format letter\|a4\|legal] [...]` | Tam düzenli PDF: format, genişlik/yükseklik, kenar boşlukları, üst/alt şablonlar, sayfa numaraları, erişilebilirlik için --tagged, --toc Paged.js bekler |
+| `responsive [önek]` | Üç ekran görüntüsü: mobil (375x812), tablet (768x1024), masaüstü (1280x720) |
+| `diff <url1> <url2>` | İki URL arasındaki metin farkı |
+
+### Çerezler + başlıklar
+
+| Komut | Açıklama |
+|-------|----------|
+| `cookie <ad>=<değer>` | Geçerli sayfa alanında çerez ayarla |
+| `cookie-import <json>` | JSON dosyasından çerezleri içe aktar |
+| `cookie-import-browser [tarayıcı] [--domain d]` | Kurulu Chromium tarayıcılardan içe aktar (etkileşimli seçici veya doğrudan içe aktarma için `--domain`) |
+| `header <ad>:<değer>` | Özel istek başlığı ayarla (hassas değerler otomatik sansürlenir) |
+| `useragent <dize>` | Kullanıcı aracısı ayarla (bağlamı yeniden oluşturur, referansları geçersiz kılar) |
+
+### Sekmeler + çerçeveler
+
+| Komut | Açıklama |
+|-------|----------|
+| `tabs` | Açık sekmeleri listele |
+| `tab <id>` | Sekmeye geç |
+| `newtab [url] [--json]` | Yeni sekme aç; `--json` programlı kullanım için `{tabId, url}` döndürür |
+| `closetab [id]` | Sekmeyi kapat |
+| `tab-each <komut> [args...]` | Her açık sekmede bir komutu dağıt; JSON döndürür |
+| `frame <sel\|@ref\|--name n\|--url pattern\|main>` | iframe bağlamına geç (veya ana çerçeveye dön); referansları temizler |
+
+### Çıkarım
+
+| Komut | Açıklama |
+|-------|----------|
+| `download <url\|@ref> [yol] [--base64]` | URL veya medya öğesini tarayıcı çerezlerini kullanarak indir |
+| `scrape <images\|videos\|media> [--selector] [--dir] [--limit]` | Sayfadaki tüm medyayı toplu indir; `manifest.json` yazar |
+| `archive [yol]` | Tam sayfayı CDP üzerinden MHTML olarak kaydet |
+
+### Anlık görüntü
+
+| Komut | Açıklama |
+|-------|----------|
+| `snapshot [-i] [-c] [-d N] [-s sel] [-D] [-a] [-o yol] [-C]` | `@e` referanslı erişilebilirlik ağacı; `-i` yalnızca etkileşimli, `-c` kompakt, `-d N` derinlik, `-s` kapsam, `-D` öncekine göre fark, `-a` açıklamalı ekran görüntüsü, `-C` imleç-etkileşimli `@c` referansları |
+
+### Sunucu yaşam döngüsü
+
+| Komut | Açıklama |
+|-------|----------|
+| `status` | Daemon durumu + mod (headless / headed / cdp) |
+| `stop` | Daemon'u kapat |
+| `restart` | Daemon'u yeniden başlat |
+| `connect` | Side Panel uzantılı headed GStack Browser başlat |
+| `disconnect` | headed Chrome'u kapat, headless moda dön |
+| `focus [@ref]` | headed Chrome'u ön plana getir (macOS); `@ref` ayrıca görünüme kaydırır |
+| `state save\|load <ad>` | Tarayıcı durumunu kaydet veya yükle (çerezler + URL'ler) |
+
+### Devretme
+
+| Komut | Açıklama |
+|-------|----------|
+| `handoff [neden]` | Kullanıcının devralması için geçerli sayfada görünür Chrome aç (CAPTCHA, MFA, karmaşık kimlik doğrulama) |
+| `resume` | Kullanıcı devralmasından sonra yeniden anlık görüntü al, kontrolü AI'ya geri ver |
+
+### Meta + zincirler
+
+| Komut | Açıklama |
+|-------|----------|
+| `chain` (stdin üzerinden JSON) | Bir komut dizisi çalıştır. `[["cmd","arg1",...],...]`'ı `$B chain`'e borula. İlk hatada durur. |
+| `inbox [--clear]` | Kenar çubuğu izci gelen kutusundaki mesajları listele |
+| `watch [stop]` | Pasif gözlem — kullanıcı gezinirken periyodik anlık görüntüler; `stop` özet döndürür |
+
+### Tarayıcı-becerileri çalışma zamanı
+
+| Komut | Açıklama |
+|-------|----------|
+| `skill list` | Çözümlenmiş katmanlı tüm tarayıcı-becerilerini listele (proje > global > paketlenmiş) |
+| `skill show <ad>` | SKILL.md'yi yazdır |
+| `skill run <ad> [--arg k=v...] [--timeout=Ns]` | Beceri betiğini çağrı başına kapsamlı belirteçle çalıştır |
+| `skill test <ad>` | Becerinin `script.test.ts`'ini paketlenmiş fixture'lara karşı çalıştır |
+| `skill rm <ad> [--global]` | Kullanıcı katmanındaki bir beceriyi mezar taşıyla işaretle |
+
+### Alan-becerileri
+
+| Komut | Açıklama |
+|-------|----------|
+| `domain-skill save\|list\|show\|edit\|promote-to-global\|rollback\|rm <host?>` | Site bazlı ajan notları (host aktif sekmeden türetilir). Yaşam döngüsü: karantina → aktif (N=3 başarılı kullanım sonra sınıflandırıcı bayrağı olmadan) → global (açık tanıtım) |
+
+Takma adlar: `setcontent`, `set-content`, `setContent` → `load-html` (kapsam
+kontrollerinden önce standartlaştırılır, böylece salt okunur kapsamlı bir belirteç
+takma adı kullanarak bir yazma komutu çalıştıramaz).
 
 ---
 
-## Browser-skills runtime
+## Anlık görüntü sistemi
 
-Per-task directories that codify a repeated browser flow into a deterministic
-Playwright script. The compounding layer.
+Tarayıcının temel yeniliği, Playwright'ın erişilebilirlik ağacı API'si üzerine
+kurulu **referans tabanlı öğe seçimi**. DOM değişikliği yok. Enjekte edilmiş
+betik yok. Sadece Playwright'ın yerel AX API'si.
 
-### Anatomy of a browser-skill
+### `@ref` nasıl çalışır
+
+1. `page.locator(scope).ariaSnapshot()` YAML benzeri bir erişilebilirlik ağacı döndürür.
+2. Anlık görüntü ayrıştırıcısı her öğeye referanslar atar (`@e1`, `@e2`, ...).
+3. Her referans için bir Playwright `Locator` oluşturur (`getByRole` + nth-child kullanarak).
+4. Referans→Locator eşlemesi `BrowserManager` üzerinde saklanır.
+5. `click @e3` gibi sonraki komutlar Locator'ı arar ve `locator.click()` çağırır.
+
+### Referans eskime tespiti
+
+SPA'lar navigasyon olmadan DOM'u değiştirebilir (React router, sekme
+geçişleri, modallar). Bu olduğunda, önceki bir `snapshot`'tan toplanan
+referanslar artık var olmayan öğelere işaret edebilir. `resolveRef()` herhangi
+bir referansı kullanmadan önce asenkron bir `count()` kontrolü çalıştırır —
+öğe sayısı 0 ise, ajana `snapshot`'ı yeniden çalıştırmasını söyleyen bir
+mesajla hemen hata fırlatır. Playwright'ın 30 saniyelik eylem zaman aşımını
+beklemek yerine hızlıca başarısız olur (~5ms).
+
+### Genişletilmiş anlık görüntü özellikleri
+
+- **`--diff` (`-D`).** Her anlık görüntüyü temel olarak saklar. Sonraki `-D`
+  çağrısında, nelerin değiştiğini gösteren bir birleşik fark döndürür. Bir
+  eylemin (tıklama, doldurma vb.) gerçekten çalıştığını doğrulamak için bunu
+  kullanın.
+- **`--annotate` (`-a`).** Her referansın sınırlayıcı kutusunda geçici katman
+  div'leri enjekte eder, referans etiketleri görünür şekilde bir ekran görüntüsü
+  alır, ardından katmanları kaldırır. Çıktıyı kontrol etmek için `-o <yol>`
+  kullanın.
+- **`--cursor-interactive` (`-C`).** ERIŞİLEBİLİRLİK ağacının kaçtırdığı
+  `cursor:pointer`, `onclick`, `tabindex>=0` gibi ARIA dışı etkileşimli
+  öğeleri `page.evaluate` ile tarar. Deterministik `nth-child` CSS seçicileri
+  ile `@c1`, `@c2`... referansları atar. Bunlar ARIA ağacının kaçtırdığı ancak
+  kullanıcıların hala tıklayabileceği öğelerdir.
+
+---
+
+## Tarayıcı-becerileri çalışma zamanı
+
+Yinelenen bir tarayıcı akışını deterministik bir Playwright betiğine kodlayan
+görev başı dizinler. Bileşik katman.
+
+### Bir tarayıcı-becerisininin anatomisi
 
 ```
-browser-skills/<name>/
-├── SKILL.md                        # frontmatter + prose contract
-├── script.ts                       # deterministic Playwright-via-browse-client logic
-├── _lib/browse-client.ts           # vendored copy of the SDK (~3KB, byte-identical to canonical)
-├── fixtures/<host>-<date>.html     # captured page for fixture-replay tests
-└── script.test.ts                  # parser tests against the fixture (no daemon required)
+browser-skills/<ad>/
+├── SKILL.md                        # frontmatter + düzyazı sözleşmesi
+├── script.ts                       # deterministik Playwright-via-browse-client mantığı
+├── _lib/browse-client.ts           # SDK'nin satır içi kopyası (~3KB, kanonik ile bayt-özdeş)
+├── fixtures/<host>-<tarih>.html    # fixture-tekrar testleri için yakalanan sayfa
+└── script.test.ts                  # fixture'a karşı ayrıştırıcı testleri (daemon gerekmez)
 ```
 
-The bundled reference is `browser-skills/hackernews-frontpage/`: scrapes the
-HN front page, returns 30 stories as JSON. Try it:
+Paketlenmiş referans `browser-skills/hackernews-frontpage/`: HN ana sayfasını
+kazır, 30 hikayeyi JSON olarak döndürür. Deneyin:
 
 ```bash
-$B skill list                            # shows hackernews-frontpage (bundled)
+$B skill list                            # hackernews-frontpage (bundled) gösterir
 $B skill show hackernews-frontpage
-$B skill run hackernews-frontpage        # JSON of 30 stories in ~200ms
-$B skill test hackernews-frontpage       # runs script.test.ts against fixture
+$B skill run hackernews-frontpage        # 30 hikayenin JSON'unu ~200ms'de
+$B skill test hackernews-frontpage       # fixture'a karşı script.test.ts çalıştırır
 ```
 
-### Three-tier storage
+### Üç katmanlı depolama
 
-`$B skill list` walks all three in priority order; first hit wins. Resolved
-tier is printed inline next to each skill name:
+`$B skill list` öncelik sırasına göre üç katmanı da yürür; ilk eşleşme kazanır.
+Çözümlenmiş katman her beceri adının yanında yazdırılır:
 
-| Tier | Path | When |
-|------|------|------|
-| **Project** | `<project>/.gstack/browser-skills/<name>/` | Project-specific skills (committed or gitignored) |
-| **Global** | `~/.gstack/browser-skills/<name>/` | Per-user skills, all projects |
-| **Bundled** | `<gstack-install>/browser-skills/<name>/` | Ships with gstack, read-only |
+| Katman | Yol | Ne zaman |
+|--------|-----|----------|
+| **Proje** | `<project>/.gstack/browser-skills/<ad>/` | Proje özgü beceriler (commitlenmiş veya gitignore edilmiş) |
+| **Global** | `~/.gstack/browser-skills/<ad>/` | Kullanıcı başı beceriler, tüm projeler |
+| **Paketlenmiş** | `<gstack-install>/browser-skills/<ad>/` | gstack ile gelir, salt okunur |
 
-### Trust model
+### Güven modeli
 
-Two orthogonal axes — daemon-side capability and process-side env — independently
-configured.
+İki dikey eksen — daemon tarafı yetenek ve süreç tarafı ortam — bağımsız
+yapılandırılmış.
 
-| Axis | Mechanism | Default |
-|------|-----------|---------|
-| **Daemon-side capability** | Per-spawn scoped token bound to read+write scope (browser-driving commands minus admin: `eval`, `js`, `cookies`, `storage`). Single-use clientId encodes skill name + spawn id. Revoked when spawn exits. | Always scoped — never the daemon root token |
-| **Process-side env** | `trusted: true` frontmatter passes `process.env` minus `GSTACK_TOKEN`. `trusted: false` (default) drops everything except a minimal allowlist (LANG, LC_ALL, TERM, TZ) and pattern-strips secrets (TOKEN/KEY/SECRET/PASSWORD, AWS_*, ANTHROPIC_*, OPENAI_*, GITHUB_*, etc.) | Untrusted (must opt in) |
+| Eksen | Mekanizma | Varsayılan |
+|-------|-----------|------------|
+| **Daemon tarafı yetenek** | Çağrı başına kapsamlı belirteç, okuma+yazma kapsamına bağlı (tarayıcı-yürütme komutları eksi yönetici: `eval`, `js`, `cookies`, `storage`). Tek kullanımlık clientId, beceri adı + çağrı id'sini kodlar. Çağrı çıkışında iptal edilir. | Her zaman kapsamlı — asla daemon kök belirteci değil |
+| **Süreç tarafı ortam** | `trusted: true` frontmatter `process.env`'i `GSTACK_TOKEN` hariç geçirir. `trusted: false` (varsayılan) minimal bir izin listesi dışında her şeyi atar (LANG, LC_ALL, TERM, TZ) ve kalıp şeritli gizli dizileri atar (TOKEN/KEY/SECRET/PASSWORD, AWS_*, ANTHROPIC_*, OPENAI_*, GITHUB_*, vb.) | Güvenilmeyen (katılım gerekli) |
 
-`GSTACK_PORT` and `GSTACK_SKILL_TOKEN` are injected last, so a parent process
-can't override them.
+`GSTACK_PORT` ve `GSTACK_SKILL_TOKEN` en son enjekte edilir, bu nedenle bir üst
+süreç onları geçersiz kılamaz.
 
-### Output protocol
+### Çıktı protokolü
 
-stdout = JSON. stderr = streaming logs. Exit 0 / non-zero. Default 60s
-timeout, override via `--timeout=Ns`. Max stdout 1MB (truncate + non-zero
-exit if exceeded). Matches `gh` / `kubectl` / `docker` conventions.
+stdout = JSON. stderr = akış günlükleri. Çıkış 0 / sıfır olmayan. Varsayılan
+60s zaman aşımı, `--timeout=Ns` ile geçersiz kılınabilir. Maksimum stdout 1MB
+(aşıldığında kırpılır + sıfır olmayan çıkış). `gh` / `kubectl` / `docker`
+gelenekleriyle eşleşir.
 
-### How the SDK distribution works
+### SDK dağıtımı nasıl çalışır
 
-Each skill ships its own copy of `browse-client.ts` at `_lib/browse-client.ts`,
-byte-identical to the canonical `browse/src/browse-client.ts`. `/skillify`
-copies the canonical SDK alongside every generated script. Each skill is
-fully self-contained: copy the directory anywhere, it runs. Version drift
-impossible — the SDK is frozen at the version the skill was authored against.
+Her beceri kendi `browse-client.ts` kopyasını `_lib/browse-client.ts`
+konumunda gönderir, kanonik `browse/src/browse-client.ts` ile bayt-özdeş.
+`/skillify` kanonik SDK'yi her oluşturulan betiğin yanına kopyalar. Her beceri
+tamamen kendi içinde: dizini herhangi bir yere kopyalayın, çalışır. Sürüm
+kayması imkansız — SDK becerinin yazıldığı sürümde dondurulmuştur.
 
-### Atomic write discipline (`/skillify` D3)
+### Atomik yazma disiplini (`/skillify` D3)
 
-`browse/src/browser-skill-write.ts` provides three primitives:
+`browse/src/browser-skill-write.ts` üç temel sağlar:
 
-- `stageSkill(opts)` — writes files to `~/.gstack/.tmp/skillify-<spawnId>/<name>/`
-  with restrictive perms.
-- `commitSkill(opts)` — atomic `fs.renameSync` into the final tier path.
-  Refuses to follow symlinked staging dirs (`lstat` check), refuses to
-  clobber existing skills, runs `realpath` discipline on the tier root.
-- `discardStaged(stagedDir)` — `rm -rf` the staged dir + per-spawn wrapper.
-  Idempotent. Called on test failure or approval rejection.
+- `stageSkill(opts)` — dosyaları kısıtlayıcı izinlerle
+  `~/.gstack/.tmp/skillify-<spawnId>/<ad>/` dizinine yazar.
+- `commitSkill(opts)` — son katman yoluna atomik `fs.renameSync`. Sembolik
+  bağlantılı hazırlama dizinlerini takip etmeyi reddeder (`lstat` kontrolü),
+  mevcut becerilerin üzerine yazmayı reddeder, katman kökünde `realpath`
+  disiplini çalıştırır.
+- `discardStaged(stagedDir)` — hazırlama dizinini + çağrı başı sarmalayıcıyı
+  `rm -rf` ile siler. Idempotent. Test başarısızlığı veya onay reddi üzerinde
+  çağrılır.
 
-There is no "almost shipped" state. Tests pass + user approves = atomic
-rename. Tests fail or user rejects = staging vanishes.
+"Neredeyse gönderildi" durumu yoktur. Testler geçer + kullanıcı onaylar = atomik
+yeniden adlandırma. Testler başarısız veya kullanıcı reddeder = hazırlama
+kaybolur.
 
-See [`docs/designs/BROWSER_SKILLS_V1.md`](docs/designs/BROWSER_SKILLS_V1.md)
-for the full design rationale.
+Tam tasarım gerekçesi için
+[`docs/designs/BROWSER_SKILLS_V1.md`](docs/designs/BROWSER_SKILLS_V1.md)
+dosyasına bakın.
 
 ---
 
-## Domain-skills
+## Alan-becerileri
 
-Different mental model from browser-skills: agent-authored *notes* about a
-site (not deterministic scripts). One per hostname. Lifecycle:
+Tarayıcı-becerilerinden farklı zihinsel model: ajan tarafından yazılmış bir
+site hakkındaki *notlar* (deterministik betikler değil). Her ana bilgisayar adı
+için bir tane. Yaşam döngüsü:
 
-1. `domain-skill save <host>` — agent writes a note about the site (e.g.,
-   "GitHub: PR creation needs `--draft` flag for non-staff", "X.com: timeline
-   uses cursor pagination, not page numbers"). Default state: **quarantined**.
-2. After **N=3** successful uses without the L4 prompt-injection classifier
-   flagging the note, it auto-promotes to **active**.
-3. `domain-skill promote-to-global <host>` lifts it to the global tier
-   (machine-wide, all projects).
-4. `domain-skill rollback <host>` demotes; `domain-skill rm <host>` tombstones.
+1. `domain-skill save <host>` — ajan site hakkında bir not yazar (ör.,
+   "GitHub: PR oluşturma personel olmayanlar için `--draft` bayrağı gerektirir",
+   "X.com: timeline imleç sayfalaması kullanır, sayfa numaraları değil").
+   Varsayılan durum: **karantina**.
+2. **N=3** başarılı kullanımdan sonra L4 komut enjeksiyonu sınıflandırıcısı
+   notu işaretlemeden otomatik olarak **aktif**e yükselir.
+3. `domain-skill promote-to-global <host>` bunu global katmana kaldırır
+   (makine geneli, tüm projeler).
+4. `domain-skill rollback <host>` düşürür; `domain-skill rm <host>` mezar
+   taşıyla işaretler.
 
-The classifier flag is set automatically by the L4 prompt-injection scan;
-agents do not set it manually.
+Sınıflandırıcı bayrağı L4 komut enjeksiyonu taraması tarafından otomatik olarak
+ayarlanır; ajanlar manuel olarak ayarlamaz.
 
-Storage:
-- Per-project: `<project>/.gstack/domain-skills/<host>.md`
+Depolama:
+- Proje başı: `<project>/.gstack/domain-skills/<host>.md`
 - Global: `~/.gstack/domain-skills/<host>.md`
 
-Source: `browse/src/domain-skills.ts`, `domain-skill-commands.ts`.
+Kaynak: `browse/src/domain-skills.ts`, `domain-skill-commands.ts`.
 
 ---
 
-## Real-browser mode
+## Gerçek tarayıcı modu
 
-`$B connect` launches **GStack Browser** — a rebranded Chromium controlled by
-Playwright with the Side Panel extension auto-loaded and anti-bot stealth
-patches applied. You watch every command tick through a visible window in
-real time.
+`$B connect` **GStack Browser**'ı başlatır — Playwright tarafından kontrol
+edilen, Side Panel uzantısı otomatik yüklenmiş ve bot-karşıtı gizlilik
+yamaları uygulanmış, yeniden markalanmış bir Chromium. Her komutu gerçek
+zamanlı olarak görünür bir pencerede işlerken izlersiniz.
 
 ```bash
-$B connect              # launches GStack Browser, headed
-$B goto https://app.com # navigates in the visible window
-$B snapshot -i          # refs from the real page
-$B click @e3            # clicks in the real window
-$B focus                # bring window to foreground (macOS)
-$B status               # shows Mode: cdp
-$B disconnect           # back to headless mode
+$B connect              # GStack Browser'ı başlatır, headed
+$B goto https://app.com # görünür pencerede gezinir
+$B snapshot -i          # gerçek sayfadan referanslar
+$B click @e3            # gerçek pencerede tıklar
+$B focus                # pencereyi ön plana getir (macOS)
+$B status               # Mode: cdp gösterir
+$B disconnect           # headless moda geri dön
 ```
 
-The window has a subtle golden shimmer line at the top and a floating
-"gstack" pill in the bottom-right corner so you always know which Chrome
-window is being controlled.
+Pencerede üstte ince altın bir parıltı çizgisi ve sağ altta yüzen bir "gstack"
+tableti bulunur, böylece hangi Chrome penceresinin kontrol edildiğini her zaman
+bilirsiniz.
 
-### What "GStack Browser" means
+### "GStack Browser" ne anlama gelir
 
-Not your daily Chrome — a Playwright-managed Chromium with custom branding
-in the Dock and menu bar, anti-bot stealth (sites like Google and NYTimes
-work without captchas), a custom user agent, and the gstack extension
-pre-loaded via `launchPersistentContext`. Your regular Chrome with your tabs
-and bookmarks stays untouched.
+Günlük Chrome'unuz değil — Dock ve menü çubuğunda özel markalama, bot-karşıtı
+gizlilik (Google ve NYTimes gibi siteler captcha olmadan çalışır), özel bir
+kullanıcı aracısı ve `launchPersistentContext` ile önceden yüklenmiş gstack
+uzantısı olan Playwright yönetimli bir Chromium. Sekmeleriniz ve yer
+imlerinizle olan normal Chrome'unuz dokunulmadan kalır.
 
-### When to use headed mode
+### Headed mod ne zaman kullanılır
 
-- **QA testing** where you want to watch Claude click through your app
-- **Design review** where you need to see exactly what Claude sees
-- **Debugging** where headless behavior differs from real Chrome
-- **Demos** where you're sharing your screen
-- **Pair-agent** sessions (the remote agent drives your local browser)
+- Claude'un uygulamanızda tıklayışını izlemek istediğiniz **QA testi**
+- Claude'un tam olarak ne gördüğünü görmeniz gereken **Tasarım incelemesi**
+- Headless davranışının gerçek Chrome'dan farklı olduğu **Hata ayıklama**
+- Ekranınızı paylaştığınız **Demolar**
+- **Eşli-ajan** oturumları (uzak ajan yerel tarayıcınızı kontrol eder)
 
-### CDP-aware skills
+### CDP duyarlı beceriler
 
-When in real-browser mode, `/qa` and `/design-review` automatically skip
-cookie import prompts and headless workarounds — the headed browser already
-has whatever session you logged into.
+Gerçek tarayıcı modundayken, `/qa` ve `/design-review` otomatik olarak çerez
+içe aktarma istemlerini ve headless geçici çözümlerini atlar — headed tarayıcıda
+zaten oturum açtığınız herhangi bir oturum vardır.
 
-### Headed mode + proxy + browser-native downloads (v1.28.0.0)
+### Headed modu + proxy + tarayıcı-yerel indirmeler (v1.28.0.0)
 
-Three coordinated flags for sites that block headless browsers, fingerprint
-Playwright defaults, or sit behind authenticated upstream proxies:
+Headless tarayıcıları engelleyen, Playwright varsayılanlarını parmak izi
+taranan veya kimlik doğrulamalı yukarı akış proxy'lerinin arkasındaki siteler
+için üç koordineli bayrak:
 
 ```bash
-# Visible Chromium. Auto-spawns Xvfb on Linux containers without DISPLAY.
+# Görünür Chromium. DISPLAY olmadan Linux konteynerlerinde otomatik Xvfb başlatır.
 $B --headed goto https://example.com
 
-# SOCKS5 with auth — Chromium can't prompt for SOCKS5 creds, so $B runs a
-# local 127.0.0.1 bridge that handles the auth handshake.
+# SOCKS5 ile kimlik doğrulama — Chromium SOCKS5 kimlik bilgilerini isteyemediği için
+# $B kimlik doğrulama el sıkışmasını işleyen yerel bir 127.0.0.1 köprüsü çalıştırır.
 $B --proxy socks5://user:pass@residential.proxy.host:1080 goto https://example.com
 
-# HTTP/HTTPS proxy passes through to Chromium directly.
+# HTTP/HTTPS proxy doğrudan Chromium'a geçirilir.
 $B --proxy http://corp-proxy:3128 goto https://example.com
 
-# Browser-native download for Content-Disposition, redirect chains, anti-bot
-# CDNs where page.request.fetch() falls over.
+# Content-Disposition, yönlendirme zincirleri, bot-karşıtı CDN'ler için tarayıcı-yerel
+# indirme; page.request.fetch()'in başarısız olduğu yerlerde.
 $B download "https://protected.example.com/file" /tmp/file.bin --navigate
 
-# Combined.
+# Birleşik.
 $B --headed --proxy socks5://user:pass@host:1080 \
    download "https://protected.example.com/file" /tmp/file.bin --navigate
 ```
 
-**Credential policy.** Pass creds via the URL (`socks5://user:pass@host`) OR
-the env vars `BROWSE_PROXY_USER` / `BROWSE_PROXY_PASS` — never both. `$B`
-refuses with a clear hint when both are set; silent override created
-"works on my machine" debugging traps.
+**Kimlik bilgisi politikası.** Kimlik bilgilerini URL (`socks5://user:pass@host`)
+VEYA ortam değişkenleri `BROWSE_PROXY_USER` / `BROWSE_PROXY_PASS` ile iletin —
+asla ikisi birden değil. `$B` her ikisi de ayarlandığında net bir ipucuyla reddeder;
+sessiz geçersiz kılma "benim makinamda çalışıyor" hata ayıklama tuzakları
+oluşturur.
 
-**Daemon discipline.** `--proxy` and `--headed` are daemon-startup config.
-A running daemon with config A meeting a new invocation with config B exits
-1 with a `browse disconnect` hint instead of silently restarting and dropping
-tab state, cookies, or sessions.
+**Daemon disiplini.** `--proxy` ve `--headed` daemon başlatma yapılandırmasıdır.
+A yapılandırmasıyla çalışan bir daemon, B yapılandırmasıyla yeni bir çağrı ile
+karşılaştığında sekme durumu, çerezler veya oturumları sessizce yeniden
+başlatmak yerine `browse disconnect` ipucu ile çıkış kodu 1 döndürür.
 
-**Stealth scope.** When `--headed` or `--proxy` are set, `$B` masks
-`navigator.webdriver` only — via Chromium's
-`--disable-blink-features=AutomationControlled` plus a small init script.
-We do NOT fake `navigator.plugins`, `navigator.languages`, or `window.chrome`
-— modern fingerprinters check those for consistency, and synthesizing fixed
-values can flag MORE bot-like, not less. ChromeDriver's `cdc_` runtime
-artifacts and the Permissions API patch are still cleaned up.
+**Gizlilik kapsamı.** `--headed` veya `--proxy` ayarlandığında, `$B` yalnızca
+`navigator.webdriver`'ı maskeler — Chromium'un
+`--disable-blink-features=AutomationControlled` ve küçük bir başlangıç betiği
+aracılığıyla. `navigator.plugins`, `navigator.languages` veya `window.chrome`'u
+sahteleştirmiyoruz — modern parmak izi yazılımları tutarlılık için bunları
+kontrol eder ve sabit değerler sentezlemek DAHA FAZLA bot benzeri
+işaretleyebilir, daha az değil. ChromeDriver'ın `cdc_` çalışma zamanı
+yapıları ve Permissions API yaması hala temizlenir.
 
-**Container support.** `--headed` on Linux without `DISPLAY` walks the
-display range (`:99`, `:100`, ...) until `xdpyinfo` reports a free slot,
-then spawns Xvfb. Cleanup-on-disconnect validates the recorded PID's
-`/proc/<pid>/cmdline` matches `Xvfb` AND start-time matches before sending
-any signal — no PID-reuse footguns. Skips spawn entirely when
-`WAYLAND_DISPLAY` is set (Chromium uses Wayland natively). Standard
-Debian/Ubuntu containers work out of the box; minimal images (alpine,
-distroless) may need fonts/dbus/gtk libs for headed Chromium to render.
+**Konteyner desteği.** `DISPLAY` olmadan Linux'ta `--headed`, `xdpyinfo` boş bir
+yuva bildirene kadar görüntü aralığını (`:99`, `:100`, ...) tarar, sonra Xvfb
+başlatır. Bağlantı kesme-temizliği, kaydedilen PID'nin `/proc/<pid>/cmdline`
+değerinin `Xvfb` ile eşleştiğini VE başlangıç zamanının eşleştiğini herhangi bir
+sinyal göndermeden önce doğrular — PID yeniden kullanım tuzakları yok.
+`WAYLAND_DISPLAY` ayarlandığında başlatmayı tamamen atlar (Chromium doğal olarak
+Wayland kullanır). Standart Debian/Ubuntu konteynerleri kutudan çalışır;
+minimal görüntüler (alpine, distroless) headed Chromium'un render edilmesi için
+font/dbus/gtk kitaplıklarına ihtiyaç duyabilir.
 
-**Failure modes.** SOCKS5 upstream rejected or unreachable — fail-fast at
-startup with a redacted error after 3 retries (5s budget). Mid-stream
-upstream drop — bridge kills the affected client connection only; no
-transport retries that could corrupt browser traffic.
-
----
-
-## Side Panel + sidebar agent
-
-The Chrome extension that ships baked into GStack Browser shows a live
-activity feed of every browse command in a Side Panel, plus `@ref` overlays
-on the page, plus an interactive Claude PTY inside the sidebar.
-
-### The Terminal pane (the headline)
-
-The Side Panel's primary surface is the **Terminal pane** — a live `claude -p`
-PTY you can type into directly from the sidebar. Activity / Refs / Inspector
-are debug overlays behind the footer's `debug` toggle. WebSocket auth uses
-`Sec-WebSocket-Protocol` (browsers can't set `Authorization` on a WebSocket
-upgrade), and the PTY session token is a 30-minute HttpOnly cookie minted
-via `POST /pty-session`.
-
-The toolbar's Cleanup button and the Inspector's "Send to Code" action both
-pipe text into the live Claude PTY via `window.gstackInjectToTerminal(text)`,
-exposed by `sidepanel-terminal.js`. There's no separate `/sidebar-command`
-POST — the live REPL is the only execution surface.
-
-### Activity feed
-
-A scrolling feed of every browse command — name, args, duration, status,
-errors. Shows up in real time as Claude works. Backed by SSE (`/activity/stream`)
-that accepts the Bearer token OR the HttpOnly `gstack_sse` session cookie
-(30-minute stream-scope cookie minted via `POST /sse-session`).
-
-### Refs tab
-
-After `$B snapshot`, shows the current `@ref` list (role + name) so you can
-see what Claude is targeting.
-
-### CSS Inspector
-
-Powered by `$B inspect` (CDP-based). Click any element on the page to see the
-full CSS rule cascade, computed styles, box model, and modification history.
-The "Send to Code" button injects a description into the Claude PTY.
-
-### Sidebar architecture
-
-| Component | Where it lives | Notes |
-|-----------|----------------|-------|
-| Side Panel UI | `extension/sidepanel.js`, `sidepanel-terminal.js` | Chrome extension surface |
-| Background SW | `extension/background.js` | Manages tab events, port management |
-| Content script | `extension/content.js` | Page overlays, `gstack` pill |
-| Terminal agent | `browse/src/terminal-agent.ts` | PTY spawn, lifecycle, auth |
-| Sidebar utilities | `browse/src/sidebar-utils.ts` | URL sanitization, helpers |
-
-Before modifying any of these, read the comment block in `CLAUDE.md` under
-"Sidebar architecture" — silent failures here usually trace to not understanding
-the cross-component flow.
-
-### Manual install (for your regular Chrome)
-
-If you want the extension in your everyday Chrome (not the Playwright-controlled
-one):
-
-```bash
-bin/gstack-extension    # opens chrome://extensions, copies path to clipboard
-```
-
-Or do it manually: `chrome://extensions` → toggle Developer mode → Load
-unpacked → navigate to `~/.claude/skills/gstack/extension` → pin the
-extension → enter the port from `$B status`.
+**Başarısızlık modları.** SOCKS5 yukarı akış reddedildi veya erişilemez — 3
+yeniden deneme sonrası (5s bütçe) hızlı başarısızlık, kırmızı sansürlü hata.
+Orta akış yukarı akış düşüşü — köprü yalnızca etkilenen istemci bağlantısını
+öldürür; tarayıcı trafiğini bozabilecek taşıma yeniden denemeleri yok.
 
 ---
 
-## Pair-agent
+## Yan Panel + kenar çubuğu ajanı
 
-Remote AI agents (Codex, OpenClaw, Hermes, anything that speaks HTTP) can
-drive your local browser through an ngrok tunnel. The whole flow is gated
-by a 26-command allowlist, scoped tokens, and a denial log.
+GStack Browser'a entegre gelen Chrome uzantısı, bir Side Panel'de her tarama
+komutunun canlı etkinlik akışını, sayfada `@ref` katmanlarını ve kenar
+çubuğunun içinde etkileşimli bir Claude PTY gösterir.
 
-### How it works
+### Terminal bölmesi (başlık)
+
+Side Panel'in birincil yüzeyi **Terminal bölmesi** — kenar çubuğundan doğrudan
+yazabileceğiniz canlı bir `claude -p` PTY. Etkinlik / Referanslar / Denetçi,
+alt bilginin `debug` geçişi arkasındaki hata ayıklama katmanlarıdır. WebSocket
+kimlik doğrulaması `Sec-WebSocket-Protocol` kullanır (tarayıcılar bir WebSocket
+yükseltmesinde `Authorization` ayarlayamaz) ve PTY oturum belirteci,
+`POST /pty-session` üzerinden oluşturulan 30 dakikalık bir HttpOnly çerezidir.
+
+Araç çubuğunun Temizle düğmesi ve Denetçi'nin "Koda Gönder" eylemi, her ikisi
+de `sidepanel-terminal.js` tarafından ortaya çıkarılan
+`window.gstackInjectToTerminal(text)` aracılığıyla canlı Claude PTY'ye metin
+borular. Ayrı bir `/sidebar-command` POST yok — canlı REPL tek yürütme
+yüzeyidir.
+
+### Etkinlik akışı
+
+Her tarama komutunun kayan akışı — ad, argümanlar, süre, durum, hatalar.
+Claude çalışırken gerçek zamanlı görünür. SSE (`/activity/stream`) tarafından
+desteklenir ve Bearer belirtecini VEYA HttpOnly `gstack_sse` oturum çerezini
+(`POST /sse-session` üzerinden oluşturulan 30 dakikalık akış kapsamlı çerez)
+kabul eder.
+
+### Referanslar sekmesi
+
+`$B snapshot`'tan sonra, mevcut `@ref` listesini (rol + ad) gösterir, böylece
+Claude'un ne hedeflediğini görebilirsiniz.
+
+### CSS Denetçisi
+
+`$B inspect` (CDP tabanlı) tarafından desteklenir. Tam CSS kural basamaklamasını,
+hesaplanmış stilleri, kutu modeli ve değişiklik geçmişini görmek için sayfadaki
+herhangi bir öğeye tıklayın. "Koda Gönder" düğmesi Claude PTY'ye bir açıklama
+enjekte eder.
+
+### Kenar çubuğu mimarisi
+
+| Bileşen | Bulunduğu yer | Notlar |
+|---------|---------------|--------|
+| Side Panel UI | `extension/sidepanel.js`, `sidepanel-terminal.js` | Chrome uzantı yüzeyi |
+| Background SW | `extension/background.js` | Sekme olaylarını, port yönetimini yönetir |
+| Content script | `extension/content.js` | Sayfa katmanları, `gstack` tableti |
+| Terminal ajanı | `browse/src/terminal-agent.ts` | PTY başlatma, yaşam döngüsü, kimlik doğrulama |
+| Kenar çubuğu yardımcıları | `browse/src/sidebar-utils.ts` | URL sansürleme, yardımcılar |
+
+Bunlardan herhangi birini değiştirmeden önce, `CLAUDE.md`'deki "Sidebar
+architecture" altındaki yorum blokunu okuyun — sessiz hatalar genellikle
+bileşenler arası akışı anlamamaktan kaynaklanır.
+
+### Manuel kurulum (günlük Chrome'unuz için)
+
+Uzantıyı günlük Chrome'unuzda istiyorsanız (Playwright kontrollü olmayan):
 
 ```bash
-/pair-agent                     # generates a setup key, prints connection instructions
-# Copy the instructions to the remote agent
-# Remote agent runs:
-#   POST <tunnel-url>/connect with setup key → gets a scoped token (24h, single client)
-#   POST <tunnel-url>/command with token → runs allowed commands
+bin/gstack-extension    # chrome://extensions'ı açar, yolunu panoya kopyalar
 ```
 
-### Dual-listener architecture (v1.6.0.0+)
+Veya manuel olarak: `chrome://extensions` → Geliştirici modunu aç → Paketlenmemiş
+yükle → `~/.claude/skills/gstack/extension` dizinine git → uzantıyı sabitle →
+`$B status`'tan portu gir.
 
-When `pair-agent` activates, the daemon binds **two HTTP listeners**:
+---
 
-- **Local listener** (`127.0.0.1:LOCAL_PORT`). Full command surface. Never
-  forwarded by ngrok. Used by your Claude Code, the Side Panel, anything
-  on your machine.
-- **Tunnel listener** (`127.0.0.1:TUNNEL_PORT`). Locked allowlist —
-  `/connect`, `/command` (scoped tokens + 26-command browser-driving
-  allowlist), `/sidebar-chat`. ngrok forwards only this port.
+## Eşli-ajan
 
-Root tokens sent over the tunnel return 403. SSE endpoints use a 30-minute
-HttpOnly `gstack_sse` cookie (never valid against `/command`).
+Uzak AI ajanları (Codex, OpenClaw, Hermes, HTTP konuşabilen herhangi bir şey)
+ngrok tüneli üzerinden yerel tarayıcınızı kontrol edebilir. Tüm akış 26 komutluk
+bir izin listesi, kapsamlı belirteçler ve bir reddetme günlüğü ile korunur.
 
-### The 26-command tunnel allowlist
+### Nasıl çalışır
 
-Defined in `browse/src/server.ts` as `TUNNEL_COMMANDS`. Pure gate function
-`canDispatchOverTunnel(command)` is exported for unit testing. Set:
+```bash
+/pair-agent                     # bir kurulum anahtarı oluşturur, bağlantı talimatlarını yazdırır
+# Talimatları uzak ajana kopyala
+# Uzak ajan çalıştırır:
+#   POST <tunnel-url>/connect kurulum anahtarı ile → kapsamlı bir belirteç alır (24s, tek istemci)
+#   POST <tunnel-url>/command belirteç ile → izin verilen komutları çalıştırır
+```
+
+### Çift-dinleyici mimarisi (v1.6.0.0+)
+
+`pair-agent` etkinleştirildiğinde, daemon **iki HTTP dinleyicisi** bağlar:
+
+- **Yerel dinleyici** (`127.0.0.1:LOCAL_PORT`). Tam komut yüzeyi. Asla ngrok
+  tarafından yönlendirilmez. Claude Code'unuz, Side Panel, makinenizdeki her
+  şey tarafından kullanılır.
+- **Tünel dinleyicisi** (`127.0.0.1:TUNNEL_PORT`). Kilitli izin listesi —
+  `/connect`, `/command` (kapsamlı belirteçler + 26 komutluk tarayıcı-yürütme
+  izin listesi), `/sidebar-chat`. ngrok yalnızca bu portu yönlendirir.
+
+Tünel üzerinden gönderilen kök belirteçler 403 döndürür. SSE uç noktaları
+30 dakikalık HttpOnly `gstack_sse` çerezi kullanır (`/command`'a karşı asla
+geçerli değildir).
+
+### 26 komutluk tünel izin listesi
+
+`browse/src/server.ts`'te `TUNNEL_COMMANDS` olarak tanımlanmıştır. Saf geçiş
+işlevi `canDispatchOverTunnel(command)` birim test için dışa aktarılmıştır. Küme:
 
 ```
 goto, click, text, screenshot, html, links, forms, accessibility,
@@ -712,185 +742,188 @@ attrs, media, data, scroll, press, type, select, wait, eval,
 newtab, tabs, back, forward, reload, snapshot, fill, url, closetab
 ```
 
-Notably absent: `pair`, `unpair`, `cookies`, `setup`, `launch`, `restart`,
-`stop`, `tunnel-start`, `token-mint`, `state`, `connect`, `disconnect`. A
-remote agent that tries them gets a 403 plus a fresh entry in the denial log.
+Önemle eksik olanlar: `pair`, `unpair`, `cookies`, `setup`, `launch`, `restart`,
+`stop`, `tunnel-start`, `token-mint`, `state`, `connect`, `disconnect`. Deneyen
+uzak bir ajan 403 ve reddetme günlüğünde yeni bir giriş alır.
 
-### Tunnel denial log
+### Tünel reddetme günlüğü
 
-`~/.gstack/security/attempts.jsonl` — append-only, salted SHA-256 of source
-+ domain only (no raw IP, no full request body), rotates at 10MB with 5
-generations. Per-device salt at `~/.gstack/security/device-salt` (mode 0600).
+`~/.gstack/security/attempts.jsonl` — yalnızca ekleme, kaynak + alan adının
+tuzlanmış SHA-256'sı (ham IP yok, tam istek gövdesi yok), 10MB'da 5 nesille
+döner. Cihaz başına tuz `~/.gstack/security/device-salt` (mod 0600).
 
-See [`docs/REMOTE_BROWSER_ACCESS.md`](docs/REMOTE_BROWSER_ACCESS.md) for the
-full operator guide.
+Tam operatör kılavuzu için
+[`docs/REMOTE_BROWSER_ACCESS.md`](docs/REMOTE_BROWSER_ACCESS.md) dosyasına bakın.
 
-### Tab ownership
+### Sekme sahipliği
 
-Scoped tokens default to `tabPolicy: 'own-only'`. A paired agent can `newtab`
-to create its own tab and drive that tab freely, but it can't `goto`, `fill`,
-or `click` on tabs another caller owns. `tabs` lists ALL tab metadata (an
-accepted tradeoff — see ARCHITECTURE.md), but `text`/`html`/`snapshot` content
-of unowned tabs is blocked by ownership checks.
-
----
-
-## Authentication
-
-Three token types, three lifetimes, three scopes.
-
-| Token | Generated by | Lifetime | Scope |
-|-------|--------------|----------|-------|
-| **Root token** | Daemon startup (random UUID) | Daemon process lifetime | Full command surface, local listener only — 403 over tunnel |
-| **Setup key** | `POST /pair` | 5 minutes, one-time use | Single redemption: present at `/connect`, get a scoped token |
-| **Scoped token** | `POST /connect` (with setup key) | 24 hours | Per-client, allowlist-bound, optionally tab-scoped |
-
-The root token is written to `<project>/.gstack/browse.json` with chmod 600.
-Every command that mutates browser state must include
-`Authorization: Bearer <token>`.
-
-### SSE session cookie (v1.6.0.0+)
-
-SSE endpoints (`/activity/stream`, `/inspector/events`) accept the Bearer
-token OR a 30-minute HttpOnly `gstack_sse` cookie minted via
-`POST /sse-session`. The `?token=<ROOT>` query-param auth is no longer
-supported. This is what lets the Chrome extension subscribe to the activity
-feed without putting the root token in extension storage.
-
-### PTY session cookie
-
-The Terminal pane uses a separate session cookie, `gstack_pty`, minted via
-`POST /pty-session`. Different scope — can spawn / drive the live `claude`
-PTY, can't dispatch arbitrary `/command` calls. `/health` endpoint MUST NOT
-surface this token.
-
-### Token registry
-
-`browse/src/token-registry.ts` handles mint/validate/revoke for all three
-types, plus per-token rate limiting. Setup keys are single-use; scoped
-tokens have a sliding 24h window; the root token is rotated on each daemon
-startup.
+Kapsamlı belirteçler varsayılan olarak `tabPolicy: 'own-only'`. Eşlenmiş bir
+ajan kendi sekmesini oluşturmak için `newtab` yapabilir ve o sekmeyi serbestçe
+kontrol edebilir, ancak başka bir çağırıcının sahip olduğu sekmelerde `goto`,
+`fill` veya `click` yapamaz. `tabs` TÜM sekme meta verilerini listeler (kabul
+edilmiş bir takas — ARCHITECTURE.md'ye bakın), ancak sahip olunmayan sekmelerin
+`text`/`html`/`snapshot` içeriği sahiplik kontrolleri tarafından engellenir.
 
 ---
 
-## Security stack
+## Kimlik doğrulama
 
-Layered defense against prompt injection. Every layer runs synchronously on
-every user message and every tool output that could carry untrusted content
-(Read, Glob, Grep, WebFetch, page text from `$B`).
+Üç belirteç türü, üç yaşam süresi, üç kapsam.
 
-| Layer | Module | Lives in |
-|-------|--------|----------|
-| **L1** Datamarking | `content-security.ts` | both server + sidebar agent |
-| **L2** Hidden-element strip | `content-security.ts` | both |
-| **L3** ARIA + URL blocklist + envelope wrapping | `content-security.ts` | both |
-| **L4** TestSavantAI ML classifier (22MB ONNX) | `security-classifier.ts` | sidebar-agent only* |
-| **L4b** Claude Haiku transcript check | `security-classifier.ts` | sidebar-agent only |
-| **L5** Canary token (session-exfil detection) | `security.ts` | both — inject in compiled, check in agent |
-| **L6** `combineVerdict` ensemble | `security.ts` | both |
+| Belirteç | Tarafından oluşturuldu | Yaşam süresi | Kapsam |
+|----------|----------------------|--------------|--------|
+| **Kök belirteç** | Daemon başlangıcı (rastgele UUID) | Daemon süreç yaşam süresi | Tam komut yüzeyi, yalnızca yerel dinleyici — tünel üzerinden 403 |
+| **Kurulum anahtarı** | `POST /pair` | 5 dakika, tek kullanım | Tek kullanım: `/connect`'te sun, kapsamlı bir belirteç al |
+| **Kapsamlı belirteç** | `POST /connect` (kurulum anahtarı ile) | 24 saat | İstemci başı, izin listesi bağlı, isteğe bağlı sekme kapsamlı |
 
-\* `security-classifier.ts` cannot be imported from the compiled browse
-binary — `@huggingface/transformers` v4 requires `onnxruntime-node` which
-fails to `dlopen` from Bun compile's temp extract dir. The compiled binary
-runs L1–L3, L5, L6 only.
+Kök belirteç chmod 600 ile `<project>/.gstack/browse.json` dosyasına yazılır.
+Tarayıcı durumunu değiştiren her komut `Authorization: Bearer <belirteç>`
+içermelidir.
 
-### Thresholds
+### SSE oturum çerezi (v1.6.0.0+)
 
-- `BLOCK: 0.85` — single-layer score that would cause BLOCK if cross-confirmed
-- `WARN: 0.75` — cross-confirm threshold. When L4 AND L4b both >= 0.75 → BLOCK
-- `LOG_ONLY: 0.40` — gates transcript classifier (skip Haiku when all layers < 0.40)
-- `SOLO_CONTENT_BLOCK: 0.92` — single-layer threshold for label-less content classifiers
+SSE uç noktaları (`/activity/stream`, `/inspector/events`) Bearer belirtecini
+VEYA `POST /sse-session` üzerinden oluşturulan 30 dakikalık HttpOnly
+`gstack_sse` çerezini kabul eder. `?token=<ROOT>` sorgu-parametre kimlik
+doğrulaması artık desteklenmemektedir. Bu, Chrome uzantısının kök belirteci
+uzantı depolamasına koymadan etkinlik akışına abone olmasını sağlar.
 
-### Ensemble rule
+### PTY oturum çerezi
 
-BLOCK only when the ML content classifier AND the transcript classifier both
-report >= WARN. Single-layer high confidence degrades to WARN — this is the
-Stack Overflow instruction-writing FP mitigation. **Canary leak always
-BLOCKs (deterministic).**
+Terminal bölmesi `POST /pty-session` üzerinden oluşturulan ayrı bir oturum
+çerezi, `gstack_pty` kullanır. Farklı kapsam — canlı `claude` PTY'yi
+başlatabilir/sürdürebilir, keyfi `/command` çağrıları yürütemez. `/health` uç
+noktası bu belirteci yüzeye çıkarmamalıdır.
 
-### Env knobs
+### Belirteç kayıt defteri
 
-- `GSTACK_SECURITY_OFF=1` — emergency kill switch. Classifier stays off
-  even if warmed. Canary is still injected; just the ML scan is skipped.
-- `GSTACK_SECURITY_ENSEMBLE=deberta` — opt-in DeBERTa-v3 ensemble. Adds
-  ProtectAI DeBERTa-v3-base-injection-onnx as L4c classifier. 721MB
-  first-run download. With ensemble enabled, BLOCK requires 2-of-3 ML
-  classifiers agreeing at >= WARN.
-- Classifier model cache: `~/.gstack/models/testsavant-small/` (112MB, first
-  run only) plus `~/.gstack/models/deberta-v3-injection/` (721MB, only when
-  ensemble enabled).
-- Attack log: `~/.gstack/security/attempts.jsonl` (salted SHA-256 + domain
-  only, rotates at 10MB, 5 generations).
-- Per-device salt: `~/.gstack/security/device-salt` (0600).
-- Session state: `~/.gstack/security/session-state.json` (cross-process,
-  atomic).
-
-A shield icon in the sidebar header shows the live status. See
-ARCHITECTURE.md § "Prompt injection defense" for the full threat model.
+`browse/src/token-registry.ts` üç tür için oluşturma/doğrulama/iptal işlemlerini
+artı belirteç başı hız sınırlamayı yönetir. Kurulum anahtarları tek kullanımlık;
+kapsamlı belirteçlerin 24 saatlik kayan bir penceresi vardır; kök belirteç her
+daemon başlangıcında döndürülür.
 
 ---
 
-## Screenshots, PDFs, visual
+## Güvenlik yığını
 
-### Screenshot modes
+Komut enjeksiyonuna karşı katmanlı savunma. Her katman, her kullanıcı mesajında
+ve güvenilmeyen içerik taşıyabilecek her araç çıktısında (Read, Glob, Grep,
+WebFetch, `$B`'den sayfa metni) senkron olarak çalışır.
 
-| Mode | Syntax | Playwright API |
-|------|--------|----------------|
-| Full page (default) | `screenshot [path]` | `page.screenshot({ fullPage: true })` |
-| Viewport only | `screenshot --viewport [path]` | `page.screenshot({ fullPage: false })` |
-| Element crop (flag) | `screenshot --selector <css> [path]` | `locator.screenshot()` |
-| Element crop (positional) | `screenshot "#sel" [path]` or `screenshot @e3 [path]` | `locator.screenshot()` |
-| Region clip | `screenshot --clip x,y,w,h [path]` | `page.screenshot({ clip })` |
+| Katman | Modül | Yaşadığı yer |
+|--------|-------|-------------|
+| **L1** Veri işaretleme | `content-security.ts` | hem sunucu + kenar çubuğu ajanı |
+| **L2** Gizli öğe şeritleri | `content-security.ts` | her ikisi |
+| **L3** ARIA + URL engelleme listesi + zarf sarmalama | `content-security.ts` | her ikisi |
+| **L4** TestSavantAI ML sınıflandırıcısı (22MB ONNX) | `security-classifier.ts` | yalnızca kenar çubuğu ajanı* |
+| **L4b** Claude Haiku transkript kontrolü | `security-classifier.ts` | yalnızca kenar çubuğu ajanı |
+| **L5** Kanarya belirteç (oturum-sızdırma tespiti) | `security.ts` | her ikisi — derlenmişte enjekte, ajanda kontrol |
+| **L6** `combineVerdict` topluluğu | `security.ts` | her ikisi |
 
-Element crop accepts CSS selectors (`.class`, `#id`, `[attr]`) or `@e`/`@c`
-refs. **Tag selectors like `button` aren't caught by the positional
-heuristic** — use the `--selector` flag form.
+\* `security-classifier.ts` derlenmiş browse ikili dosyasından içe aktarılamaz —
+`@huggingface/transformers` v4, Bun derlemesinin geçici çıkarma dizininden
+`dlopen` yapamadığı `onnxruntime-node` gerektirir. Derlenmiş ikili dosya
+yalnızca L1–L3, L5, L6 çalıştırır.
 
-`--base64` returns `data:image/png;base64,...` instead of writing to disk —
-composes with `--selector`, `--clip`, `--viewport`.
+### Eşikler
 
-Mutual exclusion: `--clip` + selector, `--viewport` + `--clip`, and
-`--selector` + positional selector all throw.
+- `BLOCK: 0.85` — çapraz onaylanırsa BLOCK'a neden olacak tek katman puanı
+- `WARN: 0.75` — çapraz onay eşiği. L4 VE L4b her ikisi >= 0.75 olduğunda → BLOCK
+- `LOG_ONLY: 0.40` — transkript sınıflandırıcısını geçitler (tüm katmanlar < 0.40 olduğunda Haiku'yu atlar)
+- `SOLO_CONTENT_BLOCK: 0.92` — etiketsiz içerik sınıflandırıcıları için tek katman eşiği
 
-### Retina screenshots — `viewport --scale`
+### Topluluk kuralı
 
-`viewport --scale <n>` sets Playwright's `deviceScaleFactor` (context-level,
-1–3 cap):
+Yalnızca ML içerik sınıflandırıcısı VE transkript sınıflandırıcısı her ikisi
+>= WARN bildirdiğinde BLOCK'la. Tek katman yüksek güvenilirlik WARN'a düşürülür —
+bu Stack Overflow talimat-yazma FP azaltımıdır. **Kanıbanya sızıntısı her zaman
+BLOCK'lar (deterministik).**
+
+### Ortam düğmeleri
+
+- `GSTACK_SECURITY_OFF=1` — acil öldürme anahtarı. Sınıflandırıcı ısınmış olsa
+  bile kapalı kalır. Kanarya hala enjekte edilir; sadece ML taraması atlanır.
+- `GSTACK_SECURITY_ENSEMBLE=deberta` — katılım DeBERTa-v3 topluluğu. L4c
+  sınıflandırıcı olarak ProtectAI DeBERTa-v3-base-injection-onnx ekler. 721MB
+  ilk çalıştırma indirmesi. Topluluk etkinleştirildiğinde, BLOCK için 3 ML
+  sınıflandırıcısından 2'sinin >= WARN'da anlaşması gerekir.
+- Sınıflandırıcı model önbelleği: `~/.gstack/models/testsavant-small/` (112MB,
+  yalnızca ilk çalıştırma) artı `~/.gstack/models/deberta-v3-injection/`
+  (721MB, yalnızca topluluk etkinleştirildiğinde).
+- Saldırı günlüğü: `~/.gstack/security/attempts.jsonl` (tuzlanmış SHA-256 +
+  yalnızca alan adı, 10MB'da döner, 5 nesil).
+- Cihaz başı tuz: `~/.gstack/security/device-salt` (0600).
+- Oturum durumu: `~/.gstack/security/session-state.json` (süreçler arası,
+  atomik).
+
+Kenar çubuğu başlığındaki kalkan simgesi canlı durumu gösterir. Tam tehdit
+modeli için ARCHITECTURE.md § "Prompt injection defense" bölümüne bakın.
+
+---
+
+## Ekran görüntüleri, PDF'ler, görsel
+
+### Ekran görüntüsü modları
+
+| Mod | Sözdizimi | Playwright API'si |
+|-----|-----------|-------------------|
+| Tam sayfa (varsayılan) | `screenshot [yol]` | `page.screenshot({ fullPage: true })` |
+| Yalnızca görüntü alanı | `screenshot --viewport [yol]` | `page.screenshot({ fullPage: false })` |
+| Öğe kırpma (bayrak) | `screenshot --selector <css> [yol]` | `locator.screenshot()` |
+| Öğe kırpma (konumsal) | `screenshot "#sel" [yol]` veya `screenshot @e3 [yol]` | `locator.screenshot()` |
+| Bölge kırpma | `screenshot --clip x,y,w,h [yol]` | `page.screenshot({ clip })` |
+
+Öğe kırpma CSS seçicileri (`.class`, `#id`, `[attr]`) veya `@e`/`@c`
+referansları kabul eder. **`button` gibi etiket seçicileri konumsal buluş
+tarafından yakalanmaz** — `--selector` bayrak formunu kullanın.
+
+`--base64` diske yazmak yerine `data:image/png;base64,...` döndürür —
+`--selector`, `--clip`, `--viewport` ile birleşir.
+
+Karşılıklı dışlama: `--clip` + seçici, `--viewport` + `--clip` ve
+`--selector` + konumsal seçicinin hepsi hata fırlatır.
+
+### Retina ekran görüntüleri — `viewport --scale`
+
+`viewport --scale <n>` Playwright'ın `deviceScaleFactor`'ünü ayarlar
+(bağlam düzeyinde, 1–3 sınırı):
 
 ```bash
 $B viewport 480x600 --scale 2
 $B load-html /tmp/card.html
 $B screenshot /tmp/card.png --selector .card
-# .card at 400x200 CSS pixels → card.png is 800x400 pixels
+# 400x200 CSS pikseldeki .card → card.png 800x400 piksel
 ```
 
-`--scale N` alone (no `WxH`) keeps the current viewport size. Scale changes
-trigger a context recreation, which invalidates `@e`/`@c` refs — rerun
-`snapshot` after. HTML loaded via `load-html` survives the recreation via
-in-memory replay. Rejected in headed mode (real browser controls scale).
+Yalnızca `--scale N` ( `WxH` yok) mevcut görüntü alanı boyutunu korur. Ölçek
+değişiklikleri bağlam yeniden oluşturmayı tetikler, bu da `@e`/`@c`
+referanslarını geçersiz kılar — sonrasında `snapshot`'ı yeniden çalıştırın.
+`load-html` ile yüklenen HTML, bellek içi yeniden oynatma yoluyla yeniden
+oluşturmadan sağ kurtulur. Headed modda reddedilir (gerçek tarayıcı ölçeği
+kontrol eder).
 
-### PDF generation
+### PDF oluşturma
 
-`pdf` accepts the full Playwright surface plus a few additions:
+`pdf` tam Playwright yüzeyini artı birkaç eklemeyi kabul eder:
 
-- **Layout:** `--format letter|a4|legal`, `--width <dim>`, `--height <dim>`,
-  `--margins <dim>`, `--margin-top/right/bottom/left <dim>`
-- **Structure:** `--toc` (waits for Paged.js if loaded), `--outline`,
-  `--tagged` (PDF/A accessibility), `--print-background`,
+- **Düzen:** `--format letter|a4|legal`, `--width <boyut>`, `--height <boyut>`,
+  `--margins <boyut>`, `--margin-top/right/bottom/left <boyut>`
+- **Yapı:** `--toc` (yüklenmişse Paged.js bekler), `--outline`,
+  `--tagged` (PDF/A erişilebilirlik), `--print-background`,
   `--prefer-css-page-size`
-- **Branding:** `--header-template <html>`, `--footer-template <html>`,
+- **Markalama:** `--header-template <html>`, `--footer-template <html>`,
   `--page-numbers`
-- **Tabs:** `--tab-id <N>` to render a specific tab
-- **Large payloads:** `--from-file <payload.json>` (avoids shell argv limits)
+- **Sekmeler:** `--tab-id <N>` belirli bir sekmeyi render etmek için
+- **Büyük yükler:** `--from-file <payload.json>` (shell argv sınırlarından kaçınır)
 
-### Responsive screenshots
+### Duyarlı ekran görüntüleri
 
-`responsive [prefix]` — three screenshots in one call: mobile (375x812),
-tablet (768x1024), desktop (1280x720). Saves as `{prefix}-mobile.png` etc.
+`responsive [önek]` — tek çağrıda üç ekran görüntüsü: mobil (375x812),
+tablet (768x1024), masaüstü (1280x720). `{prefix}-mobile.png` vb. olarak kaydeder.
 
 ### `prettyscreenshot`
 
-Combines cleanup + scroll + element hide in one call:
+Tek çağrıda temizlik + kaydırma + öğe gizlemeyi birleştirir:
 
 ```bash
 $B prettyscreenshot --cleanup --scroll-to "hero section" --hide ".cookie-banner" /tmp/clean.png
@@ -898,40 +931,42 @@ $B prettyscreenshot --cleanup --scroll-to "hero section" --hide ".cookie-banner"
 
 ---
 
-## Local HTML
+## Yerel HTML
 
-Two ways to render HTML that isn't on a web server:
+Bir web sunucusunda olmayan HTML'yi render etmenin iki yolu:
 
-| Approach | When | URL after | Relative assets |
-|----------|------|-----------|-----------------|
-| `goto file://<abs-path>` | File already on disk | `file:///...` | Resolve against file's directory |
-| `goto file://./<rel>`, `goto file://~/<rel>` | Smart-parsed to absolute | `file:///...` | Same |
-| `load-html <file>` | HTML generated in memory, no parent-dir context needed | `about:blank` | Broken (self-contained HTML only) |
+| Yaklaşım | Ne zaman | Sonraki URL | Göreceli varlıklar |
+|-----------|----------|-------------|---------------------|
+| `goto file://<mutlak-yol>` | Dosya zaten diskte | `file:///...` | Dosyanın dizinine göre çözümlenir |
+| `goto file://./<göreceli>`, `goto file://~/<göreceli>` | Mutlakağa akıllı ayrıştırılır | `file:///...` | Aynı |
+| `load-html <dosya>` | Bellekte oluşturulan HTML, üst dizin bağlamı gerekmez | `about:blank` | Bozuk (yalnızca kendi içindeki HTML) |
 
-Both are scoped to files under cwd or `$TMPDIR` via the same safe-dirs
-policy as `eval`. `file://` URLs preserve query strings and fragments (SPA
-routes work).
+Her ikisi de `eval` ile aynı güvenli dizin politikasıyla cwd veya `$TMPDIR`
+altındaki dosyalarla kapsamlıdır. `file://` URL'leri sorgu dizelerini ve
+parçaları korur (SPA yönelmeleri çalışır).
 
-`load-html` has an extension allowlist (`.html`, `.htm`, `.xhtml`, `.svg`) and
-a magic-byte sniff to reject binary files mis-renamed as HTML. 50MB size cap
-(override via `GSTACK_BROWSE_MAX_HTML_BYTES`).
+`load-html`'ın bir uzantı izin listesi (`.html`, `.htm`, `.xhtml`, `.svg`) ve
+ikili dosyaları HTML olarak yanlış adlandırılmış olarak reddetmek için bir
+majik-bayt koklama var. 50MB boyut sınırı (`GSTACK_BROWSE_MAX_HTML_BYTES` ile
+geçersiz kılınabilir).
 
-`load-html` content survives later `viewport --scale` calls via in-memory
-replay (TabSession tracks the loaded HTML + waitUntil). The replay is
-purely in-memory — HTML is never persisted to disk via `state save` to
-avoid leaking secrets or customer data.
+`load-html` içeriği daha sonraki `viewport --scale` çağrılarını bellek içi
+yeniden oynatma yoluyla sağ kalır (TabSession yüklenen HTML'yi + waitUntil'i
+izler). Yeniden oynatma tamamen bellek içidir — HTML asla `state save` ile
+diske kalıcı olarak yazılmaz, bu da sırların veya müşteri verilerinin sızdırmasını
+önler.
 
 ---
 
-## Batch endpoint
+## Toplu iş uç noktası
 
-`POST /batch` sends multiple commands in a single HTTP request. Eliminates
-per-command round-trip latency — critical for remote agents over ngrok where
-each HTTP call costs 2-5s.
+`POST /batch` tek bir HTTP isteğinde birden fazla komut gönderir. Komut başına
+gidiş-dönüş gecikmesini ortadan kaldırır — her HTTP çağrısının 2-5s maliyetli
+olduğu ngrok üzerinden uzak ajanlar için kritik.
 
 ```json
 POST /batch
-Authorization: Bearer <token>
+Authorization: Bearer <belirteç>
 
 {
   "commands": [
@@ -943,128 +978,129 @@ Authorization: Bearer <token>
 }
 ```
 
-Each command routes through `handleCommandInternal` — full security pipeline
-(scope checks, domain validation, tab ownership, content wrapping) enforced
-per command. Per-command error isolation: one failure doesn't abort the
-batch. Max 50 commands per batch. Nested batches rejected. Rate limiting:
-1 batch = 1 request against the per-agent limit.
+Her komut `handleCommandInternal` üzerinden yönlendirilir — komut başına tam
+güvenlik hattı (kapsam kontrolleri, alan doğrulama, sekme sahipliği, içerik
+sarmalama) uygulanır. Komut başına hata izolasyonu: bir başarısızlık toplu
+işi iptal etmez. Toplu iş başına maksimum 50 komut. İç içe toplu işler reddedilir.
+Hız sınırlama: 1 toplu iş = ajan başına sınır karşı 1 istek.
 
-Pattern: agent crawling 20 pages opens 20 tabs (individual `newtab` or
-batch), then `POST /batch` with 20 `text` commands → 20 page contents in
-~2-3 seconds total vs ~40-100 seconds serial.
-
----
-
-## Capture
-
-Console, network, and dialog events flow into O(1) circular buffers (50,000
-capacity each), flushed to disk asynchronously via `Bun.write()`:
-
-- Console: `.gstack/browse-console.log`
-- Network: `.gstack/browse-network.log`
-- Dialog: `.gstack/browse-dialog.log`
-
-The `console`, `network`, and `dialog` commands read from the in-memory
-buffers (not disk) so capture is real-time even when disk is slow.
-
-Dialogs (alert, confirm, prompt) are auto-accepted by default to prevent
-browser lockup. `dialog-accept <text>` controls prompt response text.
+Desen: 20 sayfa tarayan bir ajan 20 sekme açar (tek tek `newtab` veya toplu),
+sonra 20 `text` komutuyla `POST /batch` → seri ~40-100 saniye yerine toplam
+~2-3 saniyede 20 sayfa içeriği.
 
 ---
 
-## JS execution
+## Yakalama
 
-`js` runs an inline expression. `eval` runs a JS file. Both run in the
-**same JS sandbox** — the only difference is inline-vs-file. Both support
-`await` — expressions containing `await` are auto-wrapped in an async
-context:
+Konsol, ağ ve iletişim kutusu olayları O(1) dairesel tamponlara akar
+(her biri 50.000 kapasite), `Bun.write()` ile asenkron olarak diske boşaltılır:
 
-```bash
-$B js "await fetch('/api/data').then(r => r.json())"   # auto-wrapped
-$B js "document.title"                                  # no wrap needed
-$B eval my-script.js                                    # file with await
-```
+- Konsol: `.gstack/browse-console.log`
+- Ağ: `.gstack/browse-network.log`
+- İletişim kutusu: `.gstack/browse-dialog.log`
 
-For `eval` files, single-line files return the expression value directly.
-Multi-line files need explicit `return` when using `await`. Comments
-containing the literal token "await" don't trigger wrapping.
+`console`, `network` ve `dialog` komutları bellek içi tamponlardan okur
+(diske değil), böylece disk yavaş olsa bile yakalama gerçek zamanlıdır.
 
-Path safety: `eval` rejects paths outside cwd or `/tmp`. `js` doesn't read
-files at all.
+İletişim kutuları (alert, confirm, prompt) tarayıcı kilitlenmesini önlemek için
+varsayılan olarak otomatik kabul edilir. `dialog-accept <metin>` prompt yanıt
+metnini kontrol eder.
 
 ---
 
-## Tabs, frames, state
+## JS yürütme
 
-### Tabs
-
-```bash
-$B tabs                          # list all open tabs
-$B tab 3                         # switch to tab 3
-$B newtab https://example.com    # open new tab, switch to it
-$B newtab --json                 # programmatic: returns {"tabId":N,"url":...}
-$B closetab                      # close current
-$B closetab 2                    # close tab 2
-$B tab-each "text"               # run "text" on every tab, return JSON
-```
-
-`tab-each <command>` fans out a command across every open tab and returns a
-JSON array — handy for "give me the text of every tab I have open."
-
-### Frames
+`js` satır içi bir ifade çalıştırır. `eval` bir JS dosyası çalıştırır. Her ikisi
+de **aynı JS sanal alanında** çalışır — tek fark satır içi vs dosya. Her ikisi
+de `await` destekler — `await` içeren ifadeler otomatik olarak asenkron bir
+bağlamda sarılır:
 
 ```bash
-$B frame "#stripe-iframe"        # switch to iframe by selector
-$B frame @e7                     # by ref
-$B frame --name "checkout"       # by name attribute
-$B frame --url "stripe.com"      # by URL pattern match
-$B frame main                    # back to top frame
+$B js "await fetch('/api/data').then(r => r.json())"   # otomatik sarılmış
+$B js "document.title"                                  # sarmaya gerek yok
+$B eval my-script.js                                    # await ile dosya
 ```
 
-Refs are cleared on switch (the iframe has its own AX tree).
+`eval` dosyaları için, tek satırlık dosyalar ifade değerini doğrudan döndürür.
+Çok satırlı dosyalar `await` kullanırken açık `return` gerektirir. "await"
+kelimesini içeren yorumlar sarmayı tetiklemez.
 
-### State save/load
+Yol güvenliği: `eval` cwd veya `/tmp` dışındaki yolları reddeder. `js` hiç
+dosya okumaz.
+
+---
+
+## Sekmeler, çerçeveler, durum
+
+### Sekmeler
 
 ```bash
-$B state save my-session         # save cookies + URLs to .gstack/browse-state-my-session.json
-$B state load my-session         # restore
+$B tabs                          # tüm açık sekmeleri listele
+$B tab 3                         # 3. sekmeye geç
+$B newtab https://example.com    # yeni sekme aç, geç
+$B newtab --json                 # programlı: {"tabId":N,"url":...} döndürür
+$B closetab                      # geçerli sekmeyi kapat
+$B closetab 2                    # 2. sekmeyi kapat
+$B tab-each "text"               # her sekmede "text" çalıştır, JSON döndür
 ```
 
-In-memory `load-html` content is intentionally NOT persisted (avoid leaking
-secrets to disk).
+`tab-each <komut>` her açık sekmede bir komutu dağıtır ve bir JSON dizisi
+döndürür — "açtığım her sekmenin metnini ver" için kullanışlı.
 
-### Watch
+### Çerçeveler
 
 ```bash
-$B watch                         # passive observation: snapshot every 5s while user browses
-$B watch stop                    # return summary of what changed
+$B frame "#stripe-iframe"        # seçiciyle iframe'e geç
+$B frame @e7                     # referansla
+$B frame --name "checkout"       # name özniteliğiyle
+$B frame --url "stripe.com"      # URL örüntü eşleşmesiyle
+$B frame main                    # üst çerçeveye geri dön
 ```
 
-Useful when you're driving the browser manually and want Claude to see what
-you did at the end without spamming `snapshot` calls.
+Geçişte referanslar temizlenir (iframe'in kendi AX ağacı vardır).
 
-### Inbox
+### Durum kaydet/yükle
 
 ```bash
-$B inbox                         # list messages from sidebar scout
-$B inbox --clear                 # clear after reading
+$B state save oturumum          # çerezler + URL'leri .gstack/browse-state-oturumum.json dosyasına kaydet
+$B state load oturumum          # geri yükle
 ```
 
-The sidebar scout (a background process the Chrome extension can spawn) drops
-notes for Claude when the user surfaces something they want noticed. Stored
-in `.gstack/browser-scout.jsonl`.
+Bellek içi `load-html` içeriği kasıtlı olarak kalıcı yapılmaz (sızıntıyı önlemek
+için).
+
+### İzleme
+
+```bash
+$B watch                         # pasif gözlem: kullanıcı gezinirken 5s'de bir anlık görüntü
+$B watch stop                    # nelerin değiştiğinin özetini döndür
+```
+
+Tarayıcıyı manuel olarak kullanırken ve sonunda Claude'un ne yaptığını görmesini
+istemeyip `snapshot` çağrılarını spamlamak istemediğinizde kullanışlı.
+
+### Gelen kutusu
+
+```bash
+$B inbox                         # kenar çubuğu izci gelen kutusundaki mesajları listele
+$B inbox --clear                 # okuduktan sonra temizle
+```
+
+Kenar çubuğu izcisi (Chrome uzantısının başlatabileceği bir arka plan süreci),
+kullanıcı fark etmesini istediği bir şey olduğunda Claude için notlar bırakır.
+`.gstack/browser-scout.jsonl` içinde saklanır.
 
 ---
 
 ## CDP
 
-### `$B cdp` — raw Chrome DevTools Protocol dispatch
+### `$B cdp` — ham Chrome DevTools Protokolü gönderimi
 
-Deny-default. Only methods enumerated in `browse/src/cdp-allowlist.ts`
-(`CDP_ALLOWLIST` const) are reachable; any other method returns 403. Each
-allowlist entry declares scope (tab vs browser) and output (trusted vs
-untrusted). Untrusted methods (data-exfil-shaped, e.g.
-`Network.getResponseBody`) get UNTRUSTED-envelope wrapped output.
+Reddet-varsayılan. Yalnızca `browse/src/cdp-allowlist.ts`'te listelenen yöntemler
+(`CDP_ALLOWLIST` sabiti) erişilebilir; diğer herhangi bir yöntem 403 döndürür.
+Her izin listesi girdisi kapsam (sekme vs tarayıcı) ve çıktı (güvenilir vs
+güvenilmeyen) bildirir. Güvenilmeyen yöntemler (veri-sızdırma şeklindeki, örn.
+`Network.getResponseBody`) UNTRUSTED-zarf sarmalı çıktı alır.
 
 ```bash
 $B cdp Page.getLayoutMetrics
@@ -1072,20 +1108,20 @@ $B cdp Network.enable
 $B cdp Accessibility.getFullAXTree --json '{"max_depth":5}'
 ```
 
-To discover allowed methods: read `browse/src/cdp-allowlist.ts`.
+İzin verilen yöntemleri keşfetmek için: `browse/src/cdp-allowlist.ts` dosyasını okuyun.
 
-### `$B inspect` — CDP-based CSS inspector
+### `$B inspect` — CDP tabanlı CSS denetçisi
 
 ```bash
-$B inspect ".header"                # full rule cascade for the header
-$B inspect ".header" --all          # include user-agent rules
-$B inspect ".header" --history      # show modification history
+$B inspect ".header"                # header için tam kural basamaklaması
+$B inspect ".header" --all          # kullanıcı-agent kurallarını dahil et
+$B inspect ".header" --history      # değişiklik geçmişini göster
 ```
 
-Returns the matched rule cascade with specificity, computed styles, the box
-model, and (with `--history`) every CSS modification made via `$B style` since
-the page loaded. Powered by a persistent CDP session per page in
-`browse/src/cdp-inspector.ts`.
+Eşleşen kural basamaklamasını özgüllük, hesaplanmış stiller, kutu modeli ve
+(`--history` ile) sayfa yüklendikten bu yana `$B style` ile yapılan her CSS
+değişikliğini döndürür. `browse/src/cdp-inspector.ts`'teki sayfa başına kalıcı
+CDP oturumu tarafından desteklenir.
 
 ### `$B ux-audit`
 
@@ -1093,170 +1129,172 @@ the page loaded. Powered by a persistent CDP session per page in
 $B ux-audit
 ```
 
-Returns JSON with site identity, navigation, headings (capped 50), text
-blocks, interactive elements (capped 200) — page structure for behavioral
-analysis without dumping the full HTML. Used by `/qa` and `/design-review`
-for cheap coverage maps.
+Site kimliği, navigasyon, başlıklar (上限 50), metin blokları, etkileşimli
+öğeler (上限 200) ile JSON döndürür — tam HTML dökmeden davranışsal analiz için
+sayfa yapısı. `/qa` ve `/design-review` tarafından ucuz kapsam haritaları için
+kullanılır.
 
 ---
 
-## Performance
+## Performans
 
-| Tool | First call | Subsequent calls | Context overhead per call |
-|------|-----------|------------------|---------------------------|
-| Chrome MCP | ~5s | ~2-5s | ~2000 tokens (schema + protocol) |
-| Playwright MCP | ~3s | ~1-3s | ~1500 tokens (schema + protocol) |
-| **gstack browse** | **~3s** | **~100-200ms** | **0 tokens** (plain text stdout) |
-| **gstack browse + codified skill** | **~3s** | **~200ms** | **0 tokens** (single skill invocation) |
+| Araç | İlk çağrı | Sonraki çağrılar | Çağrı başı bağlam ek yükü |
+|------|----------|------------------|---------------------------|
+| Chrome MCP | ~5s | ~2-5s | ~2000 token (şema + protokol) |
+| Playwright MCP | ~3s | ~1-3s | ~1500 token (şema + protokol) |
+| **gstack browse** | **~3s** | **~100-200ms** | **0 token** (düz metin stdout) |
+| **gstack browse + kodlanmış beceri** | **~3s** | **~200ms** | **0 token** (tek beceri çağrısı) |
 
-In a 20-command browser session, MCP tools burn 30,000–40,000 tokens on
-protocol framing alone. gstack burns zero. The codified-skill path takes a
-20-command session down to a single `$B skill run` call.
+20 komutluk bir tarayıcı oturumunda, MCP araçları yalnızca protokol çerçevelemesi
+üzere 30.000–40.000 token yakar. gstack sıfır yakar. Kodlanmış-beceri yolu
+20 komutluk bir oturumu tek bir `$B skill run` çağrısına indirir.
 
-### Why CLI over MCP
+### Neden MCP yerine CLI
 
-MCP works well for remote services. For local browser automation it adds
-pure overhead:
+MCP uzak hizmetler için iyi çalışır. Yerel tarayıcı otomasyonu için saf ek yük
+ekler:
 
-- **Context bloat** — every MCP call includes full JSON schemas. A simple
-  "get the page text" costs 10x more context tokens than it should.
-- **Connection fragility** — persistent WebSocket/stdio connections drop
-  and fail to reconnect.
-- **Unnecessary abstraction** — Claude already has a Bash tool. A CLI that
-  prints to stdout is the simplest possible interface.
+- **Bağlam şişirmesi** — her MCP çağrısı tam JSON şemaları içerir. Basit bir
+  "sayfa metnini al" olması gerekenden 10x daha fazla bağlam token'ı maliyetindedir.
+- **Bağlantı kırılganlığı** — kalıcı WebSocket/stdio bağlantıları düşer ve
+  yeniden bağlanamaz.
+- **Gereksiz soyutlama** — Claude'un zaten bir Bash aracı var. Stdout'a yazdıran
+  bir CLI mümkün olan en basit arayüzdür.
 
-gstack skips all of this. Compiled binary. Plain text in, plain text out.
-No protocol. No schema. No connection management.
-
----
-
-## Multi-workspace
-
-Each project root (detected via `git rev-parse --show-toplevel`) gets its
-own daemon, port, state file, cookies, and logs. No cross-workspace
-collisions.
-
-| Workspace | State file | Port |
-|-----------|-----------|------|
-| `/code/project-a` | `/code/project-a/.gstack/browse.json` | random (10000–60000) |
-| `/code/project-b` | `/code/project-b/.gstack/browse.json` | random (10000–60000) |
-
-Browser-skills three-tier lookup walks project → global → bundled, so a
-project-tier skill at `/code/project-a/.gstack/browser-skills/foo/` shadows
-the global `~/.gstack/browser-skills/foo/` only inside project-a.
+gstack bunların hepsini atlar. Derlenmiş ikili dosya. Düz metin girdi, düz metin
+çıktı. Protokol yok. Şema yok. Bağlantı yönetimi yok.
 
 ---
 
-## Environment variables
+## Çoklu-çalışma alanı
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `BROWSE_PORT` | 0 (random 10000–60000) | Fixed port for the HTTP server (debug override) |
-| `BROWSE_IDLE_TIMEOUT` | 1800000 (30 min) | Idle shutdown timeout in ms |
-| `BROWSE_STATE_FILE` | `.gstack/browse.json` | Path to state file |
-| `BROWSE_SERVER_SCRIPT` | auto-detected | Path to `server.ts` |
-| `BROWSE_CDP_URL` | (none) | Set to `channel:chrome` for real-browser mode |
-| `BROWSE_CDP_PORT` | 0 | CDP port (used internally) |
-| `BROWSE_HEADLESS_SKIP` | 0 | Skip Chromium launch entirely (test harness only) |
-| `BROWSE_TUNNEL` | 0 | Activate the dual-listener tunnel architecture (requires `NGROK_AUTHTOKEN`) |
-| `BROWSE_TUNNEL_LOCAL_ONLY` | 0 | Test-only — bind both listeners locally without ngrok |
-| `GSTACK_BROWSE_MAX_HTML_BYTES` | 52428800 (50MB) | `load-html` size cap |
-| `GSTACK_SECURITY_OFF` | unset | Emergency kill switch — disable ML classifier |
-| `GSTACK_SECURITY_ENSEMBLE` | unset | Set to `deberta` for 3-classifier ensemble (721MB download) |
+Her proje kökü (`git rev-parse --show-toplevel` ile tespit edilir) kendi
+daemon'unu, portunu, durum dosyasını, çerezlerini ve günlüklerini alır. Çalışma
+alanları arası çakışma yok.
+
+| Çalışma alanı | Durum dosyası | Port |
+|---------------|---------------|------|
+| `/code/project-a` | `/code/project-a/.gstack/browse.json` | rastgele (10000–60000) |
+| `/code/project-b` | `/code/project-b/.gstack/browse.json` | rastgele (10000–60000) |
+
+Tarayıcı-becerileri üç katmanlı arama projesi → global → paketlenmiş şeklinde
+yürür, bu nedenle `/code/project-a/.gstack/browser-skills/foo/` konumundaki bir
+proje katmanlı beceri, global `~/.gstack/browser-skills/foo/`'u yalnızca
+project-a içinde gölgeler.
 
 ---
 
-## Source map
+## Ortam değişkenleri
+
+| Değişken | Varsayılan | Açıklama |
+|----------|-----------|----------|
+| `BROWSE_PORT` | 0 (rastgele 10000–60000) | HTTP sunucusu için sabit port (hata ayıklama geçersiz kılması) |
+| `BROWSE_IDLE_TIMEOUT` | 1800000 (30 dak) | Boşta kapatma zaman aşımı (ms) |
+| `BROWSE_STATE_FILE` | `.gstack/browse.json` | Durum dosyası yolu |
+| `BROWSE_SERVER_SCRIPT` | otomatik algılandı | `server.ts` yolu |
+| `BROWSE_CDP_URL` | (yok) | Gerçek tarayıcı modu için `channel:chrome` olarak ayarlayın |
+| `BROWSE_CDP_PORT` | 0 | CDP portu (dahili olarak kullanılır) |
+| `BROWSE_HEADLESS_SKIP` | 0 | Chromium başlatmayı tamamen atla (yalnızca test donanımı) |
+| `BROWSE_TUNNEL` | 0 | Çift-dinleyici tünel mimarisini etkinleştir (`NGROK_AUTHTOKEN` gerektirir) |
+| `BROWSE_TUNNEL_LOCAL_ONLY` | 0 | Yalnızca test — ngrok olmadan her iki dinleyiciyi yerel olarak bağla |
+| `GSTACK_BROWSE_MAX_HTML_BYTES` | 52428800 (50MB) | `load-html` boyut sınırı |
+| `GSTACK_SECURITY_OFF` | ayarlanmamış | Acil öldürme anahtarı — ML sınıflandırıcısını devre dışı bırak |
+| `GSTACK_SECURITY_ENSEMBLE` | ayarlanmamış | 3 sınıflandırıcı topluluğu için `deberta` olarak ayarlayın (721MB indirme) |
+
+---
+
+## Kaynak haritası
 
 ```
 browse/
 ├── src/
-│   ├── cli.ts                   # Thin client — reads state, sends HTTP, prints
-│   ├── server.ts                # Bun HTTP daemon — routes commands, dual-listener
-│   ├── browser-manager.ts       # Chromium lifecycle, tabs, ref map, crash detection
-│   ├── socks-bridge.ts          # Local 127.0.0.1 SOCKS5 bridge that handles auth handshakes Chromium can't speak
-│   ├── proxy-config.ts          # --proxy URL parsing + cred resolution (URL vs env, fail-fast on both)
-│   ├── proxy-redact.ts          # Cred-redaction helper for any proxy URL surfaced to logs/errors
-│   ├── xvfb.ts                  # Xvfb auto-spawn + orphan cleanup with PID + start-time validation
-│   ├── stealth.ts               # navigator.webdriver mask + cdc_ cleanup + Permissions API patch
-│   ├── browse-client.ts         # Canonical SDK — what skills import as _lib/browse-client.ts
-│   ├── snapshot.ts              # AX tree → @e/@c refs → Locator map; -D/-a/-C handling
-│   ├── read-commands.ts         # Non-mutating: text, html, links, js, css, is, dialog, ...
-│   ├── write-commands.ts        # Mutating: goto, click, fill, upload, dialog-accept, ...
+│   ├── cli.ts                   # İnce istemci — durum okur, HTTP gönderir, yazdırır
+│   ├── server.ts                # Bun HTTP daemon — komutları yönlendirir, çift-dinleyici
+│   ├── browser-manager.ts       # Chromium yaşam döngüsü, sekmeler, referans eşlemesi, çökme tespiti
+│   ├── socks-bridge.ts          # Chromium'un konuşamadığı kimlik doğrulama el sıkışmasını işleyen yerel 127.0.0.1 SOCKS5 köprüsü
+│   ├── proxy-config.ts          # --proxy URL ayrıştırma + kimlik bilgisi çözümleme (URL vs ortam, her ikisinde hızlı başarısızlık)
+│   ├── proxy-redact.ts          # Günlüklere/hatalara yansıtılan herhangi bir proxy URL'si için kimlik bilgisi sansürleme yardımcısı
+│   ├── xvfb.ts                  # Xvfb otomatik başlatma + PID + başlangıç zamanı doğrulama ile yetim temizlik
+│   ├── stealth.ts               # navigator.webdriver maskesi + cdc_ temizliği + Permissions API yaması
+│   ├── browse-client.ts         # Kanonik SDK — becerilerin _lib/browse-client.ts olarak içe aktardığı
+│   ├── snapshot.ts              # AX ağacı → @e/@c referansları → Locator eşlemesi; -D/-a/-C işleme
+│   ├── read-commands.ts         # Değiştirmeyen: text, html, links, js, css, is, dialog, ...
+│   ├── write-commands.ts        # Değiştiren: goto, click, fill, upload, dialog-accept, ...
 │   ├── meta-commands.ts         # state, watch, inbox, frame, ux-audit, chain, diff, ...
-│   ├── browser-skills.ts        # 3-tier walk + frontmatter parser + tombstones
+│   ├── browser-skills.ts       # 3 katmanlı yürüyüş + frontmatter ayrıştırıcı + mezar taşları
 │   ├── browser-skill-commands.ts # $B skill list/show/run/test/rm + spawnSkill
-│   ├── browser-skill-write.ts   # D3 atomic stage/commit/discard helper for /skillify
-│   ├── skill-token.ts           # mintSkillToken / revokeSkillToken (per-spawn, scoped)
-│   ├── domain-skills.ts         # Per-site agent notes (state machine: quarantined→active→global)
+│   ├── browser-skill-write.ts   # /skillify için D3 atomik stage/commit/discard yardımcısı
+│   ├── skill-token.ts           # mintSkillToken / revokeSkillToken (çağrı başı, kapsamlı)
+│   ├── domain-skills.ts         # Site başı ajan notları (durum makinesi: quarantined→active→global)
 │   ├── domain-skill-commands.ts # $B domain-skill save/list/show/edit/promote/rollback/rm
-│   ├── cdp-allowlist.ts         # Deny-default CDP method allowlist
-│   ├── cdp-bridge.ts            # CDP session lifecycle bridge
-│   ├── cdp-commands.ts          # $B cdp dispatcher
-│   ├── cdp-inspector.ts         # $B inspect — persistent CDP session per page
-│   ├── activity.ts              # ActivityEntry, CircularBuffer, SSE subscribers, privacy filtering
-│   ├── buffers.ts               # Console/network/dialog circular buffers (O(1) ring)
-│   ├── tab-session.ts           # Per-tab session state (load-html replay, ref map scope)
-│   ├── token-registry.ts        # Mint/validate/revoke for root + setup keys + scoped tokens
-│   ├── sse-session-cookie.ts    # 30-min HttpOnly cookie for /activity/stream + /inspector/events
-│   ├── pty-session-cookie.ts    # Separate scope: live Claude PTY auth
-│   ├── tunnel-denial-log.ts     # ~/.gstack/security/attempts.jsonl writer (salted)
+│   ├── cdp-allowlist.ts         # Reddet-varsayılan CDP yöntem izin listesi
+│   ├── cdp-bridge.ts            # CDP oturum yaşam döngüsü köprüsü
+│   ├── cdp-commands.ts          # $B cdp gönderici
+│   ├── cdp-inspector.ts         # $B inspect — sayfa başına kalıcı CDP oturumu
+│   ├── activity.ts              # ActivityEntry, CircularBuffer, SSE aboneleri, gizlilik filtreleme
+│   ├── buffers.ts               # Konsol/ağ/iletişim kutusu dairesel tamponlar (O(1) halka)
+│   ├── tab-session.ts           # Sekme başı oturum durumu (load-html yeniden oynatma, referans eşleme kapsamı)
+│   ├── token-registry.ts        # Kök + kurulum anahtarları + kapsamlı belirteçler için oluştur/doğrula/iptal
+│   ├── sse-session-cookie.ts    # /activity/stream + /inspector/events için 30 dakikalık HttpOnly çerez
+│   ├── pty-session-cookie.ts    # Ayrı kapsam: canlı Claude PTY kimlik doğrulaması
+│   ├── tunnel-denial-log.ts     # ~/.gstack/security/attempts.jsonl yazıcı (tuzlanmış)
 │   ├── path-security.ts         # validateOutputPath / validateReadPath / validateTempPath
-│   ├── url-validation.ts        # URL safety checks for goto
-│   ├── content-security.ts      # L1-L3: datamarking, hidden strip, ARIA, URL blocklist, envelopes
-│   ├── security.ts              # L5 canary + L6 verdict combiner + thresholds
-│   ├── security-classifier.ts   # L4 ML classifier (TestSavant + optional DeBERTa ensemble)
-│   ├── terminal-agent.ts        # Side Panel Claude PTY manager (auth + lifecycle)
-│   ├── sidebar-utils.ts         # Sidebar URL sanitization + helpers
-│   ├── cookie-import-browser.ts # Decrypt + import cookies from real Chromium browsers
-│   ├── cookie-picker-routes.ts  # HTTP routes for /cookie-picker/*
-│   ├── cookie-picker-ui.ts      # Self-contained HTML/CSS/JS for cookie picker
-│   ├── network-capture.ts       # Network request capture for $B network
-│   ├── media-extract.ts         # Media element extraction for $B media
-│   ├── project-slug.ts          # Project slug derivation for state paths
+│   ├── url-validation.ts        # goto için URL güvenlik kontrolleri
+│   ├── content-security.ts      # L1-L3: veri işaretleme, gizli şerit, ARIA, URL engelleme listesi, zarflar
+│   ├── security.ts              # L5 kanarya + L6 karar birleştirici + eşikler
+│   ├── security-classifier.ts   # L4 ML sınıflandırıcı (TestSavant + isteğe bağlı DeBERTa topluluğu)
+│   ├── terminal-agent.ts        # Side Panel Claude PTY yöneticisi (kimlik doğrulama + yaşam döngüsü)
+│   ├── sidebar-utils.ts         # Kenar çubuğu URL sansürleme + yardımcılar
+│   ├── cookie-import-browser.ts # Gerçek Chromium tarayıcılarından çerez şifre çözme + içe aktarma
+│   ├── cookie-picker-routes.ts  # /cookie-picker/* için HTTP yolları
+│   ├── cookie-picker-ui.ts      # Çerez seçici için kendi içinde HTML/CSS/JS
+│   ├── network-capture.ts       # $B network için ağ isteği yakalama
+│   ├── media-extract.ts         # $B media için medya öğesi çıkarma
+│   ├── project-slug.ts          # Durum yolları için proje kısa adı türetme
 │   ├── error-handling.ts        # safeUnlink / safeKill / isProcessAlive
-│   ├── platform.ts              # OS detection (macOS, Linux, Windows)
-│   ├── telemetry.ts             # Anonymous opt-in usage telemetry
-│   ├── find-browse.ts           # Locate running daemon or bootstrap
-│   └── config.ts                # Config resolution (env / files)
-├── test/                        # Integration tests + HTML fixtures
+│   ├── platform.ts              # İşletim sistemi tespiti (macOS, Linux, Windows)
+│   ├── telemetry.ts             # Anonim katılımlı kullanım telemetrisi
+│   ├── find-browse.ts           # Çalışan daemon'u bul veya başlat
+│   └── config.ts                # Yapılandırma çözümleme (ortam / dosyalar)
+├── test/                        # Entegrasyon testleri + HTML fixture'ları
 └── dist/
-    └── browse                   # Compiled binary (~58MB, Bun --compile)
+    └── browse                   # Derlenmiş ikili dosya (~58MB, Bun --compile)
 
 browser-skills/
-└── hackernews-frontpage/        # Bundled reference skill
+└── hackernews-frontpage/        # Paketlenmiş referans becerisi
     ├── SKILL.md
     ├── script.ts
     ├── _lib/browse-client.ts
     ├── fixtures/hn-2026-04-26.html
     └── script.test.ts
 
-scrape/SKILL.md.tmpl             # /scrape gstack skill — match-or-prototype entry point
-skillify/SKILL.md.tmpl           # /skillify gstack skill — codify last /scrape into permanent skill
+scrape/SKILL.md.tmpl             # /scrape gstack becerisi — eşleşme-veya-prototip giriş noktası
+skillify/SKILL.md.tmpl           # /skillify gstack becerisi — son /scrape'ı kalıcı beceriye kodla
 ```
 
 ---
 
-## Development
+## Geliştirme
 
-### Prerequisites
+### Ön koşullar
 
 - [Bun](https://bun.sh/) v1.0+
-- Playwright's Chromium (installed automatically by `bun install`)
+- Playwright'ın Chromium'u (`bun install` tarafından otomatik kurulur)
 
-### Quick start
+### Hızlı başlangıç
 
 ```bash
-bun install                      # install deps + Playwright Chromium
-bun test                         # all integration tests (~3s for browse-only)
-bun run dev <cmd>                # run CLI from source (no compile)
-bun run build                    # compile to browse/dist/browse
+bun install                      # bağımlılıkları + Playwright Chromium'u kur
+bun test                         # tüm entegrasyon testleri (~3s yalnızca browse)
+bun run dev <komut>              # CLI'yi kaynaktan çalıştır (derleme yok)
+bun run build                    # browse/dist/browse konumuna derle
 ```
 
-### Dev mode vs compiled binary
+### Geliştirme modu vs derlenmiş ikili dosya
 
-During development, use `bun run dev` instead of the compiled binary. It runs
-`browse/src/cli.ts` directly with Bun, so you get instant feedback:
+Geliştirme sırasında derlenmiş ikili dosya yerine `bun run dev` kullanın. CLI'yi
+Bun ile doğrudan `browse/src/cli.ts` olarak çalıştırır, böylece anında geri
+bildirim alırsınız:
 
 ```bash
 bun run dev goto https://example.com
@@ -1265,54 +1303,56 @@ bun run dev snapshot -i
 bun run dev click @e3
 ```
 
-The compiled binary (`bun run build`) is only needed for distribution. It
-produces a single ~58MB executable at `browse/dist/browse` using Bun's
-`--compile` flag.
+Derlenmiş ikili dosya (`bun run build`) yalnızca dağıtım için gereklidir. Bun'un
+`--compile` bayrağını kullanarak `browse/dist/browse` konumunda tek bir ~58MB
+çalıştırılabilir dosya üretir.
 
-### Running tests
+### Testleri çalıştırma
 
 ```bash
-bun test                                    # all tests
-bun test browse/test/commands               # command integration tests
-bun test browse/test/snapshot               # snapshot tests
-bun test browse/test/cookie-import-browser  # cookie import unit tests
-bun test browse/test/browser-skill-write    # D3 atomic-write helper tests
-bun test browse/test/tunnel-gate-unit       # canDispatchOverTunnel pure tests
+bun test                                    # tüm testler
+bun test browse/test/commands               # komut entegrasyon testleri
+bun test browse/test/snapshot               # anlık görüntü testleri
+bun test browse/test/cookie-import-browser  # çerez içe aktarma birim testleri
+bun test browse/test/browser-skill-write    # D3 atomik yazma yardımcı testleri
+bun test browse/test/tunnel-gate-unit       # canDispatchOverTunnel saf testleri
 ```
 
-Tests spin up a local HTTP server (`browse/test/test-server.ts`) serving HTML
-fixtures from `browse/test/fixtures/`, then exercise the CLI against those
-pages.
+Testler `browse/test/fixtures/` dizininden HTML fixture'ları sunan yerel bir HTTP
+sunucusu (`browse/test/test-server.ts`) başlatır, ardından CLI'yi bu sayfalara
+karşı çalıştırır.
 
-### Adding a new command
+### Yeni komut ekleme
 
-1. Add the handler in `read-commands.ts` (non-mutating) or `write-commands.ts`
-   (mutating), or `meta-commands.ts` (server / lifecycle).
-2. Register the route in `server.ts`.
-3. Add the entry to `COMMAND_DESCRIPTIONS` in `browse/src/commands.ts` (with
-   a clear `description` and `usage` — the `gen-skill-docs` validation
-   suite enforces no `|` characters in `description`).
-4. Add a test case in `browse/test/commands.test.ts` with an HTML fixture
-   if needed.
-5. Run `bun test` to verify.
-6. Run `bun run build` to compile.
-7. Run `bun run gen:skill-docs` to regenerate SKILL.md (the command appears
-   in the command-reference table downstream).
+1. İşleyiciyi `read-commands.ts` (değiştirmeyen) veya `write-commands.ts`
+   (değiştiren) veya `meta-commands.ts` (sunucu / yaşam döngüsü) dosyasına ekleyin.
+2. Rotayı `server.ts`'te kaydedin.
+3. Girdiyi `browse/src/commands.ts`'teki `COMMAND_DESCRIPTIONS`'a ekleyin
+   (net bir `description` ve `usage` ile — `gen-skill-docs` doğrulama paketi
+   `description`'da `|` karakterlerine izin vermez).
+4. Gerekirse bir HTML fixture'ı ile `browse/test/commands.test.ts`'te bir test
+   durumu ekleyin.
+5. Doğrulamak için `bun test` çalıştırın.
+6. Derlemek için `bun run build` çalıştırın.
+7. SKILL.md'yi yeniden oluşturmak için `bun run gen:skill-docs` çalıştırın
+   (komut aşağı akış komut referansı tablosunda görünür).
 
-### Adding a new browser-skill
+### Yeni tarayıcı-becerisi ekleme
 
-For a hand-written skill: copy `browser-skills/hackernews-frontpage/`,
-update SKILL.md frontmatter, rewrite `script.ts` against your target site,
-re-capture the fixture, update the parser test. `bun test` validates the
-SKILL.md contract (sibling SDK byte-identity, frontmatter schema).
+El ile yazılmış bir beceri için: `browser-skills/hackernews-frontpage/` kopyasını
+kullanın, SKILL.md frontmatter'ı güncelleyin, `script.ts`'yi hedef sitenize
+karşı yeniden yazın, fixture'ı yeniden yakalayın, ayrıştırıcı testini güncelleyin.
+`bun test` SKILL.md sözleşmesini (kardeş SDK bayt-özdeşliği, frontmatter şeması)
+doğrular.
 
-For an agent-written skill: drive the page once with `/scrape <intent>`,
-say `/skillify`, accept the proposed name in the approval gate. The skill
-lands at `~/.gstack/browser-skills/<name>/` after the test passes.
+Ajan yazılmış bir beceri için: sayfayı `/scrape <niyet>` ile bir kez tarayın,
+`/skillify` deyin, onay geçidinde önerilen adı kabul edin. Beceri test geçtikten
+sonra `~/.gstack/browser-skills/<ad>/` konumuna yerleşir.
 
-### Deploying to the active skill
+### Aktif beceriye dağıtma
 
-The active skill lives at `~/.claude/skills/gstack/`. After making changes:
+Aktif beceri `~/.claude/skills/gstack/` konumunda yaşar. Değişiklikler yaptıktan
+sonra:
 
 ```bash
 cd ~/.claude/skills/gstack
@@ -1320,7 +1360,7 @@ git fetch origin && git reset --hard origin/main
 bun run build
 ```
 
-Or copy the binary directly:
+Veya ikili dosyayı doğrudan kopyalayın:
 
 ```bash
 cp browse/dist/browse ~/.claude/skills/gstack/browse/dist/browse
@@ -1328,34 +1368,35 @@ cp browse/dist/browse ~/.claude/skills/gstack/browse/dist/browse
 
 ---
 
-## Cross-references
+## Çapraz referanslar
 
-- [`ARCHITECTURE.md`](ARCHITECTURE.md) — system-level architecture, dual-listener tunnel design, prompt-injection defense threat model
-- [`CLAUDE.md`](CLAUDE.md) — project-level instructions, sidebar architecture notes, security-stack constraints
-- [`docs/REMOTE_BROWSER_ACCESS.md`](docs/REMOTE_BROWSER_ACCESS.md) — operator guide for `/pair-agent` (setup keys, scoped tokens, denial log)
-- [`docs/designs/BROWSER_SKILLS_V1.md`](docs/designs/BROWSER_SKILLS_V1.md) — design doc for browser-skills runtime (Phase 1 + 2a + roadmap)
-- [`scrape/SKILL.md`](scrape/SKILL.md) — `/scrape` skill: match-or-prototype data extraction
-- [`skillify/SKILL.md`](skillify/SKILL.md) — `/skillify` skill: codify last `/scrape` into permanent skill
-- [`TODOS.md`](TODOS.md) — `/automate` (Phase 2b P0), Phase 3 resolver injection, Phase 4 eval + sandbox
+- [`ARCHITECTURE.md`](ARCHITECTURE.md) — sistem düzeyinde mimari, çift-dinleyici tünel tasarımı, komut enjeksiyonu savunma tehdit modeli
+- [`CLAUDE.md`](CLAUDE.md) — proje düzeyinde talimatlar, kenar çubuğu mimari notları, güvenlik yığını kısıtlamaları
+- [`docs/REMOTE_BROWSER_ACCESS.md`](docs/REMOTE_BROWSER_ACCESS.md) — `/pair-agent` için operatör kılavuzu (kurulum anahtarları, kapsamlı belirteçler, reddetme günlüğü)
+- [`docs/designs/BROWSER_SKILLS_V1.md`](docs/designs/BROWSER_SKILLS_V1.md) — tarayıcı-becerileri çalışma zamanı tasarım dokümanı (Aşama 1 + 2a + yol haritası)
+- [`scrape/SKILL.md`](scrape/SKILL.md) — `/scrape` becerisi: eşleşme-veya-prototip veri çıkarma
+- [`skillify/SKILL.md`](skillify/SKILL.md) — `/skillify` becerisi: son `/scrape`'ı kalıcı beceriye kodla
+- [`TODOS.md`](TODOS.md) — `/automate` (Aşama 2b P0), Aşama 3 çözücü enjeksiyonu, Aşama 4 değerlendirme + sanal alan
 
 ---
 
-## Acknowledgments
+## Teşekkürler
 
-The browser automation layer is built on [Playwright](https://playwright.dev/)
-by Microsoft. Playwright's accessibility tree API, locator system, and
-headless Chromium management are what make ref-based interaction possible.
-The snapshot system — assigning `@ref` labels to AX tree nodes and mapping
-them back to Playwright Locators — is built entirely on top of Playwright's
-primitives. Thank you to the Playwright team for building such a solid
-foundation.
+Tarayıcı otomasyon katmanı Microsoft tarafından
+[Playwright](https://playwright.dev/) üzerine inşa edilmiştir. Playwright'ın
+erişilebilirlik ağacı API'si, bulucu sistemi ve headless Chromium yönetimi,
+referans tabanlı etkileşimi mümkün kılan şeydir. Anlık görüntü sistemi — AX
+ağacı düğümlerine `@ref` etiketleri atama ve bunları Playwright Bulucularına
+geri eşleme — tamamen Playwright'ın ilkeleri üzerine inşa edilmiştir. Playwright
+ekibine böyle sağlam bir temel inşa ettikleri için teşekkürler.
 
-The prompt-injection L4 layer uses
+Komut enjeksiyonu L4 katmanı
 [TestSavantAI/distilbert-v1.1-32](https://huggingface.co/TestSavantAI/distilbert-v1.1-32)
-(112MB ONNX), and the optional ensemble layer uses
+(112MB ONNX) kullanır ve isteğe bağlı topluluk katmanı
 [ProtectAI/deberta-v3-base-prompt-injection-v2](https://huggingface.co/protectai/deberta-v3-base-prompt-injection-v2)
-(721MB ONNX) — both run locally via `@huggingface/transformers`.
+(721MB ONNX) kullanır — her ikisi de `@huggingface/transformers` aracılığıyla
+yerel olarak çalışır.
 
-The CDP escape hatch is gated by an allowlist directly inspired by Codex's
-T2 outside-voice review during the v1.4 design pass: deny-default with an
-explicit allowlist, not allow-default with a denylist.
+CDP acil çıkışı, doğrudan Codex'in v1.4 tasarım geçişi sırasındaki T2 dış-ses
+incelemesinden esinlenen bir izin listesi tarafından korunur: reddetme listesi
+ile izin-ver-varsayılan değil, izin listesi ile reddet-varsayılan.

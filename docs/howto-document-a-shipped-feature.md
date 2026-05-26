@@ -1,105 +1,137 @@
-# How to document a feature you just shipped
+# Yayımlanan bir özelliği nasıl belgelendirirsiniz
 
-This is the post-ship workflow: you merged a PR, the docs are stale, and you want a coverage map plus filled gaps in one pass. You'll run `/document-release` to audit, then `/document-generate` to fill the gaps it finds.
+Bu, yayınlama sonrası iş akışıdır: bir PR'yi birleştirdiniz, belgeler eskidi ve bir
+geçişte hem kapsam haritası hem de doldurulmuş boşluklar istiyorsunuz. Denetim için
+`/document-release`, ardından bulduğu boşlukları doldurmak için `/document-generate`
+çalıştıracaksınız.
 
-## Prerequisites
+## Ön koşullar
 
-- gstack installed (`./setup` complete; verify with `which gstack` or by typing `/` in Claude Code and seeing skills listed)
-- The branch with your shipped feature is checked out
-- A PR exists on GitHub or GitLab (recommended — the workflow updates the PR body with a coverage map)
+- gstack kurulu (`./setup` tamamlanmış; `which gstack` ile veya Claude Code'da `/`
+  yazıp yetenekleri listeleyerek doğrulayın)
+- Yayımlanan özelliğinizin bulunduğu dal checkout edilmiş
+- GitHub veya GitLab'de bir PR var (önerilen — iş akışı PR gövdesini bir kapsam haritası
+  ile günceller)
 
-If no PR exists yet, run `/ship` first to create one; that's what `/document-release` is designed to run against.
+Henüz bir PR yoksa, önce `/ship` çalıştırarak bir tane oluşturun; `/document-release`
+buna karşı çalışacak şekilde tasarlanmıştır.
 
-## Steps
+## Adımlar
 
-### 1. Audit current coverage
+### 1. Mevcut kapsamı denetle
 
-Run:
+Çalıştırın:
 
 ```
 /document-release
 ```
 
-The skill walks your diff against the base branch, extracts new public surface (skills, CLI flags, config options, API endpoints, new modules), and scores each entity across the four Diataxis quadrants. You'll see a coverage map like:
+Yetenek, diffinizi temel dala karşı yürür, yeni genel yüzeyi (yetenekler, CLI
+bayrakları, yapılandırma seçenekleri, API uç noktaları, yeni modüller) çıkarır ve her
+varlığı dört Diataxis kadranı üzerinden puanlar. Şöyle bir kapsam haritası görürsünüz:
 
 ```
 Coverage map:
-  [entity]         [reference?] [how-to?] [tutorial?] [explanation?]
+  [varlık]         [referans?] [nasıl yapılır?] [eğitim?] [açıklama?]
   /new-skill       ✅ AGENTS.md  ❌        ❌          ❌
   --new-flag       ✅ README     ✅ README  ❌          ❌
   FooProcessor     ❌            ❌        ❌          ❌
 ```
 
-Items with zero coverage are **critical gaps**. Items with only reference coverage are **common gaps**. Both land in the PR body as a `### Documentation Debt` subsection so reviewers see them.
+Sıfır kapsama sahip öğeler **kritik boşluklar**. Yalnızca referans kapsama sahip öğeler
+**yaygın boşluklar**. Her ikisi de gözden geçirenlerin görmesi için PR gövdesinde
+`### Documentation Debt` alt bölümü olarak yer alır.
 
-If `/document-release` reports everything is covered, you're done. Skip the rest of this how-to.
+`/document-release` her şeyin kapsandığını bildiriyorsa, işiniz bitti. Bu nasıl yapılırın
+geri kalanını atlayın.
 
-### 2. Read the documentation debt section in the PR body
+### 2. PR gövdesindeki belgelendirme borç bölümünü okuyun
 
-Open your PR (the skill prints the URL). Scroll to `## Documentation` → `### Documentation Debt`. Each item is tagged with the Diataxis quadrant that would fill it:
+PR'nizi açın (yetenek URL'yi yazdırır). `## Documentation` → `### Documentation Debt`
+bölümüne gidin. Her öğe, dolduracak Diataxis kadranıyla etiketlenmiştir:
 
 ```
 ### Documentation Debt
 
-- ⚠️ /new-skill — has reference in AGENTS.md but no how-to example in README. Diataxis quadrant: how-to.
-- ⚠️ FooProcessor — zero coverage. Diataxis quadrants: reference, explanation.
+- ⚠️ /new-skill — AGENTS.md dosyasında referans var ama README'de nasıl yapılır örneği yok. Diataxis kadranı: nasıl yapılır.
+- ⚠️ FooProcessor — sıfır kapsam. Diataxis kadranları: referans, açıklama.
 ```
 
-This is the input to the next step. Each line tells you what's missing and which quadrant fills it.
+Bu, bir sonraki adımın girdisidir. Her satır size neyin eksik olduğunu ve hangi
+kadranın dolduracağını söyler.
 
-### 3. Fill the gaps with /document-generate
+### 3. Boşlukları /document-generate ile doldurun
 
-Run:
+Çalıştırın:
 
 ```
 /document-generate
 ```
 
-When the skill asks about scope, tell it the specific entities flagged in the debt section. The skill reads the codebase (its Step 1 archaeology phase is mandatory), partitions by Diataxis quadrant, and writes the missing docs.
+Yetenek kapsam sorusunu sorduğunda, borç bölümünde işaretlenen belirli varlıkları söyleyin.
+Yetenek kod tabanını okur (1. Adım arkeoloji aşaması zorunludur), Diataxis kadranına
+göre böler ve eksik belgeleri yazar.
 
-You can also let the skill auto-discover: if /document-release passed you the gaps explicitly (it does this when chained), `/document-generate` already knows what to write.
+Yeteneğin otomatik olarak keşfetmesine de izin verebilirsiniz: `/document-release`
+boşlukları açıkça size geçtiyse (zincirlendiğinde bunu yapar), `/document-generate`
+zaten ne yazacağını bilir.
 
-### 4. Verify the gaps closed
+### 4. Boşlukların kapandığını doğrulayın
 
-Re-run `/document-release`:
+`/document-release` komutunu yeniden çalıştırın:
 
 ```
 /document-release
 ```
 
-The coverage map should now show the previously-flagged entities with green checkmarks in the previously-empty quadrants. The PR body's Documentation Debt section should be empty or reduced to items you intentionally deferred.
+Kapsam haritası artık daha önce işaretlenen varlıkları, daha önce boş olan kadranlarda
+yeşil onay işaretleriyle göstermelidir. PR gövdesinin Documentation Debt bölümü boş
+olmalı veya yalnızca bilerek ertelenen öğeleri içermelidir.
 
-## Verification
+## Doğrulama
 
-Open your PR and confirm:
+PR'nizi açın ve şunları doğrulayın:
 
-1. The PR body has a `## Documentation` section with a doc-diff preview.
-2. The `### Documentation Debt` subsection lists zero critical gaps (or only items you knowingly deferred).
-3. Each generated doc file in `docs/` opens cleanly and cross-links to siblings (reference → how-to → tutorial → explanation).
-4. Run `grep -rE '\]\([^)]*\.md\)' docs/` and verify no link points to a missing file.
+1. PR gövdesinde bir belge fark önizlemesi ile bir `## Documentation` bölümü var.
+2. `### Documentation Debt` alt bölümü sıfır kritik boşluk listeliyor (veya yalnızca
+   bilerek ertelenen öğeler).
+3. `docs/` dizinindeki her üretilen belge dosyası düzgün açılıyor ve kardeşlerine
+   çapraz bağlantı veriyor (referans → nasıl yapılır → eğitim → açıklama).
+4. `grep -rE '\]\([^)]*\.md\)' docs/` çalıştırın ve hiçbir bağlantının eksik bir
+   dosyaya işaret etmediğini doğrulayın.
 
-If all four check, your PR is ready to land with complete documentation.
+Dördü de geçiyorsa, PR'niz eksiksiz belgelendirme ile birleştirilmeye hazır.
 
-## Troubleshooting
+## Sorun giderme
 
-**`/document-release` reports "No public surface changes detected."**
-The diff is internal-only (refactors, tests, infra). No docs are needed. Skip to landing.
+**`/document-release` "No public surface changes detected." raporluyor.**
+Diff yalnızca dahili (yeniden düzenlemeler, testler, altyapı). Belgeye gerek yok.
+Birleştirmeye geçin.
 
-**The Diataxis quadrant tag on a gap doesn't match what you'd expect.**
-The skill uses an entity taxonomy to decide which quadrants matter (CLI flags want reference + how-to; internal modules want reference + explanation; user-facing features want all four). If you disagree, you can override by hand-editing the docs after generation. The audit is a guide, not a constraint.
+**Boşluktaki Diataxis kadranı etiketi beklediğinizle eşleşmiyor.**
+Yetenek, hangi kadranların önemli olduğuna karar vermek için bir varlık taksonomisi
+kullanır (CLI bayrakları referans + nasıl yapılır ister; dahili modüller referans +
+açıklama ister; kullanıcıya dönük özellikler dördünü de ister). Katılmıyorsanız,
+üretimden sonra belgeleri el ile düzenleyerek geçersiz kılabilirsiniz. Denetim bir
+kılavuzdur, bir kısıtlama değil.
 
-**`/document-generate` writes a tutorial that takes 8 steps to reach a working result.**
-Tutorials should hit a working result in 3 steps or fewer. Re-run the skill and ask it to compress, or hand-edit. The Step 8 Quality Self-Review catches some of these but not all.
+**`/document-generate` çalışan bir sonuca ulaşmak için 8 adım süren bir eğitim yazıyor.**
+Eğitimler 3 adım veya daha azında çalışan bir sonuç vermelidir. Yeteneği yeniden
+çalıştırıp sıkıştırmasını isteyin veya el ile düzenleyin. 8. Adım Kalite Özdenetimi
+bunlardan bazılarını yakalar ama hepsini değil.
 
-**You want to document a feature but no PR exists yet.**
-Run `/ship` first to create the PR, then this workflow. Without a PR, `/document-release` can still audit but skips the PR-body update.
+**Bir özelliği belgelendirmek istiyorsunuz ama henüz bir PR yok.**
+Önce PR'yi oluşturmak için `/ship` çalıştırın, ardından bu iş akışını uygulayın. PR
+olmadan `/document-release` yine de denetim yapabilir ama PR gövdesi güncellemesini atlar.
 
-**A generated reference doc has hallucinated API signatures.**
-File a bug. The skill's Step 1 archaeology is supposed to read implementation files end-to-end, not just signatures, specifically to prevent this. Include the generated text and the actual code so we can trace why the archaeology missed it.
+**Üretilen bir referans belgesi, API imzalarını halüsinasyonla uydurmuş.**
+Bir hata dosyası açın. Yeteneğin 1. Adım arkeolojisi, tam olarak bunu önlemek için
+imzaları değil, uygulama dosyalarını baştan sona okumak zorundadır. Üretilen metni ve
+gerçek kodu ekleyin, böylece arkeolojinin bunu neden kaçırdığını izleyebiliriz.
 
-## Related
+## İlgili
 
-- **Tutorial: first time using `/document-generate`:** [tutorial-document-generate.md](./tutorial-document-generate.md)
-- **Why gstack uses the Diataxis framework:** [explanation-diataxis-in-gstack.md](./explanation-diataxis-in-gstack.md)
-- **Reference for the audit skill:** [`document-release/SKILL.md`](../document-release/SKILL.md)
-- **Reference for the generation skill:** [`document-generate/SKILL.md`](../document-generate/SKILL.md)
+- **İlk kez `/document-generate` kullanımı için eğitim:** [tutorial-document-generate.md](./tutorial-document-generate.md)
+- **gstack neden Diataxis çerçevesini kullanıyor:** [explanation-diataxis-in-gstack.md](./explanation-diataxis-in-gstack.md)
+- **Denetim yeteneği için referans:** [`document-release/SKILL.md`](../document-release/SKILL.md)
+- **Üretim yeteneği için referans:** [`document-generate/SKILL.md`](../document-generate/SKILL.md)

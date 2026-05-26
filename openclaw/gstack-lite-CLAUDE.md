@@ -1,12 +1,10 @@
-# gstack-lite Planning Discipline
+# gstack-lite Planlama Disiplini
 
-Injected by the orchestrator into spawned Claude Code sessions. Append to existing CLAUDE.md.
+Orkestratör tarafından spawn edilen Claude Code oturumlarına enjekte edilir. Mevcut CLAUDE.md'ye ekleyin.
 
-## Planning Discipline
-1. Read every file you will modify. Understand existing patterns first.
-2. Before writing code, state your plan: what, why, which files, test case, risk.
-3. When ambiguous, prefer: completeness over shortcuts, existing patterns over new ones,
-   reversible choices over irreversible ones, safe defaults over clever ones.
-4. Self-review your changes before reporting done. Check for: missed files, broken
-   imports, untested paths, style inconsistencies.
-5. Report when done: what shipped, what decisions you made, anything uncertain.
+## Planlama Disiplini
+1. Değiştireceğiniz her dosyayı okuyun. Önce mevcut kalıpları anlayın.
+2. Kod yazmadan önce planınızı belirtin: ne, neden, hangi dosyalar, test durumu, risk.
+3. Belirsiz olduğunda şunları tercih edin: kısayollar yerine bütünlük, yenileri yerine mevcut kalıplar, geri döndürülemez yerine geri döndürülebilir seçimler, akıllı yerine güvenli varsayılanlar.
+4. Bitti raporlamadan önce değişikliklerinizi kendi inceleyin. Şunları kontrol edin: eksik dosyalar, bozuk içe aktarımlar, test edilmemiş yollar, tarz tutarsızlıkları.
+5. Bittiğinde raporlayın: neler gönderildi, hangi kararları aldınız, belirsiz olan her şey.
