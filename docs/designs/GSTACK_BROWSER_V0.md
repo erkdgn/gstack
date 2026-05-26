@@ -1,376 +1,300 @@
-# GStack Browser V0 — The AI-Native Development Browser
+# GStack Browser V0 — Yapay Zeka Doğal Geliştirme Tarayıcısı
 
-**Date:** 2026-03-30
-**Author:** Garry Tan + Claude Code
-**Status:** Phase 1a shipped, Phase 1b in progress
-**Branch:** garrytan/gstack-as-browser
+**Tarih:** 2026-03-30
+**Yazar:** Garry Tan + Claude Code
+**Durum:** Aşama 1a gönderildi, Aşama 1b devam ediyor
+**Dal:** garrytan/gstack-as-browser
 
-## The Thesis
+## Tez
 
-Every other AI browser (Atlas, Dia, Comet, Chrome Auto Browse) starts with a
-consumer browser and bolts AI onto it. GStack Browser inverts this. It starts
-with Claude Code as the runtime and gives it a browser viewport.
+Başka her AI tarayıcısı (Atlas, Dia, Comet, Chrome Auto Browse) bir tüketici tarayıcısıyla başlayıp üzerine AI ekliyor. GStack Browser bunu tersine çeviriyor. Claude Code'u çalışma zamanı olarak alıyor ve ona bir tarayıcı görüntü alanı veriyor.
 
-The agent is the primary citizen. The browser is the canvas. Skills are
-first-class capabilities. You don't "use a browser with AI help." You use
-an AI that can see and interact with the web.
+Aracı birinci sınıf vatandaştır. Tarayıcı tuvaldir. Skill'ler birinci sınıf yeteneklerdir. "AI yardımıyla bir tarayıcı kullanmıyorsunuz." Web'i görebilen ve etkileşime girebilen bir AI kullanıyorsunuz.
 
-This is the IDE for the post-IDE era. Code lives in the terminal. The product
-lives in the browser. The AI works across both simultaneously. What Cursor did
-for text editors, GStack Browser does for the browser.
+Bu, post-IDE çağı için IDE'dir. Kod terminalde yaşar. Ürün tarayıcıda yaşar. AI her ikisinde aynı anda çalışır. Cursor'un metin düzenleyicileri için yaptığını GStack Browser tarayıcı için yapıyor.
 
-## What It Is Today (Phase 1a, shipped)
+## Bugün Ne (Aşama 1a, gönderildi)
 
-A double-clickable macOS .app that wraps Playwright's Chromium with the gstack
-sidebar extension baked in. You open it and Claude Code can see your screen,
-navigate pages, fill forms, take screenshots, inspect CSS, clean up overlays,
-and run any gstack skill. All without touching a terminal.
+gstack kenar çubuğu eklentisinin içine gömüldüğü Playwright'ın Chromium'unu saran çift tıklanabilir bir macOS .app. Açtığınızda Claude Code ekranınızı görebilir, sayfalarda gezinebilir, formları doldurabilir, ekran görüntüleri alabilir, CSS inceleyebilir, katmanları temizleyebilir ve herhangi bir gstack skill'ini çalıştırabilir. Hepsi bir terminale dokunmadan.
 
 ```
 GStack Browser.app (389MB, 189MB DMG)
-├── Compiled browse binary (58MB) — CLI + HTTP server
-├── Chrome extension (172KB) — sidebar, activity feed, inspector
-├── Playwright's Chromium (330MB) — the actual browser
-└── Launcher script — binds project dir, sets env vars
+├── Derlenmiş browse ikili dosyası (58MB) — CLI + HTTP sunucu
+├── Chrome eklentisi (172KB) — kenar çubuğu, aktivite akışı, denetçi
+├── Playwright'ın Chromium'u (330MB) — gerçek tarayıcı
+└── Başlatıcı betiği — proje dizinini bağlar, çevre değişkenlerini ayarlar
 ```
 
-Launch → Chromium opens with sidebar → extension auto-connects to browse server
-→ agent ready in ~5 seconds.
+Başlat → Chromium kenar çubuğu ile açılır → eklenti browse sunucusuna otomatik bağlanır → aracı ~5 saniyede hazır.
 
-## What It Will Be
+## Ne Olacak
 
-### Phase 1b: Developer UX (next)
+### Aşama 1b: Geliştirici UX (sonraki)
 
-**Command Palette (Cmd+K):** The signature interaction. Opens a fuzzy-filtered
-skill picker. Type "/qa" to start QA testing, "/investigate" to debug, "/ship"
-to create a PR. Skills are fetched from the browse server, not hardcoded. The
-palette is the entry point to everything.
+**Komut Paleti (Cmd+K):** İmza etkileşimi. Bulanık filtrelenmiş bir skill seçici açar. QA testi başlatmak için "/qa", hata ayıklamak için "/investigate", PR oluşturmak için "/ship" yazın. Skill'ler browse sunucusundan getirilir, sabit kodlanmaz. Palet her şeye giriş noktasıdır.
 
-**Quick Screenshot (Cmd+Shift+S):** Capture the current viewport and pipe it into
-the sidebar chat with "What do you see?" context. The AI analyzes the screenshot
-and gives you actionable feedback. Visual bug reports in one keystroke.
+**Hızlı Ekran Görüntüsü (Cmd+Shift+S):** Mevcut görüntü alanını yakalar ve "Ne görüyorsun?" bağlamıyla kenar çubuğu sohbetine aktarır. AI ekran görüntüsünü analiz eder ve size eyleme geçirilebilir geri bildirim verir. Bir tuş vuruşunda görsel hata raporları.
 
-**Status Bar:** A persistent 30px bar at the bottom of every page. Shows agent
-status (idle/thinking), workspace name, current branch, and auto-detected dev
-servers. Click a dev server pill to navigate. Always-visible context about what
-the AI is doing.
+**Durum Çubuğu:** Her sayfanın altında kalıcı bir 30px çubuk. Aracı durumunu (boşta/düşünüyor), çalışma alanı adını, mevcut dalı ve otomatik algılanan geliştirme sunucularını gösterir. Bir geliştirme sunucusu hapına tıklayarak gezinebilirsiniz. AI'nın ne yaptığına dair her zaman görünen bağlam.
 
-**Auto-Detect Dev Servers:** On launch, scans common ports (3000, 3001, 4200,
-5173, 5174, 8000, 8080). If exactly one server is found, auto-navigates to it.
-Dev server pills in the status bar for one-click switching.
+**Otomatik Algılanan Geliştirme Sunucuları:** Başlatmada yaygın bağlantı noktalarını tarar (3000, 3001, 4200, 5173, 5174, 8000, 8080). Tam olarak bir sunucu bulunursa otomatik olarak ona gider. Durum çubuğundaki geliştirme sunucusu hapları tek tıkla geçiş için.
 
-### Phase 2: BoomLooper Integration
+### Aşama 2: BoomLooper Entegrasyonu
 
-The sidebar connects to BoomLooper's Phoenix/Elixir APIs instead of a local
-`claude -p` subprocess. BoomLooper provides:
+Kenar çubuğu yerel bir `claude -p` alt süreci yerine BoomLooper'ın Phoenix/Elixir API'lerine bağlanır. BoomLooper şunları sağlar:
 
-- **Multi-agent orchestration.** Spawn 5 agents in parallel, each with its own
-  browser tab. One runs QA, one does design review, one watches for regressions.
-- **Docker infrastructure.** Each agent gets an isolated container. The browser
-  inside the container tests the dev server. No port conflicts, no state leakage.
-- **Session persistence.** Agent conversations survive browser restarts. Pick up
-  where you left off.
-- **Team visibility.** Your teammates can watch what your agents are doing in
-  real-time. Like pair programming, but the pair is 5 AI agents and you're the
-  conductor.
+- **Çoklu aracı orkestrasyonu.** Her biri kendi tarayıcı sekmesinde 5 aracı paralel olarak başlat. Biri QA çalıştırır, biri tasarım incelemesi yapar, biri regresyonları izler.
+- **Docker altyapısı.** Her arıcı yalıtılmış bir kapsayıcı alır. Kapsayıcı içindeki tarayıcı geliştirme sunucusunu test eder. Bağlantı noktası çakışması yok, durum sızıntısı yok.
+- **Oturum kalıcılığı.** Aracı konuşmaları tarayıcı yeniden başlatmalarından sağ çıkar. Kaldığınız yerden devam edin.
+- **Takım görünürlüğü.** Takım arkadaşlarınız aracılarınızın ne yaptığını gerçek zamanlı olarak görebilir. Çift programlama gibi, ama çift 5 AI arıcısı ve siz şefsiniz.
 
-### Phase 3: Browse as BoomLooper Tool
+### Aşama 3: Browse'un BoomLooper Aracı Olması
 
-The browse binary becomes an MCP tool in BoomLooper. Agents in Docker containers
-use browse commands to test dev servers, take screenshots, fill forms, and verify
-deployments. Cross-platform compilation (linux-arm64/x64) required.
+browse ikili dosyası BoomLooper'da bir MCP aracı olur. Docker kapsayıcılarındaki arıcılar, geliştirme sunucularını test etmek, ekran görüntüleri almak, formları doldurmak ve dağıtımları doğrulamak için browse komutlarını kullanır. Çapraz platform derlemesi (linux-arm64/x64) gerekli.
 
-### Phase 4: Chromium Fork (trigger-gated)
+### Aşama 4: Chromium Çatalı (tetikleyici kontrollü)
 
-When the extension side panel hits hard API limits, GStack Browser ships to
-external users, build infra exists, and the business justifies maintenance:
-fork Chromium. Brave's `chromium_src` override pattern, CC-powered 6-week
-rebases (2-4 hours with CC vs 1-2 weeks human). ~20-30 files modified.
+Eklenti yan paneli sert API sınırlarına çarptığında, GStack Browser dış kullanıcılara gönderildiğinde, derleme altyapısı mevcut olduğunda ve işletme bakımı haklı çıkardığında: Chromium'u çatallayın. Brave'ın `chromium_src` override deseni, CC destekli 6 haftalık yeniden tabanlama (2-4 saat CC ile vs 1-2 hafta insan). ~20-30 dosya değiştirildi.
 
-### Phase 5: Native Shell
+### Aşama 5: Yerel Kabuk
 
-SwiftUI/AppKit app shell with native sidebar, isolated Chromium service. Full
-platform integration. May be superseded by Phase 4 if the Chromium fork includes
-a native sidebar.
+Yerel kenar çubuğu, yalıtılmış Chromium hizmeti ile SwiftUI/AppKit uygulama kabuğu. Tam platform entegrasyonu. Chromium çatalı yerel bir kenar çubuğu içeriyorsa Aşama 5 tarafından geçersiz kılınabilir.
 
-## Vision: What an AI Browser Can Do
+## Vizyon: Bir AI Tarayıcısı Ne Yapabilir
 
-### 1. See What You See
+### 1. Gördüğünüzü Görür
 
-The browser is the AI's eyes. Not through screenshots (though it can do that),
-but through DOM access, CSS inspection, network monitoring, and accessibility
-tree parsing. The AI understands the page structure, not just the pixels.
+Tarayıcı AI'nın gözleridir. Ekran görüntüleri üzerinden değil (yapabilir ama), DOM erişimi, CSS incelemesi, ağ izleme ve erişilebilirlik ağacı ayrıştırma üzerinden. AI pikselleri değil, sayfa yapısını anlar.
 
-**Today:** `snapshot` command returns an accessibility-tree representation of any
-page. The AI can "see" every button, link, form field, and text element. Element
-references (`@e1`, `@e2`) let the AI click, fill, and interact.
+**Bugün:** `snapshot` komutu herhangi bir sayfanın erişilebilirlik ağacı temsilini döndürür. AI her düğmeyi, bağlantıyı, form alanını ve metin öğesini "görebilir". Öğe referansları (`@e1`, `@e2`) AI'nın tıklamasını, doldurmasını ve etkileşime girmesini sağlar.
 
-**Next:** Real-time page observation. The AI notices when a page changes, when an
-error appears in the console, when a network request fails. Proactive debugging
-without being asked.
+**Sonraki:** Gerçek zamanlı sayfa gözlemi. AI bir sayfanın ne zaman değiştiğini, konsolda bir hatanın ne zaman göründüğünü, bir ağ isteğinin ne zaman başarısız olduğunu fark eder. Sorulmadan proaktif hata ayıklama.
 
-**Future:** Visual understanding. The AI compares before/after screenshots to catch
-visual regressions. Pixel-level design review. "This button moved 3px left and the
-font changed from 14px to 13px."
+**Gelecek:** Görsel anlama. AI önce/sonra ekran görüntülerini karşılaştırarak görsel regresyonları yakalar. Piksel düzeyinde tasarım incelemesi. "Bu düğme 3px sola taşındı ve yazı tipi 14px'den 13px'e değişti."
 
-### 2. Act on What It Sees
+### 2. Gördüğüne Göre Hareket Eder
 
-Not just reading pages, but interacting with them like a human user would.
+Sayfaları okumak değil, onlara bir insan kullanıcının yapacağı gibi etkileşime girmek.
 
-**Today:** Click, fill, select, hover, type, scroll, upload files, handle dialogs,
-navigate, manage tabs. All via simple commands through the browse server.
+**Bugün:** Tıkla, doldur, seç, üzerine gel, yaz, kaydır, dosya yükle, diyalogları yönet, gezin, sekmeleri yönet. Hepsi browse sunucusu üzerinden basit komutlarla.
 
-**Next:** Multi-step user flows. "Log in, go to settings, change the timezone,
-verify the confirmation message." The AI chains commands with verification at each
-step.
+**Sonraki:** Çok adımlı kullanıcı akışları. "Giriş yap, ayarlara git, saat dilimini değiştir, onay mesajını doğrula." AI her adımda doğrulama ile komutları zincirler.
 
-**Future:** Autonomous QA agent. "Test every link on this page. Fill every form.
-Try to break it." The AI runs exhaustive interaction testing without a script.
-Finds bugs a human tester would miss because it tries combinations humans don't
-think of.
+**Gelecek:** Otonom QA aracısı. "Bu sayfadaki her bağlantıyı test et. Her formu doldur. Bozmaya çalış." AI bir betim olmadan kapsamlı etkileşim testi çalıştırır. İnsanların düşünmediği kombinasyonları denediği için insan testçinin kaçıracağı hataları bulur.
 
-### 3. Write Code While Browsing
+### 3. Gezinirken Kod Yazar
 
-This is the key differentiator. The AI can see the bug in the browser AND fix it
-in the code simultaneously.
+Bu temel farklılaştırıcıdır. AI tarayıcıdaki hatayı görebilir VE kodu aynı anda düzeltebilir.
 
-**Today:** The sidebar chat connects to Claude Code. You say "this button is
-misaligned" and the AI reads the CSS, identifies the issue, and proposes a fix.
-The `/design-review` skill takes screenshots, identifies visual issues, and
-commits fixes with before/after evidence.
+**Bugün:** Kenar çubuğu sohbeti Claude Code'a bağlanır. "Bu düğme hizasız" dersiniz ve AI CSS'yi okur, sorunu tanımlar ve bir düzeltme önerir. `/design-review` skill'i ekran görüntüleri alır, görsel sorunları tanımlar ve önce/sonra kanıtıyla düzeltmeleri işler.
 
-**Next:** Live reload loop. The AI edits CSS/HTML, the browser auto-reloads, the
-AI verifies the fix visually. No human in the loop for simple visual fixes.
-"Fix every spacing issue on this page" becomes a 30-second task.
+**Sonraki:** Canlı yeniden yükleme döngüsü. AI CSS/HTML düzenler, tarayıcı otomatik olarak yeniden yükler, AI düzeltmeyi görsel olarak doğrular. Basit görsel düzeltmeler için insan döngüde değil. "Bu sayfadaki tüm boşluk sorunlarını düzelt" 30 saniyelik bir görev olur.
 
-**Future:** Full-stack debugging. The AI sees a 500 error in the browser, reads
-the server logs, traces to the failing line, writes the fix, and verifies in the
-browser. One command: "This page is broken. Fix it."
+**Gelecek:** Tam yığın hata ayıklama. AI tarayıcıda bir 500 hatası görür, sunucu günlüklerini okur, başarısız satıra kadar izler, düzeltmeyi yazar ve tarayıcıda doğrular. Bir komut: "Bu sayfa bozuk. Düzelt."
 
-### 4. Understand the Whole Stack
+### 4. Tüm Yığını Anlar
 
-The browser isn't just a viewport. It's a window into the application's health.
+Tarayıcı yalnızca bir görüntü alanı değil. Uygulamanın sağlığına bir penceredir.
 
-**Today:**
-- Console log capture — every `console.log`, `console.error`, and warning
-- Network request monitoring — every XHR, fetch, websocket, and static asset
-- Performance metrics — Core Web Vitals, resource timing, paint events
-- Cookie and storage inspection — read and write localStorage, sessionStorage
-- CSS inspection — computed styles, box model, rule cascade
+**Bugün:**
+- Konsol günlüğü yakalama — her `console.log`, `console.error` ve uyarı
+- Ağ isteği izleme — her XHR, fetch, websocket ve statik varlık
+- Performans metrikleri — Core Web Vitals, kaynak zamanlama, boyama olayları
+- Çerez ve depolama incelemesi — localStorage, sessionStorage okuma ve yazma
+- CSS incelemesi — hesaplanan stiller, kutu modeli, kural basamaklaması
 
-**Next:**
-- Network request replay — "replay this failing request with different params"
-- Performance regression detection — "this page is 200ms slower than yesterday"
-- Dependency auditing — "this page loads 47 third-party scripts"
-- Accessibility auditing — "this form has no labels, these colors fail contrast"
+**Sonraki:**
+- Ağ isteği yeniden oynatma — "bu başarısız isteği farklı parametrelerle yeniden oynat"
+- Performans regresyon algılama — "bu sayfa dünden 200ms yavaş"
+- Bağımlılık denetimi — "bu sayfa 47 üçüncü taraf betik yüküyor"
+- Erişilebilirlik denetimi — "bu formun etiketi yok, bu renkler kontrastı geçemiyor"
 
-**Future:**
-- Full application telemetry — CPU, memory, GPU usage in real-time
-- Cross-browser testing — same test suite across Chrome, Firefox, Safari
-- Real user monitoring correlation — "this bug affects 12% of production users"
+**Gelecek:**
+- Tam uygulama telemetrisi — gerçek zamanlı CPU, bellek, GPU kullanımı
+- Çapraz tarayıcı testi — Chrome, Firefox, Safari'de aynı test pakiti
+- Gerçek kullanıcı izleme korelasyonu — "bu hata üretim kullanıcılarının %12'sini etkiliyor"
 
-### 5. The Workspace Model
+### 5. Çalışma Alanı Modeli
 
-The browser IS the workspace. Not a tab in a workspace. The workspace itself.
+Tarayıcı IS çalışma alanıdır. Bir çalışma alanında bir sekme değil. Çalışma alanının kendisi.
 
-**Today:** Each browser session is bound to a project directory. The sidebar shows
-the current branch. The status bar shows detected dev servers.
+**Bugün:** Her tarayıcı oturumu bir proje dizinine bağlıdır. Kenar çubuğu mevcut dalı gösterir. Durum çubuğu algılanan geliştirme sunucularını gösterir.
 
-**Next:** Multi-project support. Switch between projects without closing the
-browser. Each project gets its own set of tabs, its own agent, its own context.
-Like VSCode workspaces, but for the browser.
+**Sonraki:** Çoklu proje desteği. Tarayıcıyı kapatmadan projeler arasında geçiş yap. Her proje kendi sekme setini, kendi arıcısını, kendi bağlamını alır. VSCode çalışma alanları gibi, ama tarayıcı için.
 
-**Future:** Team workspaces. Multiple developers share a browser workspace. See
-each other's agents working. Collaborative debugging where one person navigates
-and the other watches the AI fix things in real-time.
+**Gelecek:** Takım çalışma alanları. Birden fazla geliştirici bir tarayıcı çalışma alanını paylaşır. Birbirlerinin arıcılarının çalıştığını görün. Bir kişinin gezindiği ve diğerinin AI'nın gerçek zamanlı olarak şeyleri düzelttiğini izlediği işbirlikçi hata ayıklama.
 
-### 6. Skills as Browser Capabilities
+### 6. Skill'ler Tarayıcı Yetenekleri Olarak
 
-Every gstack skill becomes a browser capability.
+Her gstack skill'i bir tarayıcı yeteneği olur.
 
-| Skill | Browser Capability |
+| Skill | Tarayıcı Yeteneği |
 |-------|-------------------|
-| `/qa` | Test every page, find bugs, fix them, verify fixes |
-| `/design-review` | Screenshot → analyze → fix CSS → screenshot again |
-| `/investigate` | See the error in browser → trace to code → fix → verify |
-| `/benchmark` | Measure page performance → detect regressions → alert |
-| `/canary` | Monitor deployed site → screenshot periodically → alert on changes |
-| `/ship` | Run tests → review diff → create PR → verify deployment in browser |
-| `/cso` | Audit page for XSS, open redirects, clickjacking in real browser |
-| `/office-hours` | Browse competitor sites → synthesize observations → design doc |
+| `/qa` | Her sayfayı test et, hataları bul, düzelt, düzeltmeleri doğrula |
+| `/design-review` | Ekran görüntüsü → analiz et → CSS'yi düzelt → tekrar ekran görüntüsü al |
+| `/investigate` | Tarayıcıda hatayı gör → koda izle → düzelt → doğrula |
+| `/benchmark` | Sayfa performansını ölç → regresyonları algıla → uyar |
+| `/canary` | Dağıtılan siteyi izle → periyodik olarak ekran görüntüsü al → değişikliklerde uyar |
+| `/ship` | Testleri çalıştır → diff'i incele → PR oluştur → tarayıcıda dağıtımı doğrula |
+| `/cso` | Gerçek tarayıcıda XSS, açık yönlendirmeler, clickjacking için sayfayı denetle |
+| `/office-hours` | Rakip sitelerde gezin → gözlemleri sentezle → tasarım dokümanı |
 
-The command palette (Cmd+K) is the hub. You don't need to know the skills exist.
-You type what you want, the fuzzy filter finds the right skill, and the AI runs it
-with the browser as context.
+Komut paleti (Cmd+K) merkezdir. Skill'lerin var olduğunu bilmenize gerek yok. Ne istediğinizi yazarsınız, bulanık filtre doğru skill'i bulur ve AI tarayıcıyı bağlam olarak kullanarak çalıştırır.
 
-### 7. The Design Loop
+### 7. Tasarım Döngüsü
 
-AI-powered design is a loop, not a handoff.
+AI destekli tasarım bir döngüdür, bir devir değildir.
 
 ```
-Generate mockup (GPT Image API)
-  → Review in browser (side-by-side with live site)
-  → Iterate with feedback ("make the header taller")
-  → Approve direction
-  → Generate production HTML/CSS
-  → Preview in browser
-  → Fine-tune with /design-review
-  → Ship
+Taslak oluştur (GPT Image API)
+  → Tarayıcıda incele (canlı site ile yan yana)
+  → Geri bildirimle yinele ("başlığı daha uzun yap")
+  → Yönü onayla
+  → Üretim HTML/CSS oluştur
+  → Tarayıcıda önizle
+  → /design-review ile ince ayar yap
+  → Gönder
 ```
 
-The browser closes the gap between "what it looks like in Figma" and "what it
-looks like in production." Because the AI can see both simultaneously.
+Tarayıcı "Figma'da nasıl göründüğü" ile "üretilimde nasıl göründüğü" arasındaki boşluğu kapatır. Çünkü AI her ikisini de aynı anda görebilir.
 
-### 8. The Security Loop
+### 8. Güvenlik Döngüsü
 
-CSO review in a real browser, not just static analysis.
+Gerçek bir tarayıcıda CSO incelemesi, yalnızca statik analiz değil.
 
-- Inject XSS payloads into every input field, check if they execute
-- Test CSRF by replaying requests from a different origin
-- Check for open redirects by navigating to crafted URLs
-- Verify CSP headers are actually enforced (not just present)
-- Test auth flows by manipulating cookies and tokens in real-time
-- Check for clickjacking by loading the site in an iframe
+- Her giriş alanına XSS yükleri enjekte et, çalışıp çalışmadığını kontrol et
+- Farklı bir kaynaktan istekleri yeniden oynatarak CSRF test et
+- Oluşturulmuş URL'lere gezinerek açık yönlendirmeleri kontrol et
+- CSP başlıklarının gerçekten uygulandığını (yalnızca mevcut değil) doğrula
+- Çerezleri ve token'ları gerçek zamanlı olarak manipüle ederek kimlik doğrulama akışlarını test et
+- Siteyi bir iframe içinde yükleyerek clickjacking'i kontrol et
 
-Static analysis catches patterns. Browser testing catches reality.
+Statik analiz desenleri yakalar. Tarayıcı testi gerçekliği yakalar.
 
-### 9. The Monitoring Loop
+### 9. İzleme Döngüsü
 
-Post-deploy canary monitoring, in a real browser.
+Dağıtım sonrası kanarya izleme, gerçek bir tarayıcıda.
 
 ```
-Deploy → Browser loads production URL
-  → Screenshot baseline
-  → Every 5 minutes: screenshot, compare, check console
-  → Alert on: visual regression, new console errors, performance drop
-  → Auto-rollback if critical error detected
+Dağıt → Tarayıcı üretim URL'sini yükler
+  → Ekran görüntüsü temel çizgisi
+  → Her 5 dakikada bir: ekran görüntüsü, karşılaştır, konsolu kontrol et
+  → Uyar: görsel regresyon, yeni konsol hataları, performans düşüşü
+  → Kritik hata algılanırsa otomatik geri alma
 ```
 
-Synthetic monitoring with AI judgment. Not just "did the page return 200" but
-"does the page look right and work correctly."
+AI yargısıyla sentetik izleme. Yalnızca "sayfa 200 döndürdü mü" değil, "sayfa doğru görünüyor mu ve düzgün çalışıyor mu."
 
-## Architecture
+## Mimari
 
 ```
 +-------------------------------------------------------+
 |                  GStack Browser                        |
 |                                                        |
 |  +------------------+  +---------------------------+  |
-|  |   Chromium        |  |   Extension Side Panel    |  |
-|  |   (Playwright)    |  |   ├── Chat (Claude Code)  |  |
-|  |                   |  |   ├── Activity Feed        |  |
-|  |   ┌────────────┐  |  |   ├── Element Refs         |  |
-|  |   │ Status Bar  │  |  |   ├── CSS Inspector        |  |
-|  |   └────────────┘  |  |   ├── Command Palette      |  |
-|  +--------┬──────────+  |   └── Settings             |  |
+|  |   Chromium        |  |   Eklenti Yan Paneli       |  |
+|  |   (Playwright)    |  |   ├── Sohbet (Claude Code)  |  |
+|  |                   |  |   ├── Aktivite Akışı        |  |
+|  |   ┌────────────┐  |  |   ├── Öğe Referansları     |  |
+|  |   │ Durum Çubuğu  │  |  |   ├── CSS Denetçisi        |  |
+|  |   └────────────┘  |  |   ├── Komut Paleti      |  |
+|  +--------┬──────────+  |   └── Ayarlar             |  |
 |           │              +-------------┬--------------+  |
 +-----------┼────────────────────────────┼─────────────────+
             │                            │
             v                            v
   +---------┴-----------+    +-----------┴-----------+
-  |  Browse Server      |    |  Sidebar Agent        |
-  |  (HTTP + SSE)       |    |  (claude -p wrapper)  |
-  |  :34567             |    |  Runs gstack skills   |
-  |                     |    |  Per-tab isolation     |
-  |  Commands:          |    |                       |
-  |  goto, click, fill  |    |  Future: BoomLooper   |
-  |  snapshot, screenshot|   |  GenServer agents     |
+  |  Browse Sunucusu      |    |  Kenar Çubuğu Aracısı        |
+  |  (HTTP + SSE)       |    |  (claude -p sarmalayıcı)  |
+  |  :34567             |    |  gstack skill'lerini çalıştırır   |
+  |                     |    |  Sekme başına izolasyon     |
+  |  Komutlar:          |    |                       |
+  |  goto, click, fill  |    |  Gelecek: BoomLooper   |
+  |  snapshot, screenshot|   |  GenServer aracıları     |
   |  css, inspect, eval |    |                       |
   +---------┬-----------+    +-----------┬-----------+
             │                            │
             v                            v
   +---------┴-----------+    +-----------┴-----------+
-  |  User's App         |    |  Claude Code          |
-  |  localhost:3000     |    |  (reads/writes code)  |
-  |  (or any URL)       |    |                       |
+  |  Kullanıcının Uygulaması        |    |  Claude Code          |
+  |  localhost:3000     |    |  (kodu okur/yazar)  |
+  |  (veya herhangi bir URL)       |    |                       |
   +---------------------+    +-----------------------+
 ```
 
-## Competitive Landscape
+## Rekabetçi Manzara
 
-| Browser | Approach | Differentiator | Weakness |
+| Tarayıcı | Yaklaşım | Farklılaştırıcı | Zayıflık |
 |---------|----------|---------------|----------|
-| **Atlas** | Chromium fork + AI layer | Agentic browser, "OWL" isolated Chromium | Consumer-focused, no code integration |
-| **Dia** | AI-native browser | Clean UI, built for AI interaction | No dev tools, no code editing |
-| **Comet** | AI browser | Multi-agent browsing | Early, unclear dev workflow |
-| **Chrome Auto Browse** | Extension | Google's own, deep Chrome integration | Extension-only, no code editing |
-| **Cursor** | VSCode fork + AI | Best-in-class code editing | No browser viewport |
-| **GStack Browser** | CC runtime + browser viewport | See bug in browser, fix in code, verify | Currently macOS-only, no consumer features |
+| **Atlas** | Chromium çatalı + AI katmanı | Aracılı tarayıcı, "OWL" yalıtılmış Chromium | Tüketici odaklı, kod entegrasyonu yok |
+| **Dia** | AI doğal tarayıcı | Temiz UI, AI etkileşimi için tasarlanmış | Geliştirme aracı yok, kod düzenleme yok |
+| **Comet** | AI tarayıcısı | Çoklu aracılı gezinme | Erken, belirsiz geliştirici iş akışı |
+| **Chrome Auto Browse** | Eklenti | Google'ın kendi, derin Chrome entegrasyonu | Yalnızca eklenti, kod düzenleme yok |
+| **Cursor** | VSCode çatalı + AI | Sınıfında en iyi kod düzenleme | Tarayıcı görüntü alanı yok |
+| **GStack Browser** | CC çalışma zamanı + tarayıcı görüntü alanı | Tarayıcıda hatayı gör, kodda düzelt, doğrula | Şu anda yalnızca macOS, tüketici özellikleri yok |
 
-GStack Browser doesn't compete with consumer browsers. It competes with the
-workflow of switching between browser and editor. The goal is to make that switch
-invisible.
+GStack Browser tüketici tarayıcılarıyla rekabet etmez. Tarayıcı ile düzenleyici arasında geçiş yapma iş akımıyla rekabet eder. Amaç bu geçişi görünmez kılmaktır.
 
-## Design System
+## Tasarım Sistemi
 
-From DESIGN.md:
-- **Primary accent:** Amber-500 (#F59E0B) — agent active, focus states, pulse
-- **Background:** Zinc-950 (#09090B) through Zinc-800 (#27272A) — dark, dense
-- **Typography:** JetBrains Mono (code/status), DM Sans (UI/labels)
-- **Border radius:** 8px (md), 12px (lg), full (pills)
-- **Motion:** Pulse animation on agent active, 200ms transitions
-- **Layout:** Sidebar (right), status bar (bottom), palette (centered overlay)
+DESIGN.md'den:
+- **Birincil vurgu:** Amber-500 (#F59E0B) — aracı aktif, odak durumları, nabız
+- **Arka plan:** Zinc-950 (#09090B) ile Zinc-800 (#27272A) arasında — koyu, yoğun
+- **Tipografi:** JetBrains Mono (kod/durum), DM Sans (UI/etiketler)
+- **Kenar yarıçapı:** 8px (md), 12px (lg), tam (haplar)
+- **Hareket:** Aracı aktifte nabız animasyonu, 200ms geçişler
+- **Düzen:** Kenar çubuğu (sağ), durum çubuğu (alt), palet (ortalanmış katman)
 
-## Implementation Status
+## Uygulama Durumu
 
-| Component | Status | Notes |
+| Bileşen | Durum | Notlar |
 |-----------|--------|-------|
-| .app bundle | **SHIPPED** | 389MB, launches in ~5s |
-| DMG packaging | **SHIPPED** | 189MB compressed |
-| `GSTACK_CHROMIUM_PATH` | **SHIPPED** | Custom Chromium binary support |
-| `BROWSE_EXTENSIONS_DIR` | **SHIPPED** | Extension path override |
-| Auth via `/health` | **SHIPPED** | Replaces .auth.json file approach, auto-refreshes on server restart |
-| Build script | **SHIPPED** | `scripts/build-app.sh` |
-| Model routing | **SHIPPED** | Sonnet for actions, Opus for analysis (`pickSidebarModel`) |
-| Debug logging | **SHIPPED** | 40+ silent catches → prefixed console logging across 4 files |
-| No idle timeout (headed) | **SHIPPED** | Browser stays alive as long as window is open |
-| Cookie import button | **SHIPPED** | One-click in sidebar footer, opens `/cookie-picker` |
-| Sidebar arrow hint | **SHIPPED** | Points to sidebar, hides only when sidebar actually opens |
-| Architecture doc | **SHIPPED** | `docs/designs/SIDEBAR_MESSAGE_FLOW.md` |
-| Command palette | Planned | Phase 1b |
-| Quick screenshot | Planned | Phase 1b |
-| Status bar | Planned | Phase 1b |
-| Dev server detection | Planned | Phase 1b |
-| BoomLooper integration | Future | Phase 2 |
-| Cross-platform | Future | Phase 3 |
-| Chromium fork | Trigger-gated | Phase 4 |
-| Native shell | Deferred | Phase 5 |
+| .app paketi | **GÖNDERİLDİ** | 389MB, ~5s'de başlatır |
+| DMG paketleme | **GÖNDERİLDİ** | 189MB sıkıştırılmış |
+| `GSTACK_CHROMIUM_PATH` | **GÖNDERİLDİ** | Özel Chromium ikili dosya desteği |
+| `BROWSE_EXTENSIONS_DIR` | **GÖNDERİLDİ** | Eklenti yolunu override etme |
+| `/health` üzerinden kimlik doğrulama | **GÖNDERİLDİ** | .auth.json dosya yaklaşımını değiştirir, sunucu yeniden başlatmasında otomatik yenilenir |
+| Derleme betiği | **GÖNDERİLDİ** | `scripts/build-app.sh` |
+| Model yönlendirme | **GÖNDERİLDİ** | Eylemler için Sonnet, analiz için Opus (`pickSidebarModel`) |
+| Hata ayıklama günlüğü | **GÖNDERİLDİ** | 40+ sessiz yakalama → 4 dosya boyunca önekli konsol günlüğü |
+| Boşta zaman aşımı yok (başlıklı) | **GÖNDERİLDİ** | Pencere açık olduğu sürece tarayıcı canlı kalır |
+| Çerez içe aktarma düğmesi | **GÖNDERİLDİ** | Kenar çubuğu alt bilgisinde tek tıkla, `/cookie-picker` açar |
+| Kenar çubuğu ok ipucu | **GÖNDERİLDİ** | Kenar çubuğunu işaret eder, yalnızca kenar çubuğu gerçekten açıldığında gizlenir |
+| Mimari dokümanı | **GÖNDERİLDİ** | `docs/designs/SIDEBAR_MESSAGE_FLOW.md` |
+| Komut paleti | Planlanmış | Aşama 1b |
+| Hızlı ekran görüntüsü | Planlanmış | Aşama 1b |
+| Durum çubuğu | Planlanmış | Aşama 1b |
+| Geliştirme sunucusu algılama | Planlanmış | Aşama 1b |
+| BoomLooper entegrasyonu | Gelecek | Aşama 2 |
+| Çapraz platform | Gelecek | Aşama 3 |
+| Chromium çatalı | Tetikleyici kontrollü | Aşama 4 |
+| Yerel kabuk | Ertelendi | Aşama 5 |
 
-## The 12-Month Vision
+## 12 Aylık Vizyon
 
 ```
-TODAY (Phase 1)               6 MONTHS (Phase 2-3)          12 MONTHS (Phase 4-5)
+BUGÜN (Aşama 1)               6 AY (Aşama 2-3)          12 AY (Aşama 4-5)
 ─────────────                 ──────────────────            ────────────────────
-macOS .app wrapper            BoomLooper multi-agent         Chromium fork OR
-Extension sidebar             Docker containers              Native SwiftUI shell
-Local claude -p agent         Team workspaces                Cross-platform
-Single project                Linux/x64 browse               Auto-update
-Manual skill invocation       Autonomous QA loops            Skill marketplace
-                              Performance monitoring          Plugin API
-                              Real-time collaboration         Enterprise features
+macOS .app sarmalayıcı            BoomLooper çoklu aracı         Chromium çatalı VEYA
+Eklenti kenar çubuğu             Docker kapsayıcıları              Yerel SwiftUI kabuğu
+Yerel claude -p aracısı         Takım çalışma alanları                Çapraz platform
+Tek proje                Linux/x64 browse               Otomatik güncelleme
+Manuel skill çağırma              Otonom QA döngüleri            Skill pazarı
+                              Performans izleme          Eklenti API'si
+                              Gerçek zamanlı işbirliği         Kurumsal özellikler
 ```
 
-The 12-month ideal: you open GStack Browser, it detects your project, starts
-your dev server, runs your test suite, and reports what's broken. You say "fix
-it" and the AI fixes every bug, verifies each fix visually, and creates a PR.
-You review the PR in the same browser, approve it, and the AI deploys it and
-monitors the canary. All in one window.
+12 aylık ideal: GStack Browser'ı açarsınız, projenizi algılar, geliştirme sunucunuzu başlatır, test paketinizi çalıştırır ve neyin bozuk olduğunu raporlar. "Düzelt" dersiniz ve AI her hatayı düzeltir, her düzeltmeyi görsel olarak doğrular ve bir PR oluşturur. PR'yi aynı tarayıcıda incelersiniz, onaylarsınız ve AI dağıtır ve kanaryayı izler. Hepsi bir pencerede.
 
-That's the browser as AI workspace. Not a browser with AI bolted on. An AI
-with a browser bolted on.
+İşte AI çalışma alanı olarak tarayıcı. Üzerine AI eklenmiş bir tarayıcı değil. Üzerine tarayıcı eklenmiş bir AI.
 
-## Review History
+## İnceleme Geçmişi
 
-This plan went through 4 reviews:
+Bu plan 4 incelemeden geçti:
 
-1. **CEO Review** (`/plan-ceo-review`, SELECTIVE EXPANSION) — 9 scope proposals,
-   3 accepted (Cmd+K, Cmd+Shift+S, status bar), 5 deferred, 1 skipped
-2. **Design Review** (`/plan-design-review`) — scored 5/10 → 8/10, 9 design
-   decisions added, 2 approved mockups generated
-3. **Eng Review** (`/plan-eng-review`) — 4 issues found, 0 critical gaps,
-   test plan produced
-4. **Codex Review** (outside voice) — 9 findings, 3 critical gaps caught
-   (server bundling, auth file location, project binding). All resolved.
+1. **CEO İncelemesi** (`/plan-ceo-review`, SEÇİCİ GENİŞLEME) — 9 kapsam teklifi, 3 kabul edildi (Cmd+K, Cmd+Shift+S, durum çubuğu), 5 ertelendi, 1 atlandı
+2. **Tasarım İncelemesi** (`/plan-design-review`) — 5/10 → 8/10 puan aldı, 9 tasarım kararı eklendi, 2 onaylanmış mockup üretildi
+3. **Mühendislik İncelemesi** (`/plan-eng-review`) — 4 sorun bulundu, 0 kritik boşluk, test planı üretildi
+4. **Codex İncelemesi** (dış ses) — 9 bulgu, 3 kritik boşluk yakalandı (sunucu paketleme, kimlik doğrulama dosyası konumu, proje bağlama). Tümü çözüldü.
 
-The Codex review caught 3 real architecture gaps that survived 3 prior reviews.
-Cross-model review works.
+Codex incelemesi 3 önceki incelemeden kurtulan gerçek mimari boşluk yakaladı. Çapraz model inceleme çalışıyor.

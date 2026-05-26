@@ -1,237 +1,237 @@
-# Plan Tuning v1 — Design Doc
+# Plan Tuning v1 — Tasarım Dokümanı
 
-**Status:** Approved for implementation (2026-04-18)
-**Branch:** garrytan/plan-tune-skill
-**Authors:** Garry Tan (user), with AI-assisted reviews from Claude Opus 4.7 + OpenAI Codex gpt-5.4
-**Supersedes scope:** adds writing-style + LOC-receipts layer on top of [PLAN_TUNING_V0.md](./PLAN_TUNING_V0.md) (observational substrate). V0 remains in place unchanged.
-**Related:** [PACING_UPDATES_V0.md](./PACING_UPDATES_V0.md) — extracted pacing overhaul, V1.1 plan.
+**Durum:** Uygulama için onaylandı (2026-04-18)
+**Dal:** garrytan/plan-tune-skill
+**Yazarlar:** Garry Tan (kullanıcı), Claude Opus 4.7 + OpenAI Codex gpt-5.4'den AI destekli incelemelerle
+**Yerine geçen kapsam:** [PLAN_TUNING_V0.md](./PLAN_TUNING_V0.md) (gözlemsel alt taban) üzerine yazım stili + LOC-makbuzları katmanı ekler. V0 yerinde değişmeden kalır.
+**İlgili:** [PACING_UPDATES_V0.md](./PACING_UPDATES_V0.md) — çıkarılan adımlama yeniden tasarımı, V1.1 planı.
 
-## What this document is
+## Bu doküman nedir
 
-A canonical record of what /plan-tune v1 is, what it is NOT, what we considered, and why we made each call. Committed to the repo so future contributors (and future Garry) can trace reasoning without archeology. Supersedes any per-user local plan artifacts.
+/plan-tune v1'in ne olduğunun, ne OLMADIĞININ, neyi düşündüğümüzün ve her kararı neden aldığımızın kanonik kaydı. Depoya işlenir, böylece gelecekteki katkı sağlayıcılar (ve gelecekteki Garry) arkeoloji yapmadan akıl yürütmeyi izleyebilir. Kullanıcı başına yerel plan eserlerinin yerine geçer.
 
-## Credit
+## Teşekkür
 
-This plan exists because of **[Louise de Sadeleer](https://x.com/LouiseDSadeleer/status/2045139351227478199)**, who sat through a complete gstack run as a non-technical user and told us the truth about how it feels. Her specific feedback:
+Bu plan **[Louise de Sadeleer](https://x.com/LouiseDSadeleer/status/2045139351227478199)** sayesinde var, gstack'i teknik olmayan bir kullanıcı olarak baştan sona yaşadı ve bize deneyimin nasıl hissettirdiği hakkında gerçeği söyledi. Onun spesifik geri bildirimleri:
 
-1. "I was getting a bit tired after a while and it felt a little bit rigid." — *pacing/fatigue*
-2. "I'm just gonna say yes yes yes" (during architecture review). — *disengagement*
-3. "What I find funny is his emphasis on how many lines of code he produces. AI has produced for him of course." — *LOC framing*
-4. "As a non-engineer this is a bit complicated to understand." — *jargon density + outcome framing*
+1. "Bir süre sonra biraz yoruldum ve biraz katı hissettirdi." — *adımlama/yorgunluk*
+2. "Evet evet evet diyeceğim" (mimari inceleme sırasında). — *kopma*
+3. "Ürettiği kod satır sayısına vurgu yapması komik. AI elbette onun için üretti." — *LOC çerçevelemesi*
+4. "Mühendis olmayan biri olarak bu biraz karmaşık." — *jargon yoğunluğu + sonuç çerçevelemesi*
 
-V1 addresses #3 and #4 directly: jargon-glossing + outcome-framed writing that reads like a real person wrote it for the reader, plus a defensible LOC reframe. Louise's #1 and #2 (pacing/fatigue) require a separate design round — extracted to [PACING_UPDATES_V0.md](./PACING_UPDATES_V0.md) as the V1.1 plan.
+V1 doğrudan #3 ve #4'ü ele alır: ilk kullanımda jargon açıklama + gerçek bir kişi tarafından okuyucu için yazılmış gibi sonuç çerçeveli yazım stili, artıca savunulabilir bir LOC yeniden çerçevelemesi. Louise'in #1 ve #2'si (adımlama/yorgunluk) ayrı bir tasarım turu gerektirir — [PACING_UPDATES_V0.md](./PACING_UPDATES_V0.md)'ye V1.1 planı olarak çıkarıldı.
 
-## The feature, in one paragraph
+## Özellik, bir paragrafta
 
-gstack skill output is the product. If the prose doesn't read well for a non-technical founder, they check out of the review and click "yes yes yes." V1 adds a writing-style standard that applies to every tier ≥ 2 skill: jargon glossed on first use (from a curated ~50-term list), questions framed in outcome terms ("what breaks for your users if...") not implementation terms, short sentences, concrete nouns. Power users who want the tighter V0 prose can set `gstack-config set explain_level terse`. Binary switch, no partial modes. Plus: the README's "600,000+ lines of production code" framing — rightly called out as LOC vanity by Louise — gets replaced with a real computed 2013-vs-2026 pro-rata multiple from an `scc`-backed script, with honest caveats about public-vs-private repo visibility.
+gstack skill çıktısı üründür. Düz yazı teknik olmayan bir kurucu için iyi okunmuyorsa, incelemeden kopar ve "evet evet evet"e tıklarlar. V1, tier ≥ 2 her skill'e uygulanan bir yazım stili standardı ekler: ilk kullanımda jargon açıklama (küratörlü ~50 terim listesinden), sonuç terimleriyle çerçevelenmiş sorular ("kullanıcılarınız için ne bozulursa..."), kısa cümleler, somut isimler. V0 düz yazısını isteyen güçlü kullanıcılar `gstack-config set explain_level terse` ayarlayabilir. İkili anahtar, kısmi modlar yok. Artı: README'nin "600,000+ satır üretim kodu" çerçevelemesi — Louise tarafından haklı olarak LOC vanity olarak adlandırılan — `scc` destekli bir betikten gerçek bir hesaplanmış 2013-vs-2026 pro-rata katıyla, genel-vs-özel repo görünürlüğü hakkında dürüst uyarılarla değiştirilir.
 
-## Why we're building the smaller version
+## Daha küçük sürümü neden oluşturuyoruz
 
-V1 went through four substantial scope revisions over multiple review passes. Final scope is smaller than any intermediate version because each review pass caught real problems.
+V1, birden fazla inceleme geçişinde dört önemli kapsam revizyonundan geçti. Son kapsam, herhangi bir ara sürümden daha küçüktür çünkü her inceleme geçişi gerçek sorunları yakaladı.
 
-**Revision 1 — Four-level experience axis (rejected).** Original proposal: ask users on first run whether they're an experienced dev, an engineer-without-solo-experience, non-technical-who-shipped-on-a-team, or non-technical-entirely. Skills adapt per level. Rejected during CEO review's premise-challenge step because (a) the onboarding ask adds friction at exactly the moment V1 is trying to reduce it, (b) "what level am I?" is itself a confusing question for the users who most need help, (c) technical expertise isn't one-dimensional (designer level A on CSS, level D on deploy), (d) engineers benefit from the same writing standards non-technical users do.
+**Revizyon 1 — Dört seviyeli deneyim ekseni (reddedildi).** Orijinal teklif: kullanıcılara ilk çalıştırmada deneyimli bir geliştirici, solo deneyimsiz bir mühendis, takımda çalışan teknik olmayan veya tamamen teknik olmayan olup olmadıklarını sormak. Skill'ler seviyeye göre uyarlanır. CEO incelemesinin önerme meydan okuması adımında reddedildi çünkü (a) katılım sorması V1'in azaltmaya çalıştığı tam anda sürtünme ekler, (b) "hangi seviyeyim?" en çok yardıma ihtiyaç duyan kullanıcılar için kendisi kafa karıştırıcı bir sorudur, (c) teknik uzmanlık tek boyutlu değil (tasarımcı CSS'de A seviyesi, dağıtımda D seviyesi), (d) mühendisler de teknik olmayan kullanıcıların faydalandığı aynı yazım standartlarından faydalanır.
 
-**Revision 2 — ELI10 by default, terse opt-out (accepted).** Every skill's output defaults to the writing standard. Power users who want V0 prose set `explain_level: terse`. Codex Pass 1 caught critical gaps (static-markdown gating, host-aware paths, README update mechanism) — all three integrated.
+**Revizyon 2 — Varsayılan olarak ELI10, terse geri dönüş (kabul edildi).** Her skill'in çıktısı varsayılan olarak yazım standardına uyar. V0 düz yazısını isteyen güçlü kullanıcılar `explain_level: terse` ayarlar. Codex Geçiş 1 kritik boşlukları yakaladı (statik markdown geçidi, ana bilgisayar duyarlı yollar, README güncelleme mekanizması) — üçü de entegre edildi.
 
-**Revision 3 — ELI10 + review-pacing overhaul (proposed, scoped back).** Added a pacing workstream: rank findings, auto-accept two-way doors, max 3 AskUserQuestion prompts per phase, Silent Decisions block with flip-command. Intended to address Louise's #1 and #2 directly. Eng review Pass 2 caught scoring-formula and path-consistency bugs. Eng review Pass 3 + Codex Pass 2 surfaced 10+ structural gaps in the pacing workstream that couldn't be fixed via plan-text editing.
+**Revizyon 3 — ELI10 + inceleme adımlama yeniden tasarımı (önerildi, kapsam geri alındı).** Bir adımlama iş kolu eklendi: bulguları sırala, iki yönlü kapıları otomatik kabul et, aşama başına en fazla 3 AskUserQuestion promptu, döndürme komutu ile Sessiz Kararlar bloğu. Louise'in #1 ve #2'sini doğrudan ele almak amaçlandı. Mühendislik incelemesi Geçiş 2 puanlama formülü ve yol tutarlılık hatalarını yakaladı. Mühendislik incelemesi Geçiş 3 + Codex Geçiş 2, adımlama iş kolunda düz metin düzenlemeyle düzeltilemeyen 10+ yapısal boşluk ortaya çıkardı.
 
-**Revision 4 — ELI10 + LOC only (final).** User chose scope reduction: ship V1 with writing style + LOC receipts, defer pacing to V1.1 via [PACING_UPDATES_V0.md](./PACING_UPDATES_V0.md). This is the approved V1 scope.
+**Revizyon 4 — Yalnızca ELI10 + LOC (nihai).** Kullanıcı kapsam küçültmeyi seçti: yazım stili + LOC makbuzları ile V1 gönder, adımlamayı [PACING_UPDATES_V0.md](./PACING_UPDATES_V0.md) aracılığıyla V1.1'e ertele. Bu onaylı V1 kapsamıdır.
 
-The through-line: every review pass correctly narrowed the ambition until the remaining scope had no structural gaps. Matches the CEO review skill's SCOPE REDUCTION mode, arrived at late via engineering review rather than early via strategic choice.
+Ortak çizgi: her inceleme geçiği doğru şekilde hırssı daralttı, kalan kapsamda yapısal boşluk kalmayana kadar. CEO inceleme skill'inin SCOPE REDUCTION moduyla eşleşir, mühendislik incelemesi yoluyla geç ulaşıldı, stratejik seçim yoluyla erken değil.
 
-## v1 Scope (what we're building now)
+## v1 Kapsamı (şimdi oluşturduğumuz)
 
-1. **Writing Style section in preamble** (`scripts/resolvers/preamble.ts`). Six rules: jargon-gloss on first use per skill invocation, outcome framing, short sentences / concrete nouns / active voice, decisions close with user impact, gloss-on-first-use-unconditional (even if user pasted the term), user-turn override (user says "be terse" → skip for that response).
-2. **Jargon boundary via repo-owned list** (`scripts/jargon-list.json`). ~50 curated high-frequency technical terms. Terms not on the list are assumed plain-English enough. Terms inlined into generated SKILL.md prose at `gen-skill-docs` time (zero runtime cost).
-3. **Terse opt-out** (`gstack-config set explain_level terse`). Binary: `default` vs `terse`. Terse skips the Writing Style block entirely and uses V0 prose style.
-4. **Host-aware preamble echo.** `_EXPLAIN_LEVEL=$(${binDir}/gstack-config get explain_level 2>/dev/null || echo "default")`. Host-portable via existing V0 `ctx.paths.binDir` pattern.
-5. **gstack-config validation.** Document `explain_level: default|terse` in header. Whitelist values. Warn on unknown with specific message + default to `default`.
-6. **LOC reframe in README.** Remove "600,000+ lines of production code" hero framing. Insert `<!-- GSTACK-THROUGHPUT-PLACEHOLDER -->` anchor. Build-time script replaces anchor with computed multiple + caveat.
-7. **`scc`-backed throughput script** (`scripts/garry-output-comparison.ts`). For each of 2013 + 2026, enumerate Garry-authored public commits, extract added lines from `git diff`, classify via `scc --stdin` (or regex fallback). Output `docs/throughput-2013-vs-2026.json` with per-language breakdown + caveats.
-8. **`scc` as standalone install script** (`scripts/setup-scc.sh`). Not a `package.json` dependency (truly optional — 95% of users never run throughput). OS-detects and runs `brew install scc` / `apt install scc` / prints GitHub releases link.
-9. **README update pipeline** (`scripts/update-readme-throughput.ts`). Reads `docs/throughput-2013-vs-2026.json` if present, replaces the anchor with computed number. If missing, writes `GSTACK-THROUGHPUT-PENDING` marker that CI rejects — forces contributor to run the script before commit.
-10. **/retro adds logical SLOC + weighted commits above raw LOC.** Raw LOC stays for context but is visually demoted.
-11. **Upgrade migration** (`gstack-upgrade/migrations/v<VERSION>.sh`). One-time post-upgrade interactive prompt offering to restore V0 prose via `explain_level: terse` for users who prefer it. Flag-file gated.
-12. **Documentation.** CLAUDE.md gains a Writing Style section (project convention). CHANGELOG.md gets V1 entry (user-facing narrative, mentions scope reduction + V1.1 pacing). README.md gets a Writing Style explainer section (~80 words). CONTRIBUTING.md gains a note on jargon-list maintenance (PRs to add/remove terms).
-13. **Tests.** 6 new test files + extension of existing `gen-skill-docs.test.ts`. All gate tier except LLM-judge E2E (periodic).
-14. **V0 dormancy negative tests.** Assert 5D dimension names and 8 archetype names don't appear in default-mode skill output. Prevents V0 psychographic machinery from leaking into V1.
-15. **V1 and V1.1 design docs.** PLAN_TUNING_V1.md (this file). PACING_UPDATES_V0.md (V1.1 plan, created during V1 implementation from the extracted appendix). TODOS.md P0 entry.
+1. **Önyazıda Yazım Stili bölümü** (`scripts/resolvers/preamble.ts`). Altı kural: skill çağırma başına ilk kullanımda jargon açıklama, sonuç çerçevelemesi, kısa cümleler / somut isimler / etken fiiller, kararlar kullanıcı etkisiyle kapanır, koşulsuz-ilk kullanımda açıklama (kullanıcı terimi yapıştırmış olsa bile), kullanıcı dönüşü geçersiz kılma (kullanıcı "kısa ol" derse → o yanıt için atla).
+2. **Repo aitli liste ile jargon sınırı** (`scripts/jargon-list.json`). ~50 küratörlü yüksek frekanslı teknik terim. Listede olmayan terimler yeterince düz İngilizce varsayılır. Terimler `gen-skill-docs` zamanında üretilen SKILL.md düz yazısına satır içi edilir (sıfır çalışma zamanı maliyeti).
+3. **Terse geri dönüş** (`gstack-config set explain_level terse`). İkili: `default` vs `terse`. Terse, Yazım Stili bloğunu tamamen atlar ve V0 düz yazı stilini kullanır.
+4. **Ana bilgisayar duyarlı önyazı yankısı.** `_EXPLAIN_LEVEL=$(${binDir}/gstack-config get explain_level 2>/dev/null || echo "default")`. Mevcut V0 `ctx.paths.binDir` deseni ile ana bilgisayar taşınabilir.
+5. **gstack-config doğrulama.** `explain_level: default|terse`'i başlıkta belgele. Değerleri beyaz listele. Bilinmeyen değerlerde özel mesaj + `default`'a varsayılan ile uyar.
+6. **README'de LOC yeniden çerçevelemesi.** "600,000+ satır üretim kodu" hero çerçevelemesini kaldır. `<!-- GSTACK-THROUGHPUT-PLACEHOLDER -->` bağlayıcısı ekle. Derleme zamanı betiği bağlayıcıyı hesaplanmış kat + uyarı ile değiştirir.
+7. **`scc` destekli verimlilik betiği** (`scripts/garry-output-comparison.ts`). 2013 + 2026'nın her biri için, Garry tarafından yazılmış genel commit'leri listele, `git diff`'ten eklenen satırları çıkar, `scc --stdin` ile sınıflandır (veya regex yedeklemesi). Dil başına döküm + uyarılarla `docs/throughput-2013-vs-2026.json` çıktısı ver.
+8. **`scc` bağımsız kurulum betiği olarak** (`scripts/setup-scc.sh`). Bir `package.json` bağımlılığı değil (gerçekten isteğe bağlı — kullanıcıların %95'i verimlilik asla çalıştırmaz). OS algılar ve `brew install scc` / `apt install scc` çalıştırır / GitHub sürümleri bağlantısını yazdırır.
+9. **README güncelleme boru hattı** (`scripts/update-readme-throughput.ts`). Mevcutsa `docs/throughput-2013-vs-2026.json`'u okur, bağlayıcıyı hesaplanmış sayıyla değiştirir. Eksikse, CI'nın reddettiği `GSTACK-THROUGHPUT-PENDING` işaretçisini yazar — katkı sağlayıcıyı commit etmeden önce betiği çalıştırmaya zorlar.
+10. **/retro, ham SLOC + ağırlıklı commit'leri mantıksal SLOC'un üstünde ekler.** Ham SLOC bağlam için kalır ama görsel olarak düşürülür.
+11. **Yükseltme geçişi** (`gstack-upgrade/migrations/v<VERSION>.sh`). Yükseltme sonrası tek seferlik interaktif prompt, V0 düz yazısını `explain_level: terse` ile geri yüklemeyi tercih eden kullanıcılar için. Bayrak dosyası geçitli.
+12. **Dokümantasyon.** CLAUDE.md bir Yazım Stili bölümü kazanır (proje kuralı). CHANGELOG.md V1 girdisi alır (kullanıcıya yönelik anlatı, kapsam küçültme + V1.1 adımlamayı bahseder). README.md bir Yazım Stili açıklayıcı bölümü alır (~80 kelime). CONTRIBUTING.md jargon listesi bakımı üzerine bir not alır (terim eklemek/kaldırmak için PR'ler).
+13. **Testler.** 6 yeni test dosyası + mevcut `gen-skill-docs.test.ts` genişletmesi. LLM-yargı U2U dışında tümü geçit katmanı (dönemsel).
+14. **V0 uyku negatif testleri.** 5D boyut adlarının ve 8 arketip adlarının varsayılan mod skill çıktısında görünmediğini iddia eder. V0 psikografik makinerinin V1'e sızmasını önler.
+15. **V1 ve V1.1 tasarım dokümanları.** PLAN_TUNING_V1.md (bu dosya). PACING_UPDATES_V0.md (V1 uygulaması sırasında çıkarılan ekten oluşturulan V1.1 planı). TODOS.md P0 girdisi.
 
-## Deferred
+## Ertelendi
 
-**To V1.1 (explicit, with dedicated design doc):**
-- Review pacing overhaul (ranking, auto-accept, max-3-per-phase, Silent Decisions block, flip mechanism). Reasoning: see [PACING_UPDATES_V0.md](./PACING_UPDATES_V0.md) §"Why it's extracted." Has 10+ structural gaps unfixable via prose-only changes.
-- Preamble first-run meta-prompt audit (lake intro, telemetry, proactive, routing). Louise saw all of them on first run; they count against fatigue. V1.1 considers suppressing until session N.
+**V1.1'e (adanmış tasarım dokümanı ile açık):**
+- İnceleme adımlama yeniden tasarımı (sıralama, otomatik kabul, aşama başına en fazla 3, Sessiz Kararlar bloğu, döndürme mekanizması). Gerekçe: bkz. [PACING_UPDATES_V0.md](./PACING_UPDATES_V0.md) §"Neden çıkarıldı." Düz metin değişiklikleriyle düzeltilemeyen 10+ yapısal boşluk var.
+- Önyazı ilk çalıştırma meta-prompt denetimi (lake tanıtımı, telemetri, proaktif, yönlendirme). Louise hepsini ilk çalıştırmada gördü; yorgunluğa karşı sayılır. V1.1 N. oturuma kadar bastırmayı düşünür.
 
-**To V2 (or later):**
-- Confusion-signal detection from question-log driving on-the-fly translation offers.
-- 5D psychographic-driven skill adaptation (V0 E1 item).
-- /plan-tune narrative + /plan-tune vibe (V0 E3 item).
-- Per-skill or per-topic explain levels.
-- Team profiles.
-- AST-based "delivered features" metric.
+**V2'ye (veya sonrasına):**
+- Soru günlüğünden kavışık sinyal algılama, anında çeviri tekliflerini yönlendirme.
+- 5D psikografik odaklı skill uyarlaması (V0 E1 öğesi).
+- /plan-tune anlatım + /plan-tune vibe (V0 E3 öğesi).
+- Skill başına veya konu başına açıklama seviyeleri.
+- Takım profilleri.
+- AST tabanlı "teslim edilen özellikler" metriği.
 
-## Rejected entirely (considered, not doing)
+## Tamamen reddedildi (düşünüldü, yapılmıyor)
 
-- **Four-level declared experience axis (A/B/C/D).** Rejected during CEO review premise-challenge. See "Why we're building the smaller version" above.
-- **ELI10 as a new resolver file (`scripts/resolvers/eli10-writing.ts`).** Codex Pass 1 caught the conflict with existing "smart 16-year-old" framing in preamble's AskUserQuestion Format section. Fold into existing preamble instead.
-- **Runtime suppression of the Writing Style block.** Codex Pass 1 caught that `gen-skill-docs` produces static Markdown — runtime `EXPLAIN_LEVEL=terse` can't hide content already baked in. Solution: conditional prose gate (prose convention, same category as V0's `QUESTION_TUNING` gate).
-- **Middle writing mode between default and terse.** Revision 3 proposed "terse = no glosses but keep outcome framing." Codex Pass 2 caught the contradiction with migration messaging. Binary wins: terse = V0 prose, full stop.
-- **User-editable jargon list at runtime.** Revision 3 proposed `~/.gstack/jargon-list.json` as user override. Codex Pass 2 caught the contradiction with gen-time inlining. Resolved: repo-owned only, PRs to add/remove, regenerate to take effect.
-- **`devDependencies.optional` field in package.json.** Not a real npm/bun field. Eng review Pass 2 caught. Standalone install script instead.
-- **Using the same string as replacement anchor AND CI-reject marker in README.** Eng review Pass 2 / Codex Pass 2 caught that this makes the pipeline destroy its own update path. Two-string solution: `GSTACK-THROUGHPUT-PLACEHOLDER` (anchor, stays across runs) vs `GSTACK-THROUGHPUT-PENDING` (explicit "build didn't run" marker that CI rejects).
-- **"Every technical term gets a gloss" as acceptance criterion.** Codex Pass 2 caught the contradiction with the curated-list rule. Acceptance rewritten to match rule: "every term on `scripts/jargon-list.json` that appears gets a gloss."
-- **Acceptance criterion "≤ 12 AskUserQuestion prompts per /autoplan."** Removed from V1 — that target requires the pacing overhaul now in V1.1.
+- **Dört seviyeli beyan edilen deneyim ekseni (A/B/C/D).** CEO incelemesi önerme meydan okuması sırasında reddedildi. Yukarıdaki "Daha küçük sürümü neden oluşturuyoruz"a bak.
+- **ELI10 yeni bir çözücü dosyası olarak (`scripts/resolvers/eli10-writing.ts`).** Codex Geçiş 1, önyazının AskUserQuestion Format bölümündeki mevcut "akıllı 16 yaşındaki" çerçevelleme ile çelişkiyi yakaladı. Bunun yerine mevcut önyazıya katlayın.
+- **Yazım Stili bloğunun çalışma zamanı bastırılması.** Codex Geçiş 1, `gen-skill-docs`'ün statik Markdown ürettiğini yakaladı — çalışma zamanı `EXPLAIN_LEVEL=terse` zaten pişmiş içeriği gizleyemez. Çözüm: koşullu düzyazı geçidi (düz yazı kuralı, V0'ın `QUESTION_TUNING` geçidi ile aynı kategori).
+- **Varsayılan ve terse arasında orta yazım modu.** Revizyon 3, "terse = açıklama yok ama sonuç çerçevelemesi koru" önerdi. Codex Geçiş 2, geçiş mesajlaşması ile çelişkiyi yakaladı. İkili kazan: terse = V0 düz yazısı, nokta.
+- **Çalışma zamanında kullanıcı tarafından düzenlenebilir jargon listesi.** Revizyon 3, `~/.gstack/jargon-list.json`'u kullanıcı geçersiz kılması olarak önerdi. Codex Geçiş 2, üretim zamanı satır içi ile çelişkiyi yakaladı. Çözüm: yalnızca repo aitli, PR'ler ile ekle/kaldır, etkili olmak için yeniden oluştur.
+- **package.json'da `devDependencies.optional` alanı.** Gerçek bir npm/bun alanı değil. Mühendislik incelemesi Geçiş 2 yakaladı. Bunun yerine bağımsız kurulum betiği.
+- **README'de aynı dizeyi hem değiştirme bağlayıcısı hem CI-reddetme işaretçisi olarak kullanma.** Mühendislik incelemesi Geçiş 2 / Codex Geçiş 2, boru hattının kendi güncelleme yolunu yok ettiğini yakaladı. İki dize çözümü: `GSTACK-THROUGHPUT-PLACEHOLDER` (bağlayıcı, çalıştırmalar arasında kalır) vs `GSTACK-THROUGHPUT-PENDING` (açık "derleme çalışmadı" işaretçisi, CI reddeder).
+- **"Her teknik terim bir açıklama alır" kabul kriteri olarak.** Codex Geçiş 2, küratörlü liste kuralı ile çelişkiyi yakaladı. Kabul kriteri kurala uyacak şekilde yeniden yazıldı: "scripts/jargon-list.json'da görünen her terim bir açıklama alır."
+- **"/autoplan başına ≤ 12 AskUserQuestion promptu" kabul kriteri.** V1'den kaldırıldı — bu hedef şu anda V1.1'deki adımlama yeniden tasarımını gerektirir.
 
-## Architecture
+## Mimari
 
 ```
 ~/.gstack/
-  developer-profile.json           # unchanged from V0
-  config.yaml                       # + explain_level key (default | terse)
+  developer-profile.json           # V0'dan değişmedi
+  config.yaml                       # + explain_level anahtarı (default | terse)
 
 scripts/
-  jargon-list.json                  # NEW: ~50 repo-owned terms (gen-time inlined)
-  garry-output-comparison.ts        # NEW: scc + git per-year, author-scoped
-  update-readme-throughput.ts       # NEW: README anchor replacement
-  setup-scc.sh                      # NEW: OS-detecting scc installer
-  resolvers/preamble.ts             # MODIFIED: Writing Style section + EXPLAIN_LEVEL echo
+  jargon-list.json                  # YENİ: ~50 repo aitli terim (üretim zamanı satır içi)
+  garry-output-comparison.ts        # YENİ: scc + git yıl başına, yazar kapsamlı
+  update-readme-throughput.ts       # YENİ: README bağlayıcı değiştirme
+  setup-scc.sh                      # YENİ: OS algılayan scc kurucu
+  resolvers/preamble.ts             # DEĞİŞTİRİLDİ: Yazım Stili bölümü + EXPLAIN_LEVEL yankısı
 
 docs/
-  designs/PLAN_TUNING_V1.md         # NEW: this file
-  designs/PACING_UPDATES_V0.md      # NEW: V1.1 plan (extracted)
-  throughput-2013-vs-2026.json      # NEW: computed, committed
+  designs/PLAN_TUNING_V1.md         # YENİ: bu dosya
+  designs/PACING_UPDATES_V0.md      # YENİ: V1.1 planı (çıkarıldı)
+  throughput-2013-vs-2026.json      # YENİ: hesaplanmış, işlenmiş
 
 ~/.claude/skills/gstack/bin/
-  gstack-config                     # MODIFIED: explain_level header + validation
+  gstack-config                     # DEĞİŞTİRİLDİ: explain_level başlığı + doğrulama
 
 gstack-upgrade/migrations/
-  v<VERSION>.sh                     # NEW: V0 → V1 interactive prompt
+  v<VERSION>.sh                     # YENİ: V0 → V1 interaktif prompt
 ```
 
-### Data flow
+### Veri akışı
 
 ```
-User runs tier-≥2 skill
+Kullanıcı tier-≥2 skill çalıştırır
        │
        ▼
-Preamble bash (per-invocation):
+Önyazı bash (çağırma başına):
   _EXPLAIN_LEVEL=$(${binDir}/gstack-config get explain_level 2>/dev/null || "default")
   echo "EXPLAIN_LEVEL: $_EXPLAIN_LEVEL"
        │
        ▼
-Generated SKILL.md body (static Markdown, baked at gen-skill-docs):
-  - AskUserQuestion Format section (existing V0)
-  - Writing Style section (NEW, conditional prose gate)
+Üretilmiş SKILL.md gövdesi (statik Markdown, gen-skill-docs'ta pişirilmiş):
+  - AskUserQuestion Format bölümü (mevcut V0)
+  - Yazım Stili bölümü (YENİ, koşullu düzyazı geçidi)
        │
-       ├── "Skip if EXPLAIN_LEVEL: terse OR user says 'be terse' this turn"
-       ├── 6 writing rules (jargon, outcome, short, impact, first-use, override)
-       └── Jargon list inlined from scripts/jargon-list.json
-       │
-       ▼
-Agent applies or skips based on runtime EXPLAIN_LEVEL + user-turn signal
+       ├── "EXPLAIN_LEVEL: terse VEYA kullanıcı bu dönüşte 'kısa ol' derse atla"
+       ├── 6 yazım kuralı (jargon, sonuç, kısa, etki, ilk kullanım, geçersiz kılma)
+       └── scripts/jargon-list.json'dan satır içi jargon listesi
        │
        ▼
-V0 QUESTION_TUNING + question-log + preferences unchanged
+Aracı çalışma zamanı EXPLAIN_LEVEL + kullanıcı dönüş sinyaline göre uygular veya atlar
        │
        ▼
-Output to user (gloss-on-first-use, outcome-framed, short sentences; or V0 prose if terse)
+V0 QUESTION_TUNING + soru günlüğü + tercihler değişmedi
+       │
+       ▼
+Kullanıcıya çıktı (ilk kullanımda açıklama, sonuç çerçeveli, kısa cümleler; veya terse ise V0 düz yazısı)
 ```
 
-### Data flow: throughput script (build-time)
+### Veri akışı: verimlilik betiği (derleme zamanı)
 
 ```
 bun run build
    │
-   ├── gen:skill-docs (regenerates SKILL.md files with jargon list inlined)
-   ├── update-readme-throughput (reads JSON if present; replaces anchor OR writes PENDING marker)
-   └── other steps (binary compilation, etc.)
+   ├── gen:skill-docs (jargon listesi satır içi edilmiş SKILL.md dosyalarını yeniden oluşturur)
+   ├── update-readme-throughput (JSON mevcutsa okur; bağlayıcıyı değiştirir VEYA PENDING işaretçisi yazar)
+   └── diğer adımlar (ikili derleme, vb.)
 
-Separately, on-demand:
+Ayrı olarak, talep üzerine:
 bun run scripts/garry-output-comparison.ts
    │
-   ├── scc preflight (if missing → exit with setup-scc.sh hint)
-   ├── For 2013 + 2026: enumerate Garry-authored commits in public garrytan/* repos
-   ├── For each commit: git diff, extract ADDED lines, classify via scc --stdin
-   └── Write docs/throughput-2013-vs-2026.json (per-language + caveats)
+   ├── scc ön kontrolü (eksikse → setup-scc.sh ipucu ile çık)
+   ├── 2013 + 2026 için: garrytan/* genel repolarında Garry tarafından yazılmış commit'leri listele
+   ├── Her commit için: git diff, EKLENEN satırları çıkar, scc --stdin ile sınıflandır
+   └── docs/throughput-2013-vs-2026.json yaz (dil başına + uyarılar)
 ```
 
-## Security + privacy
+## Güvenlik + gizlilik
 
-- **No new user data.** V1 extends preamble prose + config key. No new personal data collected.
-- **No runtime file reads of sensitive data.** Jargon list is a repo-committed curated list.
-- **Migration script is one-shot.** Flag-file prevents re-fire.
-- **scc runs on public repos only.** No access to private work.
+- **Yeni kullanıcı verisi yok.** V1 önyazı düz yazısı + yapılandırma anahtarını genişletir. Yeni kişisel veri toplanmaz.
+- **Hassas verilerin çalışma zamanı dosya okuması yok.** Jargon listesi repo işlenmiş küratörlü bir listedir.
+- **Geçiş betiği tek seferlik.** Bayrak dosyası yeniden ateşlemeyi önler.
+- **scc yalnızca genel repolarda çalışır.** Özel çalışmaya erişim yok.
 
-## Decisions log (with pros/cons)
+## Karar günlüğü (artıları/eksileri)
 
-### Decision A: Four-level experience axis vs. ELI10 by default — ANSWER: ELI10 BY DEFAULT
+### Karar A: Dört seviyeli deneyim ekseni vs. varsayılan olarak ELI10 — YANIT: VARSAYILAN OLARAK ELI10
 
-**Four-level axis (rejected):** Ask users to self-identify as A/B/C/D on first run. Skills adapt per level.
-- Pros: Explicit user sovereignty. Power users get V0 behavior.
-- Cons: Adds onboarding friction. Forces users to label themselves. Technical expertise isn't one-dimensional. Engineers benefit from the same writing standards non-technical users do.
+**Dört seviyeli eksen (reddedildi):** Kullanıcılara ilk çalıştırmada A/B/C/D olarak kendi tanımlamalarını sorun. Skill'ler seviyeye göre uyarlanır.
+- Artıları: Açık kullanıcı egemenliği. Güçlü kullanıcılar V0 davranışını alır.
+- Eksileri: Katılım sürtünmesi ekler. Kullanıcıları kendilerini etiketlemeye zorlar. Teknik uzmanlık tek boyutlu değil. Mühendisler de teknik olmayan kullanıcıların faydalandığı aynı yazım standartlarından faydalanır.
 
-**ELI10 by default with terse opt-out (chosen):** Every skill's output defaults to the writing standard. Power users set `explain_level: terse`.
-- Pros: No onboarding question. Good writing benefits everyone. Power users still have an escape hatch.
-- Cons: Silently changes V0 behavior on upgrade → requires migration prompt.
+**Varsayılan olarak ELI10, terse geri dönüş ile (seçilen):** Her skill'in çıktısı varsayılan olarak yazım standardına uyar. Güçlü kullanıcılar `explain_level: terse` ayarlar.
+- Artıları: Katılım sorusu yok. İyi yazım herkese fayda sağlar. Güçlü kullanıcıların hala bir kaçış yolu var.
+- Eksileri: Yükseltme üzerine V0 davranışını sessizce değiştirir → geçiş promptu gerektirir.
 
-### Decision B: New resolver file vs. extend existing preamble — ANSWER: EXTEND EXISTING
+### Karar B: Yeni çözücü dosyası vs. mevcut önyazıyı genişletme — YANIT: MEVCUT OLANI GENİŞLET
 
-**New resolver (rejected):** `scripts/resolvers/eli10-writing.ts` as a separate generator.
-- Pros: Modular.
-- Cons (Codex #7): Conflicts with existing "smart 16-year-old" framing in preamble's AskUserQuestion Format section. Two sources of truth.
+**Yeni çözücü (reddedildi):** `scripts/resolvers/eli10-writing.ts` ayrı bir üreteç olarak.
+- Artıları: Modüler.
+- Eksileri (Codex #7): Önyazının AskUserQuestion Format bölümündeki mevcut "akıllı 16 yaşındaki" çerçeveleme ile çelişir. İki gerçeklik kaynağı.
 
-**Extend preamble (chosen):** Writing Style section added to `scripts/resolvers/preamble.ts` directly below AskUserQuestion Format.
-- Pros: One source of truth. Composes with existing rules.
-- Cons: `preamble.ts` grows.
+**Önyazıyı genişlet (seçilen):** Yazım Stili bölümü doğrudan AskUserQuestion Format altına `scripts/resolvers/preamble.ts`'ye eklenir.
+- Artıları: Bir gerçeklik kaynağı. Mevcut kurallarla birleşir.
+- Eksileri: `preamble.ts` büyür.
 
-### Decision C: Runtime suppression vs. conditional prose gate — ANSWER: CONDITIONAL PROSE GATE
+### Karar C: Çalışma zamanı bastırma vs. koşullu düzyazı geçidi — YANIT: KOŞULU DÜZYAZI GEÇİDİ
 
-**Runtime suppression (rejected):** Preamble read of `explain_level` triggers suppression logic.
-- Pros: Simpler mental model.
-- Cons (Codex #1): `gen-skill-docs` produces static Markdown. Once baked, content can't be retroactively hidden. Runtime suppression is fictional.
+**Çalışma zamanı bastırma (reddedildi):** `explain_level` önyazı okuması bastırma mantığını tetikler.
+- Artıları: Daha basit zihinsel model.
+- Eksileri (Codex #1): `gen-skill-docs` statik Markdown üretir. Pişirildikten sonra içerik geriye dönük olarak gizlenemez. Çalışma zamanı bastırma kurgusaldır.
 
-**Conditional prose gate (chosen):** "Skip this block if EXPLAIN_LEVEL: terse OR user says 'be terse' this turn." Prose convention; agent obeys or disobeys at runtime.
-- Pros: Testable. Matches V0's `QUESTION_TUNING` pattern. Honest about the mechanism.
-- Cons: Depends on agent prose compliance (no hard runtime gate).
+**Koşullu düzyazı geçidi (seçilen):** "EXPLAIN_LEVEL: terse VEYA kullanıcı bu dönüşte 'kısa ol' derse bu bloğu atla." Düzyazı kuralı; aracı çalışma zamanında uyar veya uymaz.
+- Artıları: Test edilebilir. V0'ın `QUESTION_TUNING` deseniyle eşleşir. Mekanizma hakkında dürüst.
+- Eksileri: Aracı düzyazı uyumuna bağlıdır (sabit çalışma zamanı geçidi yok).
 
-### Decision D: Jargon list location — runtime-user-editable vs. repo-owned gen-time — ANSWER: REPO-OWNED GEN-TIME
+### Karar D: Jargon listesi konumu — çalışma zamanı kullanıcı düzenlenebilir vs. repo aitli üretim zamanı — YANIT: REPO AİTLİ ÜRETİM ZAMANI
 
-**User-editable at runtime (rejected):** `~/.gstack/jargon-list.json` overrides `scripts/jargon-list.json`.
-- Pros: User can add terms specific to their domain.
-- Cons (Codex #4, Pass 2): Gen-time inlining means user edits require regeneration. Contradiction.
+**Çalışma zamanında kullanıcı tarafından düzenlenebilir (reddedildi):** `~/.gstack/jargon-list.json` `scripts/jargon-list.json`'u geçersiz kılar.
+- Artıları: Kullanıcı alanlarına özgü terimler ekleyebilir.
+- Eksileri (Codex #4, Geçiş 2): Üretim zamanı satır içi, kullanıcı düzenlemelerinin yeniden oluşturma gerektirdiği anlamına gelir. Çelişki.
 
-**Repo-owned, gen-time inlined (chosen):** `scripts/jargon-list.json` only. PRs to add/remove. `bun run gen:skill-docs` inlines terms into preamble prose.
-- Pros: One source of truth. Zero runtime cost. Composable with existing build.
-- Cons: Users can't add terms locally. Mitigation: documented in CONTRIBUTING.md; PRs accepted.
+**Repo aitli, üretim zamanı satır içi (seçilen):** Yalnızca `scripts/jargon-list.json`. Eklemek/kaldırmak için PR'ler. `bun run gen:skill-docs` terimleri önyazı düz yazısına satır içi eder.
+- Artıları: Bir gerçeklik kaynağı. Sıfır çalışma zamanı maliyeti. Mevcut derleme ile birleştirilebilir.
+- Eksileri: Kullanıcılar yerel olarak terim ekleyemez. Azaltma: CONTRIBUTING.md'de belgelenmiş; PR'ler kabul edilir.
 
-### Decision E: Pacing overhaul in V1 vs. V1.1 — ANSWER: V1.1 (extracted)
+### Karar E: V1'de adımlama yeniden tasarımı vs. V1.1 — YANIT: V1.1 (çıkarıldı)
 
-**Pacing in V1 (rejected):** Bundle ranking + auto-accept + Silent Decisions + max-3-per-phase cap + flip mechanism.
-- Pros: Addresses Louise's fatigue directly.
-- Cons (Eng review Pass 3 + Codex Pass 2): 10+ structural gaps unfixable via plan-text editing. Session-state model undefined. `phase` field missing from question-log. Registry doesn't cover dynamic review findings. Flip mechanism has no implementation. Migration prompt itself is an interrupt. First-run preamble prompts also count. Pacing as prose can't invert existing ask-per-section execution order.
+**V1'de adımlama (reddedildi):** Sıralama + otomatik kabul + Sessiz Kararlar + aşama başına en fazla 3上限 + döndürme mekanizması paketi.
+- Artıları: Louise'in yorgunluğunu doğrudan ele alır.
+- Eksileri (Mühendislik incelemesi Geçiş 3 + Codex Geçiş 2): Düz metin düzenlemeyle düzeltilemeyen 10+ yapısal boşluk. Oturum durum modeli tanımsız. Soru günlüğünden `phase` alanı eksik. Kayıt defteri dinamik inceleme bulgularını kapsamaz. Döndürme mekanizmasının uygulaması yok. Geçiş promptunun kendisi bir kesinti. İlk çalıştırma önyazı promptları da sayılır. Adımlama düzyazı olarak mevcut aşama başına sor执行 sırasını tersine çeviremez.
 
-**Extract to V1.1 (chosen):** Ship ELI10 + LOC in V1. Pacing gets its own design round with full review cycle.
-- Pros: Ships V1 honestly. Gives V1.1 real baseline data from V1 usage (Louise's V1 transcript). Matches SCOPE REDUCTION mode from CEO review.
-- Cons: Louise's fatigue complaint isn't fully addressed until V1.1. Mitigation: V1 still improves her experience via writing quality; V1.1 follows up with pacing.
+**V1.1'e çıkar (seçilen):** V1'de ELI10 + LOC gönder. Adımlama kendi tasarım turunu tam inceleme döngüsü ile alır.
+- Artıları: V1'i dürüstçe gönderir. V1.1'e V1 kullanımından gerçek temel veri verir (Louise'in V1 transkripti). CEO incelemesinden SCOPE REDUCTION moduyla eşleşir.
+- Eksileri: Louise'in yorgunluk şikayeti V1.1'e kadar tam olarak ele alınmaz. Azaltma: V1 yine yazım kalitesi aracılığıyla deneyimini iyileştirir; V1.1 adımlama ile takip eder.
 
-### Decision F: README update mechanism — single string vs. two-string — ANSWER: TWO-STRING
+### Karar F: README güncelleme mekanizması — tek dize vs. iki dize — YANIT: İKİ DİZE
 
-**Single string (rejected):** `<!-- GSTACK-THROUGHPUT-MULTIPLE: N× -->` as both replacement anchor AND CI-reject marker.
-- Pros: Simple.
-- Cons (Codex Pass 2): Pipeline breaks on itself — CI rejects commits containing the marker, but the marker IS the anchor.
+**Tek dize (reddedildi):** `<!-- GSTACK-THROUGHPUT-MULTIPLE: N× -->` hem değiştirme bağlayıcısı hem CI-reddetme işaretçisi olarak.
+- Artıları: Basit.
+- Eksileri (Codex Geçiş 2): Boru hattı kendini yok eder — CI işaretçiyi içeren commit'leri reddeder, ama işaretçi bağlayıcının kendisidir.
 
-**Two-string (chosen):** `GSTACK-THROUGHPUT-PLACEHOLDER` (anchor, stable) + `GSTACK-THROUGHPUT-PENDING` (explicit missing-build marker, CI rejects).
-- Pros: Anchor persists; CI catches actual failure state.
-- Cons: Two symbols to remember.
+**İki dize (seçilen):** `GSTACK-THROUGHPUT-PLACEHOLDER` (bağlayıcı, kararlı) + `GSTACK-THROUGHPUT-PENDING` (açık eksik derleme işaretçisi, CI reddeder).
+- Artıları: Bağlayıcı kalıcı; CI gerçek başarısızlık durumunu yakalar.
+- Eksileri: Hatırlanacak iki sembol.
 
-## Review record
+## İnceleme kaydı
 
-| Review | Runs | Status | Key findings integrated |
+| İnceleme | Çalıştırma | Durum | Entegre edilen temel bulgular |
 |---|---|---|---|
-| CEO Review | 1 | CLEAR (HOLD SCOPE) | Premise pivot: four-level axis → ELI10 by default. Cross-model tensions resolved via explicit user choice. |
-| Codex Review | 2 | ISSUES_FOUND + drove scope reduction | Pass 1: 25 findings, 3 critical blockers (static-markdown, host-paths, README mechanism). Pass 2: 20 findings on revised plan, drove V1.1 extraction. |
-| Eng Review | 3 | CLEAR (SCOPE_REDUCED) | Pass 1: critical gaps + 3 decisions (all A). Pass 2: scoring-formula bug, path contradiction, fake `devDependencies.optional` field. Pass 3: identified pacing structural gaps, drove extraction. |
-| DX Review | 1 | CLEAR (TRIAGE) | 3 critical (docs plan, upgrade migration, hero moment). 9 auto-accepted as Silent DX Decisions. |
+| CEO İncelemesi | 1 | TEMIZ (KAPSAMI TUT) | Önerme dönüşümü: dört seviyeli eksenden varsayılan olarak ELI10. Çapraz model gerilimleri açık kullanıcı seçimi ile çözüldü. |
+| Codex İncelemesi | 2 | SORUNLAR_BULUNDU + kapsam küçültmeye yöneltti | Geçiş 1: 25 bulgu, 3 kritik engelleyici (statik markdown, ana bilgisayar yolları, README mekanizması). Geçiş 2: düzeltilmiş plan üzerinde 20 bulgu, V1.1 çıkarmaya yöneltti. |
+| Mühendislik İncelemesi | 3 | TEMIZ (KAPSAM_KÜÇÜLTÜLDÜ) | Geçiş 1: kritik boşluklar + 3 karar (tümü A). Geçiş 2: puanlama formülü hatası, yol çelişkisi, sahte `devDependencies.optional` alanı. Geçiş 3: adımlama yapısal boşluklarını tanımladı, çıkarmaya yöneltti. |
+| DX İncelemesi | 1 | TEMIZ (ÖNCELİKLENDİRME) | 3 kritik (docs planı, yükseltme geçişi, hero anı). 9 Sessiz DX Kararları olarak otomatik kabul edildi. |
 
-Review report persisted in `~/.gstack/` via `gstack-review-log`. Plan file retained with full history at `~/.claude/plans/system-instruction-you-are-working-transient-sunbeam.md`.
+İnceleme raporu `~/.gstack/` içinde `gstack-review-log` aracılığıyla kalıcı hale getirildi. Plan dosyası tam geçmiş ile `~/.claude/plans/system-instruction-you-are-working-transient-sunbeam.md` konumunda tutuldu.

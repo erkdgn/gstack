@@ -1,164 +1,164 @@
-# GCOMPACTION.md — Design & Architecture (TABLED)
+# GCOMPACTION.md — Tasarım ve Mimari (ASKIYA ALINDI)
 
-**Target path on approval:** `docs/designs/GCOMPACTION.md`
+**Onay sonrası hedef yol:** `docs/designs/GCOMPACTION.md`
 
-This is the preserved design artifact for `gstack compact`. Everything above the first `---` divider below gets extracted verbatim to `docs/designs/GCOMPACTION.md` on plan approval. Everything after that divider is archived research (office hours + competitive deep-dive + eng-review notes + codex review + research findings) that informed the design.
-
----
-
-## Status: TABLED (2026-04-17) — pending Anthropic `updatedBuiltinToolOutput` API
-
-**Why tabled.** The v1 architecture assumed a Claude Code `PostToolUse` hook could REPLACE the tool output that enters the model's context for built-in tools (Bash, Read, Grep, Glob, WebFetch). Research on 2026-04-17 confirmed this is not possible today.
-
-**Evidence:**
-
-1. **Official docs** (https://code.claude.com/docs/en/hooks): The only output-replace field documented for `PostToolUse` is `hookSpecificOutput.updatedMCPToolOutput`, and the docs explicitly state: *"For MCP tools only: replaces the tool's output with the provided value."* No equivalent field exists for built-in tools.
-2. **Anthropic issue [#36843](https://github.com/anthropics/claude-code/issues/36843)** (OPEN): Anthropic themselves acknowledge the gap. *"PostToolUse hooks can replace MCP tool output via `updatedMCPToolOutput`, but there is no equivalent for built-in tools (WebFetch, WebSearch, Bash, Read, etc.)... They can only add warnings via `decision: block` (which injects a reason string) or `additionalContext`. The original malicious content still reaches the model."*
-3. **RTK mechanism** (source-reviewed at `src/hooks/init.rs:906-912` and `hooks/claude/rtk-rewrite.sh:83-100`): RTK is NOT a PostToolUse compactor. It's a **PreToolUse** Bash matcher that rewrites `tool_input.command` (e.g., `git status` → `rtk git status`). The wrapped command produces compact stdout itself. RTK README confirms: *"the hook only runs on Bash tool calls. Claude Code built-in tools like Read, Grep, and Glob do not pass through the Bash hook, so they are not auto-rewritten."* RTK is Bash-only by architectural constraint, not by choice.
-4. **tokenjuice mechanism** (source-reviewed at `src/core/claude-code.ts:160, 491, 540-549`): tokenjuice DOES register `PostToolUse` with `matcher: "Bash"` but has no real output-replace API available — it hijacks `decision: "block"` + `reason` to inject compacted text. Whether this actually reduces model-context tokens or just overlays UI output is disputed. tokenjuice is also Bash-only.
-5. **Read/Grep/Glob execute in-process inside Claude Code** and bypass hooks entirely. Wedge (ii) "native-tool coverage" was architecturally impossible from day one regardless of replacement API.
-
-**Consequence.** Both wedges are dead in their original form:
-- Wedge (i) "Conditional LLM verifier" — still technically possible, but only for Bash output, via PreToolUse command wrapping (RTK's mechanism). The verifier stops being a differentiator once we're also Bash-only.
-- Wedge (ii) "Native-tool coverage" — impossible today. Read/Grep/Glob don't fire hooks. Even if they did, no output-replace field exists.
-
-**Decision.** Shelve `gstack compact` entirely. Track Anthropic issue #36843 for the arrival of `updatedBuiltinToolOutput` (or equivalent). When that API ships, this design doc + the 15 locked decisions below + the research archive at the bottom become the unblocking artifacts for a fresh implementation sprint.
-
-**If un-tabling:** Start from the "Decisions locked during plan-eng-review" block below — most remain valid. Then re-verify the hooks reference against the newly-shipped API, update the Architecture data-flow diagram to use whatever real output-replacement field exists, and re-run `/codex review` against the revised plan before coding.
-
-**What we're NOT doing:**
-- Not shipping a Bash-only PreToolUse wrapper. That's RTK's product; they're at 28K stars and 3 years of rule scars. No wedge.
-- Not shipping the `decision: block` + `reason` hack. Undocumented behavior, Anthropic could break it, and the model may still see the raw output alongside the compacted overlay — context savings are disputed.
-- Not shipping B-series benchmark in isolation. Without a working compactor, there's nothing to benchmark.
-
-**Cost of tabling:** ~0. No code was written. The design doc + research + decisions remain as a ready-to-unblock artifact.
+Bu, `gstack compact` için korunmuş tasarım eseridir. İlk `---` ayırıcısının üstündeki her şey, plan onayında `docs/designs/GCOMPACTION.md`'ye kelimesi kelimesine çıkarılır. Bu ayırıcıdan sonraki her şey, tasarımı bilgilendiren arşivlenmiş araştırmadır (office hours + rekabetçi derinlemesine inceleme + mühendislik inceleme notları + codex incelemesi + araştırma bulguları).
 
 ---
 
-## Decisions locked during plan-eng-review (2026-04-17)
+## Durum: ASKIYA ALINDI (2026-04-17) — Anthropic `updatedBuiltinToolOutput` API'sini bekliyor
 
-Preserved for the un-tabling sprint if/when Anthropic ships the built-in-tool output-replace API.
+**Neden askıya alındı.** v1 mimarisi, bir Claude Code `PostToolUse` hook'unun yerleşik araçlar (Bash, Read, Grep, Glob, WebFetch) için modelin bağlamına giren araç çıktısını DEĞİŞTİREBİLECEĞİNİ varsayıyordu. 2026-04-17 tarihindeki araştırma, bunun bugün mümkün olmadığını doğruladı.
 
-Summary of every decision made during the engineering review. Full rationale is preserved throughout the sections below; this block is the single source of truth if anything else drifts.
+**Kanıt:**
 
-**Scope (Section 0):**
-1. **Claude-first v1.** Ship compact + rules + verifier on Claude Code only. Codex + OpenClaw land at v1.1 after the wedge is proven on the primary host. Cuts ~2 days of host integration and derisks launch. The original "wedge (ii) native-tool coverage" claim applies to Claude Code at v1; we make no cross-host claim until v1.1.
-2. **13-rule launch library.** v1 ships tests (jest/vitest/pytest/cargo-test/go-test/rspec) + git (diff/log/status) + install (npm/pnpm/pip/cargo). Build/lint/log families defer to v1.1, driven by `gstack compact discover` telemetry from real users.
-3. **Verifier default ON at v1.0.** `failureCompaction` trigger (exit≠0 AND >50% reduction) is enabled out of the box. The verifier IS the wedge — defaulting it off hides the differentiating feature. Trigger bounds already keep expected fire rate ≤10% of tool calls.
+1. **Resmi dokümantasyon** (https://code.claude.com/docs/en/hooks): `PostToolUse` için belgelenen tek çıktı-değiştirme alanı `hookSpecificOutput.updatedMCPToolOutput` ve dokümantasyon açıkça şunu belirtiyor: *"Yalnızca MCP araçları için: sağlanan değerle aracın çıktısını değiştirir."* Yerleşik araçlar için eşdeğer bir alan mevcut değil.
+2. **Anthropic sorun [#36843](https://github.com/anthropics/claude-code/issues/36843)** (AÇIK): Anthropic kendisi boşluğu kabul ediyor. *"PostToolUse hook'ları `updatedMCPToolOutput` aracılığıyla MCP araç çıktısını değiştirebilir, ancak yerleşik araçlar (WebFetch, WebSearch, Bash, Read vb.) için eşdeğer bir alan yoktur... Yalnızca `decision: block` (bir neden dizesi enjekte eder) veya `additionalContext` ile uyarı ekleyebilirler. Orijinal kötü amaçlı içerik hala modele ulaşır."*
+3. **RTK mekanizması** (kaynak incelendi: `src/hooks/init.rs:906-912` ve `hooks/claude/rtk-rewrite.sh:83-100`): RTK bir PostToolUse sıkıştırıcı DEĞİLDİR. `tool_input.command`'u yeniden yazan bir **PreToolUse** Bash eşleştiricisidir (örn., `git status` → `rtk git status`). Sarılmış komut sıkıştırılmış stdout'u kendisi üretir. RTK README'si doğrular: *"hook yalnızca Bash araç çağrılarında çalışır. Read, Grep ve Glob gibi Claude Code yerleşik araçları Bash hook'undan geçmez, bu yüzden otomatik olarak yeniden yazılmaz."* RTK mimari kısıtlama nedeniyle yalnızca Bash'tir, tercih nedeniyle değil.
+4. **tokenjuice mekanizması** (kaynak incelendi: `src/core/claude-code.ts:160, 491, 540-549`): tokenjuice `PostToolUse`'ı `matcher: "Bash"` ile kaydeder, ancak kullanılabilir gerçek çıktı-değiştirme API'si yoktur — sıkıştırılmış metin enjekte etmek için `decision: "block"` + `reason`'ı ele geçirir. Bunun gerçekten model-bağlam token'larını azaltıp azaltmadığı veya yalnızca UI çıktısının üzerine bindiği tartışmalıdır. tokenjuice de yalnızca Bash'tir.
+5. **Read/Grep/Glob Claude Code içinde işlem içi yürütülür** ve hook'lari tamamen atlar. Kama (ii) "yerel-arac kapsama" alanı, değiştirme API'sinden bağımsız olarak mimari açıdan ilk günden imkansızdı.
 
-**Architecture (Section 1):**
-4. **Exact line-match sanitization for Haiku output.** Split raw output by `\n`, put lines in a set, only append lines from Haiku that appear verbatim in that set. Tightest adversarial contract; prompt-injection attempts cannot slip in novel text.
-5. **Layered failureCompaction signal.** Prefer `exitCode` from the envelope; if the host omits it, fall back to `/FAIL|Error|Traceback|panic/` regex on the output. Log which signal fired in `meta.failureSignal` ("exit" | "pattern" | "none"). Pre-implementation task #1 still verifies Claude Code's envelope empirically, but the system no longer breaks if it doesn't.
-6. **Deep-merge rule resolution.** User/project rules inherit built-in fields they don't override. Escape hatch: `"extends": null` in a rule file triggers full replacement semantics. Matches the mental model of eslint/tsconfig/.gitignore — override a piece without losing the rest.
+**Sonuç.** Her iki kama da orijinal biçimlerinde ölü:
+- Kama (i) "Koşullu LLM doğrulayıcı" — hala teknik olarak mümkün, ancak yalnızca Bash çıktısı için, PreToolUse komut sarmalama yoluyla (RTK'nın mekanizması). Aynı zamanda Bash-özel olduğumuzda doğrulayıcı farklılaştırıcı olmaktan çıkar.
+- Kama (ii) "Yerel araç kapsama" — bugün imkansız. Read/Grep/Glob hook'ları tetiklemez. Tetiklese bile, MCP olmayan araçlar için çıktı-değiştirme alanı mevcut değil.
 
-**Code quality (Section 2):**
-7. **Per-rule regex timeout, no RE2 dep.** Run each rule's regex via a 50ms AbortSignal budget; on timeout, skip the rule and record `meta.regexTimedOut: [ruleId]`. Avoids a WASM dependency and keeps rule-author syntax unconstrained.
-8. **Pre-compiled rule bundle.** `gstack compact install` and `gstack compact reload` produce `~/.gstack/compact/rules.bundle.json` (deep-merged, regex-compiled metadata cached). Hook reads that single file instead of parsing N source files.
-9. **Auto-reload on mtime drift.** Hook stats rule source files on startup; if any source file is newer than the bundle, rebuild in-line before applying. Adds ~0.5ms/invocation but eliminates the "I edited a rule and nothing changed" footgun.
-10. **Expanded v1 redaction set.** Tee files redact: AWS keys, GitHub tokens (`ghp_/gho_/ghs_/ghu_`), GitLab tokens (`glpat-`), Slack webhooks, generic JWT (three base64 segments), generic bearer tokens, SSH private-key headers (`-----BEGIN * PRIVATE KEY-----`). Credit cards / SSNs / per-key env-pairs deferred to a full DLP layer in v2.
+**Karar.** `gstack compact`'ı tamamen rafa kaldır. Anthropic sorun #36843'ün `updatedBuiltinToolOutput` (veya eşdeğeri) gelmesini takip et. Bu API geldiğinde, bu tasarım dokümanı + aşağıdaki kilitlenmiş 15 karar + alttaki araştırma arşivi, yeni bir uygulama sprinti için engellemeyi kaldıran eserler olacak.
 
-**Testing (Section 3):**
-11. **P-series gate subset.** v1 gate-tier P-tests: P1 (binary garbage), P3 (empty output), P6 (RTK-killer critical stack frame), P8 (secrets to tee), P15 (hook timeout), P18 (prompt injection), P26 (malformed user rule JSON), P28 (regex DoS), P30 (Haiku hallucination). Remaining 21 P-cases grow R-series as real bugs hit.
-12. **Fixture version-stamping.** Every golden fixture has a `toolVersion:` frontmatter. CI warns when fixture toolVersion ≠ currently installed. No more calendar-based rotation.
-13. **B-series real-world benchmark testbench (hard v1 gate).** New component `compact/benchmark/` scans `~/.claude/projects/**/*.jsonl`, ranks the noisiest tool calls, clusters them into named scenarios, replays the compactor against them, and reports reduction-by-rule-family. v1 cannot ship until B-series on the author's own 30-day corpus shows ≥15% reduction AND zero critical-line loss on planted bugs. Local-only; never uploads. Community-shared corpus is v2.
+**Askıya kaldırmadan devam etmek için:** Aşağıdaki "Plan-mühendislik-incelemesi sırasında kilitlenen kararlar" bloğundan başlayın — çoğu hala geçerli. Ardından hook'lar referansını yeni gönderilen API'ye karşı yeniden doğrulayın, Mimari veri akış diyagramını hangi gerçek çıktı-değiştirme alanı varsa onu kullanacak şekilde güncelleyin, ve kodlamadan önce düzeltilmiş plana karşı `/codex review`'u yeniden çalıştırın.
 
-**Performance (Section 4):**
-14. **Revised latency budgets.** Bun cold-start on macOS ARM is 15-25ms; the original 10ms p50 target was unrealistic. New budgets: <30ms p50 / <80ms p99 on macOS ARM, <20ms p50 / <60ms p99 on Linux (verifier off). Verifier-fires budget stays <600ms p50 / <2s p99. Daemon mode is a v2 option gated on B-series showing cold-start hurts session savings.
-15. **Line-oriented streaming pipeline.** Readline over stdin → filter → group → dedupe → ring-buffered tail truncation → stdout. Any single line >1MB hits P9 (truncate to 1KB with `[... truncated ...]` marker). Caps memory at 64MB regardless of total output size.
+**Yapmayacağımız şeyler:**
+- Yalnızca Bash için bir PreToolUse sarmalayıcı göndermiyoruz. Bu RTK'nın ürünü; 28K yıldız ve 3 yıl kural yaraları var. Kama yok.
+- `decision: block` + `reason` hack'ini göndermiyoruz. Belgelenmemiş davranış, Anthropic bozabilir, ve model sıkıştırılmış katmanın yanında ham çıktıyı hala görebilir — bağlam tasarrufları tartışmalı.
+- B-serisi kıyaslama testini tek başına göndermiyoruz. Çalışan bir sıkıştırıcı olmadan, kıyaslanacak bir şey yok.
 
-Every row above is a `MUST` in the implementation. Drift requires a new eng-review.
+**Askıya almanın maliyeti:** ~0. Hiçbir kod yazılmadı. Tasarım dokümanı + araştırma + kararlar, hazır-engellemeyi-kaldır eseri olarak kalır.
 
 ---
 
-## Summary
+## Plan-mühendislik-incelemesi sırasında kilitlenen kararlar (2026-04-17)
 
-`gstack compact` was designed as a `PostToolUse` hook that reduces tool-output noise before it reaches an AI coding agent's context window. Deterministic JSON rules would shrink noisy test runners, build logs, git diffs, and package installs. A conditional Claude Haiku verifier would act as a safety net when over-compaction risk was high.
+Anthropic yerleşik-aracı çıktı-değiştirme API'sini gönderdiğinde askıya kaldırmadan çıkma sprinti için korunmuştur.
 
-**Current status: TABLED.** See "Status" section above. The architecture depends on a Claude Code API (`updatedBuiltinToolOutput` or equivalent for built-in tools) that does not exist as of 2026-04-17. Anthropic issue #36843 tracks the gap.
+Mühendislik incelemesi sırasında alınan her kararın özeti. Tam gerekçeler aşağıdaki bölümler boyunca korunmuştur; bu blok, başka bir şey kayması durumunda tek doğruluk kaynağıdır.
 
-**Intended goal (preserved for the un-tabling sprint):** 15–30% tool-output token reduction per long session, with zero increase in task-failure rate.
+**Kapsam (Bölüm 0):**
+1. **Claude-öncelikli v1.** compact + rules + doğrulayıcı'yı yalnızca Claude Code üzerinde gönder. Codex + OpenClaw v1.1'de kama birincil ana bilgisayarda kanıtlandıktan sonra gelir. ~2 gün ana bilgisayar entegrasyonunu keser ve lansman riskini azaltır. Orijinal "kama (ii) yerel-arac kapsama" iddiası v1'de Claude Code için geçerlidir; v1.1'e kadar ana bilgisayarlar arası iddia yapmayız.
+2. **13-kural lansman kütüphanesi.** v1 testler (jest/vitest/pytest/cargo-test/go-test/rspec) + git (diff/log/status) + kurulum (npm/pnpm/pip/cargo) gönderir. Derleme/lint/günlük aileleri, gerçek kullanıcıların `gstack compact discover` telemetrisinden yönlendirilen v1.1'e ertelenir.
+3. **Doğrulayıcı v1.0'da varsayılan olarak AÇIK.** `failureCompaction` tetikleyicisi (çıkış≠0 VE >%50 azalma) kutudan çıkar. Doğrulayıcı KAMADIR — varsayılan olarak kapalı olmak farklılaştırıcı özelliği gizler. Tetikleyici sınırları zaten beklenen tetiklenme oranını araç çağrılarının ≤%10'unda tutar.
 
-**Original wedge (vs RTK, the 28K-star incumbent) — both invalidated by research:**
-1. ~~**Conditional LLM verifier.**~~ Still technically viable via PreToolUse command wrapping, but only for Bash. Stops being a differentiator once we're Bash-only. Reconsider if the built-in-tool API arrives.
-2. ~~**Native-tool coverage.**~~ Architecturally impossible today. Read/Grep/Glob execute in-process inside Claude Code and do not fire hooks. Even for tools that do fire `PostToolUse`, no output-replacement field exists for non-MCP tools.
+**Mimari (Bölüm 1):**
+4. **Haiku çıktısı için tam satır eşleşme temizleme.** Ham çıktıyı `\n` ile böl, satırları bir kümeye koy, yalnızca Haiku'dan o kümede kelimesi kelimesine görünen satırları ekle. En sıkı düşmanca sözleşme; prompt enjeksiyon denemeleri yeni metin sızdıramaz.
+5. **Katmanlı failureCompaction sinyali.** Zarfın `exitCode` alanını tercih et; ana bilgisayar atarsa, çıktı üzerinde `/FAIL|Error|Traceback|panic/` regex'e geri dön. Hangi sinyalin tetiklendiğini `meta.failureSignal`'da günlükle ("exit" | "pattern" | "none"). Uygulama öncesi görev #1 hala Claude Code'un zarfını ampirik olarak doğrular, ancak sistem artık bununla kırılmaz.
+6. **Derin birleştirme kural çözümlemesi.** Kullanıcı/proje kuralları geçersiz kılmadıkları yerleşik alanları miras alır. Kaçış yolu: bir kural dosyasında `"extends": null` tam değiştirme semantiğini tetikler. eslint/tsconfig/.gitignore zihinsel modeliyle eşleşir — parçayı override et, geri kalanını kaybetmeden.
 
-**Original positioning (now moot):** *"RTK is fast. gstack compact is fast AND safe, and it covers every tool in your toolbox, not just Bash."*
+**Kod kalitesi (Bölüm 2):**
+7. **Kural başına regex zaman aşımı, RE2 bağımlılığı yok.** Her kuralın regex'ini 50ms AbortSignal bütçesiyle çalıştır; zaman aşımında kuralı atla ve `meta.regexTimedOut: [ruleId]` kaydet. Bir WASM bağımlılığından kaçınır ve kural yazarı sözdizimini sınırlamaz.
+8. **Önceden derlenmiş kural paketi.** `gstack compact install` ve `gstack compact reload`, `~/.gstack/compact/rules.bundle.json` üretir (derin birleştirilmiş, regex derlenmiş meta veriler önbelleğe alınmış). Hook N kaynak dosyasını ayrıştırmak yerine o tek dosyayı okur.
+9. **mtime sapması durumunda otomatik yeniden yükleme.** Hook başlangıçta kural kaynak dosyalarının istatistiklerini alır; herhangi bir kaynak dosyası paketten daha yeniyse, uygulamadan önce satır içi yeniden oluşturur. ~0.5ms/çağrı ekler ama "bir kuralı düzenledim ve hiçbir şey değişmedi" ayak tabancasını ortadan kaldırır.
+10. **Genişletilmiş v1 sansür seti.** Tee dosyaları sansürler: AWS anahtarları, GitHub token'ları (`ghp_/gho_/ghs_/ghu_`), GitLab token'ları (`glpat-`), Slack webhook'ları, genel JWT (üç base64 segment), genel bearer token'ları, SSH özel anahtar başlıkları (`-----BEGIN * PRIVATE KEY-----`). Kredi kartları / SSN'ler / anahtar başına çevre değişken çiftleri v2'de tam bir DLP katmanına ertelenir.
 
-## Non-goals
+**Test (Bölüm 3):**
+11. **P-serisi geçit alt kümesi.** v1 geçit katmanı P-testleri: P1 (ikili çöp), P3 (boş çıktı), P6 (RTK-katil kritik yığın çerçevesi), P8 (tee'ye gizli anahtarlar), P15 (hook zaman aşımı), P18 (prompt enjeksiyonu), P26 (bozuk kullanıcı kuralı JSON'u), P28 (regex DoS), P30 (Haiku halüsinasyonu). Kalan 21 P-durumu, gerçek hatalar isabet ettikçe R-serisine büyür.
+12. **Fixture sürüm damgalama.** Her altın fixture'ın bir `toolVersion:` ön maddesi var. CI, fixture toolVersion ≠ kurulu sürüm olduğunda uyarır. Takvim tabanlı döndürme yok.
+13. **B-serisi gerçek dünya kıyaslama test düzeneği (sert v1 geçidi).** Yeni bileşen `compact/benchmark/`, `~/.claude/projects/**/*.jsonl`'ı tarar, en gürültülü araç çağrılarını sıralar, onları adlandırılmış senaryolarda kümelendir, sıkıştırıcıyı bunlara karşı yeniden oynatır ve kural ailesine göre azaltma raporlar. Yazarın kendi 30 günlük corpus'unda B-serisi ≥%15 azalma VE dikili hata senaryolarında sıfır kritik satır kaybı gösterene kadar v1 gönderilemez. Yalnızca yerel; hiçbir zaman yüklemez. Topluluk paylaşımlı corpus v2'dir.
 
-- Summarizing user messages or prior agent turns (Claude's own Compaction API owns that).
-- Compressing agent response output (caveman's layer).
-- Caching tool calls to avoid re-execution (token-optimizer-mcp's layer).
-- Acting as a general-purpose log analyzer.
-- Replacing the agent's own judgement about when to re-run a command with `GSTACK_RAW=1`.
+**Performans (Bölüm 4):**
+14. **Düzeltilmiş gecikme bütçeleri.** macOS ARM üzerinde Bun soğuk başlangıcı 15-25ms; orijinal 10ms p50 hedefi gerçekçi değildi. Yeni bütçeler: macOS ARM'de <30ms p50 / <80ms p99, Linux'ta (doğrulayıcı kapalı) <20ms p50 / <60ms p99. Doğrulayıcı-tetiklenme bütçesi <600ms p50 / <2s p99. Arka plan programı modu, B-serisi soğuk başlangıcın oturum tasarruflarını anlamlı şekilde etkilediğini gösterdiği takdirde v2 seçeneğidir.
+15. **Satır yönelimli akış hattı.** stdin üzerinden Readline → filtre → grup → çiftleri kaldır → halka tamponlu kuyruk kırpması → stdout. 1MB'tan büyük herhangi bir tek satır P9'a çarpar (1KB'ye `[... truncated ...]` işaretiyle kırpar). Toplam çıktı boyutundan bağımsız olarak belleği 64MB'ta sınırlar.
 
-## Why this is worth building
+Yukarıdaki her satır uygulamada bir `MUST`'tur. Sapma yeni bir mühendislik incelemesi gerektirir.
 
-**Problem is measured, not hypothetical.**
+---
 
-- [Chroma research (2025)](https://research.trychroma.com/context-rot) tested 18 frontier models. Every model degrades as context grows. Rot starts well before the window limit — a 200K model rots at 50K.
-- Coding agents are the worst case: accumulative context + high distractor density + long task horizon. Tool output is explicitly named as a primary noise source.
-- The market has voted: Anthropic shipped Opus 4.6 Compaction API; OpenAI shipped a compaction guide; Google ADK shipped context compression; LangChain shipped autonomous compression; sst/opencode has built-in compaction. The hybrid deterministic + LLM pattern is industry consensus.
+## Özet
 
-**Existing field (what gstack compact joins and differentiates from):**
+`gstack compact`, bir AI kodlama aracısının bağlam penceresine ulaşmadan önce araç çıktı gürültüsünü azaltan bir `PostToolUse` hook'u olarak tasarlandı. Belirleyici JSON kuralları gürültülü test çalıştırıcılarını, derleme günlüklerini, git diff'lerini ve paket kurulumlarını küçültürdü. Koşullu bir Claude Haiku doğrulayıcısı, aşırı sıkıştırma riski yüksek olduğunda güvenlik ağı olarak işlev görecekti.
 
-| Project | Stars | License | Layer | Threat | Note |
+**Mevcut durum: ASKIYA ALINDI.** Yukarıdaki "Durum" bölümüne bakın. Mimari, 2026-04-17 itibarıyla mevcut olmayan bir Claude Code API'sine (`updatedBuiltinToolOutput` veya yerleşik araçlar için eşdeğeri) bağlıdır. Anthropic sorun #36843 boşluğu takip ediyor.
+
+**Hedeflenen amaç (askıya kaldırmadan çıkma sprinti için korunmuştur):** Uzun bir oturumda görev başarısızlık oranında sıfır artışla %15-30 araç çıktı token azaltma.
+
+**Orijinal kama (RTK ile, 28K yıldızlı mevcut lider) — araştırma tarafından her ikisi de geçersiz kılındı:**
+1. ~~**Koşullu LLM doğrulayıcı.**~~ PreToolUse komut sarmalama yoluyla hala teknik olarak uygulanabilir, ancak yalnızca Bash için. Bash-özel olduğumuzda farklılaştırıcı olmaktan çıkar. Yerel araç API'si gelirse yeniden değerlendir.
+2. ~~**Yerel araç kapsama.**~~ Bugün mimari açıdan imkansız. Read/Grep/Glob Claude Code içinde işlem içi yürütülür ve hook'ları tetiklemez. `PostToolUse`'ı tetikleyen araçlar için bile MCP olmayan araçlar için çıktı-değiştirme alanı mevcut değil.
+
+**Orijinal konumlandırma (artık geçersiz):** *"RTK hızlı. gstack compact hızlı VE güvenli, ve araç kutunuzdaki her aracı kapsar, yalnızca Bash'i değil."*
+
+## Hedef dışı
+
+- Kullanıcı mesajlarını veya önceki aracı dönmelerini özetleme (Claude'ın kendi Compaction API'si buna sahip).
+- Aracı yanıt çıktısını sıkıştırma (caveman'ın katmanı).
+- Aracıların bir komutu `GSTACK_RAW=1` ile yeniden çalıştırma kararıyla önbelleğe alma (token-optimizer-mcp'nin katmanı).
+- Genel amaçlı bir günlük analizörü olarak işlev göruma.
+- Marka isimleri ve marka adları değiştirilmez.
+
+## Neden buna değer
+
+**Sorun ölçülmüş, varsayımsal değil.**
+
+- [Chroma araştırması (2025)](https://research.trychroma.com/context-rot) 18 sınır modelini test etti. Her model bağlam büyüdükçe bozulur. Çürüme pencere sınırından çok önce başlar — 200K'lık bir model 50K'da çürür.
+- Kodlama aracıları en kötü durum: birikmeli bağlam + yüksek dikkat dağıtıcı yoğunluğu + uzun görev ufku. Araç çıktısı açıkça birincil gürültü kaynağı olarak adlandırılır.
+- Pazar oy verdi: Anthropic Opus 4.6 Compaction API'sini gönderdi; OpenAI bir sıkıştırma kılavuzu gönderdi; Google ADK bağlam sıkıştırmasını gönderdi; LangChain otonom sıkıştırma gönderdi; sst/opencode yerleşik sıkıştırma içeriyor. Karma belirleyici + LLM deseni endüstri konsensüsü.
+
+**Mevcut alan (gstack compact'ın katıldığı ve farklılaştığı):**
+
+| Proje | Yıldız | Lisans | Katman | Tehdit | Not |
 |---------|-------|---------|-------|--------|------|
-| **RTK (rtk-ai/rtk)** | **28K** | Apache-2.0 | Tool output | Primary benchmark | Pure Rust, Bash-only, zero LLM |
-| caveman | 34.8K | MIT | Output tokens | Different axis | Terse system prompt; pairs WITH us |
-| claude-token-efficient | 4.3K | MIT | Response verbosity | Different axis | Single CLAUDE.md |
-| token-optimizer-mcp | 49 | MIT | MCP caching | Different axis | Prevents calls rather than compresses output |
-| tokenjuice | ~12 | MIT | Tool output | Too new | 2 days old; inspired our JSON envelope |
-| 6-Layer Token Savings Stack | — | Public gist | Recipe | Zero | Documentation; validates stacked compaction thesis |
+| **RTK (rtk-ai/rtk)** | **28K** | Apache-2.0 | Araç çıktısı | Birincil kıyaslama | Saf Rust, yalnızca Bash, sıfır LLM |
+| caveman | 34.8K | MIT | Çıktı token'ları | Farklı eksen | Kısa sistem prompt'u; bizimle BİRLİKTE çalışır |
+| claude-token-efficient | 4.3K | MIT | Yanıt açıklığı | Farklı eksen | Tek CLAUDE.md |
+| token-optimizer-mcp | 49 | MIT | MCP önbellekleme | Farklı eksen | Çağrıları önler, çıktıyı sıkıştırmaz |
+| tokenjuice | ~12 | MIT | Araç çıktısı | Çok yeni | 2 günlük; JSON zarfımızı ilham aldı |
+| 6-Layer Token Savings Stack | — | Public gist | Tarif | Sıfır | Dokümantasyon; yığınlı sıkıştırma tezini doğrular |
 
-RTK is the only direct competitor. Everything else compresses a different token source.
+RTK tek doğrudan rakiptir. Diğer her şey farklı bir token kaynağını sıkıştırır.
 
-**License compatibility:** Every referenced project is permissive-licensed (MIT or Apache-2.0) and compatible with gstack's MIT license. No AGPL, GPL, or other copyleft dependencies. See the "License & attribution" section below for the clean-room policy.
+**Lisans uyumluluğu:** Referans verilen her proje izinli lisanslıdır (MIT veya Apache-2.0) ve gstack'in MIT lisansı ile uyumludur. AGPL, GPL veya diğer copyleft bağımlılıklar yoktur. Temiz oda politikası için aşağıdaki "Lisans ve atıf" bölümüne bakın.
 
-## Architecture
+## Mimari
 
-### Data flow
+### Veri akışı
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│  Host (Claude Code / Codex / OpenClaw)                          │
+│  Ana Bilgisayar (Claude Code / Codex / OpenClaw)                │
 │  ─────────────────────────────────────────                      │
-│  1. Agent requests tool call: Bash|Read|Grep|Glob|MCP           │
-│  2. Host executes tool                                          │
-│  3. Host invokes PostToolUse hook with: {tool, input, output}   │
+│  1. Aracı araç çağrısı ister: Bash|Read|Grep|Glob|MCP           │
+│  2. Ana bilgisayar aracı yürütür                                 │
+│  3. Ana bilgisayar PostToolUse hook'unu şununla çağırır: {tool, input, output}   │
 └────────────────────┬────────────────────────────────────────────┘
-                     │ stdin (JSON envelope)
+                     │ stdin (JSON zarfı)
                      ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│  gstack-compact hook binary                                     │
+│  gstack-compact hook ikili dosyası                               │
 │  ───────────────────────────                                    │
-│  a. Parse envelope                                              │
-│  b. Match rule by (tool, command, pattern)                      │
-│  c. Apply rule primitives: filter / group / truncate / dedupe   │
-│  d. Record reduction metadata                                   │
-│  e. Evaluate verifier triggers                                  │
-│  f. If trigger met: call Haiku, append preserved lines          │
-│  g. On failure exit code: tee raw to ~/.gstack/compact/tee/...  │
-│  h. Emit JSON envelope to stdout                                │
+│  a. Zarfı ayrıştır                                                │
+│  b. Kuralı şuna göre eşleştir: (araç, komut, desen)              │
+│  c. Kural ilkel işlemlerini uygula: filtre / grup / kırp / çiftleri kaldır   │
+│  d. Azaltma meta verilerini kaydet                                   │
+│  e. Doğrulayıcı tetikleyicilerini değerlendir                                  │
+│  f. Tetikleyici karşılandıysa: Haiku çağır, korunmuş satırları ekle          │
+│  g. Başarısız çıkış kodunda: ham çıktıyı tee et → ~/.gstack/compact/tee/...  │
+│  h. JSON zarfını stdout'a yay                                    │
 └────────────────────┬────────────────────────────────────────────┘
-                     │ stdout (JSON envelope)
+                     │ stdout (JSON zarfı)
                      ▼
-              Host substitutes compacted output into agent context
+              Ana bilgisayar sıkıştırılmış çıktıyı aracı bağlamına yerleştirir
 ```
 
-### Rule resolution
+### Kural çözümlemesi
 
-Three-tier hierarchy (highest precedence wins), same pattern as tokenjuice and gstack's existing host-config-export model:
+Üç katmanlı hiyerarşi (en yüksek öncelik kazanır), tokenjuice ve gstack'in mevcut ana bilgisayar-yapılandırma-ihracat modeli ile aynı desen:
 
-1. Built-in rules: `compact/rules/` shipped with gstack
-2. User rules: `~/.config/gstack/compact-rules/`
-3. Project rules: `.gstack/compact-rules/`
+1. Yerleşik kurallar: gstack ile birlikte gönderilen `compact/rules/`
+2. Kullanıcı kuralları: `~/.config/gstack/compact-rules/`
+3. Proje kuralları: `.gstack/compact-rules/`
 
-Rules match tool calls by rule ID. A project rule with ID `tests/jest` overrides the built-in `tests/jest` entirely. No merging — replace semantics, to keep reasoning simple.
+Kurallar araç çağrılarını kural ID'sine göre eşleştirir. `tests/jest` ID'li bir proje kuralı, yerleşik `tests/jest`'i tamamen geçersiz kılar. Birleştirme yok — değiştirme semantiği, akıl yürütmeyi basit tutmak için.
 
-### JSON envelope contract (adopted from tokenjuice)
+### JSON zarfı sözleşmesi (tokenjuice'den uyarlandı)
 
-Input:
+Girdi:
 ```json
 {
   "tool": "Bash",
@@ -171,10 +171,10 @@ Input:
 }
 ```
 
-Output:
+Çıktı:
 ```json
 {
-  "reduced": "compacted output with [gstack-compact: N → M lines, rule: X] header",
+  "reduced": "[gstack-compact: N → M lines, rule: X] başlığıyla sıkıştırılmış çıktı",
   "meta": {
     "rule": "tests/jest",
     "linesBefore": 247,
@@ -188,15 +188,15 @@ Output:
 }
 ```
 
-### Rule schema
+### Kural şeması
 
-Compact, minimal. Total rules-payload must stay <5KB on disk (lesson from claude-token-efficient: rule files themselves consume tokens on every session).
+Kompakt, minimal. Toplam kurallar yükü diskte <5KB kalmalıdır (claude-token-efficient'ten ders: kural dosyaları her oturumda token tüketir).
 
 ```json
 {
   "id": "tests/jest",
   "family": "test-results",
-  "description": "Jest/Vitest output — preserve failures and summary counts",
+  "description": "Jest/Vitest çıktısı — hataları ve özet sayılarını koru",
   "match": {
     "tools": ["Bash"],
     "commands": ["jest", "vitest", "bun test"],
@@ -209,7 +209,7 @@ Compact, minimal. Total rules-payload must stay <5KB on disk (lesson from claude
     },
     "group": {
       "by": "error-kind",
-      "header": "Errors grouped by type:"
+      "header": "Türe göre gruplandırılmış hatalar:"
     },
     "truncate": {
       "headLines": 5,
@@ -218,7 +218,7 @@ Compact, minimal. Total rules-payload must stay <5KB on disk (lesson from claude
     },
     "dedupe": {
       "pattern": "^\\s*$",
-      "format": "[... {count} blank lines ...]"
+      "format": "[... {count} boş satır ...]"
     }
   },
   "tee": {
@@ -232,43 +232,43 @@ Compact, minimal. Total rules-payload must stay <5KB on disk (lesson from claude
 }
 ```
 
-The four primitives — `filter`, `group`, `truncate`, `dedupe` — are lifted directly from RTK's technique taxonomy (the only thing every serious compactor needs to handle). Any rule can combine any subset of the four; omitted primitives are no-ops.
+Dört ilkel — `filter`, `group`, `truncate`, `dedupe` — doğrudan RTK'nın teknik taksonomisinden alınmıştır (ciddi her sıkıştırıcının işlemesi gereken tek şey). Her kural dördünün herhangi bir alt kümesini birleştirebilir; atlanan ilkel işlemler no-op'tur.
 
-### Verifier layer (tiered, opt-in)
+### Doğrulayıcı katmanı (katmanlı, katılımlı)
 
-The verifier is a cheap Haiku call that fires only under specific triggers. Never on every tool call.
+Doğrulayıcı yalnızca belirli tetikleyiciler altında ateşleyen ucuz bir Haiku çağrısıdır. Asla her araç çağrısında değil.
 
-**Trigger matrix (user-configurable):**
+**Tetikleyici matrisi (kullanıcı yapılandırılabilir):**
 
-| Trigger | Default | Condition |
+| Tetikleyici | Varsayılan | Koşul |
 |---------|---------|-----------|
-| `failureCompaction` | **ON** | exit code ≠ 0 AND reduction >50% (diagnosis at risk) |
-| `aggressiveReduction` | off | reduction >80% AND original >200 lines |
-| `largeNoMatch` | off | no rule matched AND output >500 lines |
-| `userOptIn` | on (env-gated) | `GSTACK_COMPACT_VERIFY=1` forces verifier for that call |
+| `failureCompaction` | **AÇIK** | çıkış kodu ≠ 0 VE azalma >%50 (teşhis risk altında) |
+| `aggressiveReduction` | kapalı | azalma >%80 VE orijinal >200 satır |
+| `largeNoMatch` | kapalı | kural eşleşmedi VE çıktı >500 satır |
+| `userOptIn` | açık (env-gated) | `GSTACK_COMPACT_VERIFY=1` o çağrı için doğrulayıcıyı zorlar |
 
-Default config ships with `failureCompaction` only — the highest-leverage case (agent is debugging; rule may have filtered the critical stack frame).
+Varsayılan yapılandırma yalnızca `failureCompaction` ile gönderilir — en yüksek fayda durumu (aracı hata ayıklıyor; kural kritik yığın çerçevesini filtrelemiş olabilir).
 
-**Haiku's job (bounded):**
-
-```
-Here is raw output (truncated to first 2000 lines) and a compacted version.
-Return any important lines from the raw that are missing from the compacted,
-or `NONE` if nothing critical is missing.
-```
-
-The verifier never rewrites the compacted output. It only appends missing lines under a header:
+**Haiku'nun işi (sınırlı):**
 
 ```
-[gstack-compact: 247 → 18 lines, rule: tests/jest]
-[gstack-verify: 2 additional lines preserved by Haiku]
+İşte ham çıktı (ilk 2000 satıra kırpılmış) ve sıkıştırılmış bir sürüm.
+Ham çıktıda sıkıştırılmış olanda eksik olan önemli satırları döndürün,
+veya kritik bir şey eksik değilse `NONE`.
+```
+
+Doğrulayıcı asla sıkıştırılmış çıktıyı yeniden yazmaz. Yalnızca eksik satırları bir başlık altına ekler:
+
+```
+[gstack-compact: 247 → 18 satır, kural: tests/jest]
+[gstack-verify: Haiku tarafından korunmuş 2 ek satır]
   TypeError: Cannot read property 'foo' of undefined
     at parseConfig (src/config.ts:42:18)
 ```
 
-**Why Haiku, not Sonnet:** ~1/12th the cost, ~500ms vs ~2s, and the task is simple substring classification, not reasoning.
+**Neden Haiku, Sonnet değil:** ~1/12 maliyet, ~500ms vs ~2s, ve görev basit alt dize sınıflandırması, akıl yürütme değil.
 
-**Verifier config (`compact/rules/_verifier.json`):**
+**Doğrulayıcı yapılandırması (`compact/rules/_verifier.json`):**
 
 ```json
 {
@@ -287,65 +287,65 @@ The verifier never rewrites the compacted output. It only appends missing lines 
 }
 ```
 
-**Failure modes (verifier is strictly additive — never breaks the baseline):**
+**Başarısızlık modları (doğrulayıcı katı olarak eklemelidir — asla temeli bozmaz):**
 
-- No `ANTHROPIC_API_KEY` → skip verifier, use pure rule output.
-- Haiku call times out (>5s) → skip verifier, use pure rule output.
-- Haiku returns malformed JSON → skip, use pure rule output.
-- Haiku returns prompt-injection attempt → sanitize: only append lines that are substring-matches of the original raw output.
-- Haiku returns hallucinated lines (not present in raw) → drop them.
+- `ANTHROPIC_API_KEY` yok → doğrulayıcıyı atla, saf kural çıktısı kullan.
+- Haiku çağrısı zaman aşımına uğrar (>5s) → doğrulayıcıyı atla, saf kural çıktısı kullan.
+- Haiku bozuk JSON döndürür → atla, saf kural çıktısı kullan.
+- Haiku prompt enjeksiyonu denemesi döndürür → temizle: yalnızca orijinal ham çıktıda alt dize eşleşmesi olan satırları ekle.
+- Haiku halüsinasyon yapılmış satırlar döndürür (ham çıktıda mevcut değil) → onları bırak.
 
-### Tee mode (adopted from RTK)
+### Tee modu (RTK'dan uyarlandı)
 
-On any command with exit code ≠ 0, the full unfiltered output is written to `~/.gstack/compact/tee/{timestamp}_{cmd-slug}.log`. The compacted output includes a tee-file pointer:
+Çıkış kodu ≠ 0 olan herhangi bir komutta, filtrelenmemiş tam çıktı `~/.gstack/compact/tee/{timestamp}_{cmd-slug}.log` dosyasına yazılır. Sıkıştırılmış çıktı bir tee dosyası işaretçisi içerir:
 
 ```
-[gstack-compact: 247 → 18 lines, rule: tests/jest, tee: ~/.gstack/compact/tee/20260416-143022_bun-test.log]
+[gstack-compact: 247 → 18 satır, kural: tests/jest, tee: ~/.gstack/compact/tee/20260416-143022_bun-test.log]
 ```
 
-The agent can read the tee file directly if it needs the full stack trace. This replaces the earlier `onFailure.preserveFull` mechanic with a cleaner design: compacted output always stays small; raw output is always one `cat` away.
+Aracı tam yığın izlemesine ihtiyaç duyarsa tee dosyasını doğrudan okuyabilir. Bu, önceki `onFailure.preserveFull` mekanizmasını daha temiz bir tasarımla değiştirir: sıkıştırılmış çıktı her zaman küçük kalır; ham çıktı her zaman bir `cat` uzaklıktadır.
 
-**Tee safety:**
+**Tee güvenliği:**
 
-- File mode `0600` — not world-readable.
-- Built-in secret-regex set redacts AWS keys, bearer tokens, and common credential patterns before write.
-- Failed writes (read-only filesystem, permission denied) degrade gracefully: still emit compacted output, record `meta.teeFailed: true`.
-- Tee files auto-expire after 7 days (cleanup on hook startup).
+- Dosya modu `0600` — dünya tarafından okunabilir değil.
+- Yerleşik gizli anahtar regex seti yazmadan önce AWS anahtarlarını, bearer token'larını ve yaygın kimlik bilgisi desenlerini sansürler.
+- Başarısız yazmalar (salt okunur dosya sistemi, izin reddedildi) zarif şekilde bozulur: hala sıkıştırılmış çıktı yay, `meta.teeFailed: true` kaydet.
+- Tee dosyaları 7 gün sonra otomatik olarak süresi dolar (hook başlangıcında temizlik).
 
-### Host integration matrix
+### Ana bilgisayar entegrasyon matrisi
 
-| Host | Hook type | Supported matchers | Config path |
+| Ana Bilgisayar | Hook türü | Desteklenen eşleştiriciler | Yapılandırma yolu |
 |------|-----------|-------------------|-------------|
 | Claude Code | `PostToolUse` | Bash, Read, Grep, Glob, Edit, Write, WebFetch, WebSearch, mcp__* | `~/.claude/settings.json` |
-| Codex (v1.1) | `PostToolUse` equivalent | Bash (primary); tool subset TBD — empirical verification is a v1.1 prereq | `~/.codex/hooks.json` |
-| OpenClaw (v1.1) | Native hook API | Bash + MCP | OpenClaw config |
+| Codex (v1.1) | `PostToolUse` eşdeğeri | Bash (birincil); araç alt kümesi TBD — ampirik doğrulama v1.1 önkoşulu | `~/.codex/hooks.json` |
+| OpenClaw (v1.1) | Yerel hook API'si | Bash + MCP | OpenClaw yapılandırması |
 
-**v1 is Claude-first.** Wedge (ii) — native-tool coverage — is confirmed on Claude Code via [the hooks reference](https://code.claude.com/docs/en/hooks). Codex and OpenClaw integration ships at v1.1 only after the wedge is proven on the primary host via B-series benchmark data. CHANGELOG for v1 makes the Claude-only scope explicit.
+**v1 Claude-önceliklidir.** Kama (ii) — yerel araç kapsama — [hook'lar referansı](https://code.claude.com/docs/en/hooks) üzerinden Claude Code'da doğrulanmıştır. Codex ve OpenClaw entegrasyonu yalnızca kama birincil ana bilgisayarda B-serisi kıyaslama verileriyle kanıtlandıktan sonra v1.1'de gönderilir. v1 CHANGELOG'u yalnızca Claude kapsamını açıkça belirtir.
 
-### Config surface
+### Yapılandırma yüzeyi
 
-User config (`~/.config/gstack/compact.toml`):
+Kullanıcı yapılandırması (`~/.config/gstack/compact.toml`):
 
 ```toml
 [compact]
 enabled = true
-level = "normal"                            # minimal | normal | aggressive (caveman pattern)
-exclude_commands = ["curl", "playwright"]   # RTK pattern
+level = "normal"                            # minimal | normal | aggressive (caveman deseni)
+exclude_commands = ["curl", "playwright"]   # RTK deseni
 
 [compact.bundle]
-auto_reload_on_mtime_drift = true           # hook rebuilds bundle if source rule files are newer
+auto_reload_on_mtime_drift = true           # hook kaynak kural dosyaları daha yeniyse paketi yeniden oluşturur
 bundle_path = "~/.gstack/compact/rules.bundle.json"
 
 [compact.regex]
-per_rule_timeout_ms = 50                    # AbortSignal budget per regex; timeout → skip rule
+per_rule_timeout_ms = 50                    # Regex başına AbortSignal bütçesi; zaman aşımı → kuralı atla
 
 [compact.verifier]
 enabled = true
 trigger_failure_compaction = true
 trigger_aggressive_reduction = false
 trigger_large_no_match = false
-failure_signal_fallback = true              # use /FAIL|Error|Traceback|panic/ when exitCode missing
-sanitization = "exact-line-match"           # only append lines present verbatim in raw output
+failure_signal_fallback = true              # exitCode eksik olduğunda /FAIL|Error|Traceback|panic/ kullan
+sanitization = "exact-line-match"           # yalnızca ham çıktıda kelimesi kelimesine görünen satırları ekle
 
 [compact.tee]
 on_exit = "nonzero"
@@ -354,70 +354,70 @@ redact_patterns = ["aws", "github", "gitlab", "slack", "jwt", "bearer", "ssh-pri
 cleanup_days = 7
 
 [compact.benchmark]
-local_only = true                           # hard-coded; config is documentary, cannot be changed
+local_only = true                           # sabit kodlanmış; yapılandırma belgeseldir, değiştirilemez
 transcript_root = "~/.claude/projects"
 output_dir = "~/.gstack/compact/benchmark"
-scenario_cap = 20                           # top-N clusters by aggregate output volume
+scenario_cap = 20                           # toplam çıktı hacmine göre en büyük N küme
 ```
 
-**Intensity levels (caveman pattern):**
+**Yoğunluk seviyeleri (caveman deseni):**
 
-- **minimal:** only `filter` + `dedupe`; no truncation. Safest.
-- **normal:** `filter` + `dedupe` + `truncate`. Default.
-- **aggressive:** adds `group`; more savings, more edge-case risk.
+- **minimal:** yalnızca `filter` + `dedupe`; kırpmasız. En güvenli.
+- **normal:** `filter` + `dedupe` + `truncate`. Varsayılan.
+- **aggressive:** `group` ekler; daha fazla tasarruf, daha fazla uç durum riski.
 
-### CLI surface
+### CLI yüzeyi
 
-| Command | Purpose | Source |
+| Komut | Amaç | Kaynak |
 |---------|---------|--------|
-| `gstack compact install <host>` | Register PostToolUse hook in host config; builds `rules.bundle.json` | new |
-| `gstack compact uninstall <host>` | Idempotent removal | new |
-| `gstack compact reload` | Rebuild `rules.bundle.json` after editing user/project rules | new |
-| `gstack compact doctor` | Detect drift / broken hook config, offer to repair | tokenjuice |
-| `gstack compact gain` | Show token/dollar savings over time (per-rule breakdown) | RTK |
-| `gstack compact discover` | Find commands with no matching rule, ranked by noise volume | RTK |
-| `gstack compact verify <rule-id>` | Dry-run verifier on a fixture | new |
-| `gstack compact list-rules` | Show effective rule set after deep-merge (built-in + user + project) | new |
-| `gstack compact test <rule-id> <fixture>` | Apply a rule to a fixture and show the diff | new |
-| `gstack compact benchmark` | Run B-series testbench against local transcript corpus (see Benchmark section) | new |
+| `gstack compact install <host>` | PostToolUse hook'unu ana bilgisayar yapılandırmasına kaydet; `rules.bundle.json` oluşturur | yeni |
+| `gstack compact uninstall <host>` | Idempotent kaldırma | yeni |
+| `gstack compact reload` | Kullanıcı/proje kurallarını düzenledikten sonra `rules.bundle.json`'u yeniden oluştur | yeni |
+| `gstack compact doctor` | Sapmayı / bozuk hook yapılandırmasını algıla, onarmayı teklif et | tokenjuice |
+| `gstack compact gain` | Zaman içinde token/dolar tasarruflarını göster (kural başına döküm) | RTK |
+| `gstack compact discover` | Eşleşen kural olmayan komutları bul, gürültü hacmine göre sırala | RTK |
+| `gstack compact verify <rule-id>` | Bir fixture üzerinde doğrulayıcı kuru çalıştırma | yeni |
+| `gstack compact list-rules` | Derin birleştirmeden sonra etkili kural setini göster (yerleşik + kullanıcı + proje) | yeni |
+| `gstack compact test <rule-id> <fixture>` | Bir kuralı bir fixture'a uygula ve diff'i göster | yeni |
+| `gstack compact benchmark` | Yerel transkript corpus'una karşı B-serisi test düzeneğini çalıştır (Kıyaslama bölümüne bak) | yeni |
 
-Escape hatch: `GSTACK_RAW=1` env var bypasses the hook entirely for the duration of a command (same pattern as tokenjuice's `--raw` flag). Hook also auto-reloads the bundle if any source rule file's mtime is newer than the bundle file.
+Kaçış yolu: `GSTACK_RAW=1` çevre değişkeni bir komut süresince hook'u tamamen atlar (tokenjuice'ın `--raw` bayrağı ile aynı desen). Hook ayrıca herhangi bir kaynak kural dosyasının mtime'ı paket dosyasından daha yeniyse paketi otomatik olarak yeniden yükler.
 
-## File layout
+## Dosya düzeni
 
 ```
 compact/
-├── SKILL.md.tmpl              # template; regen via `bun run gen:skill-docs`
+├── SKILL.md.tmpl              # şablon; `bun run gen:skill-docs` ile yeniden oluştur
 ├── src/
-│   ├── hook.ts                # entry point; reads stdin, writes stdout; mtime-checks bundle
-│   ├── engine.ts              # rule matching + reduction metadata
-│   ├── apply.ts               # primitive application (line-oriented streaming pipeline)
-│   ├── merge.ts               # deep-merge of built-in/user/project rules; honors `extends: null`
-│   ├── bundle.ts              # compile source rules → rules.bundle.json (install/reload)
+│   ├── hook.ts                # giriş noktası; stdin okur, stdout yazar; paket mtime kontrolü
+│   ├── engine.ts              # kural eşleştirme + azaltma meta verileri
+│   ├── apply.ts               # ilkel uygulama (satır yönelimli akış hattı)
+│   ├── merge.ts               # yerleşik/kullanıcı/proje kurallarının derin birleştirmesi; `extends: null`'ı onurlandırır
+│   ├── bundle.ts              # kaynak kuralları derle → rules.bundle.json (install/reload)
 │   ├── primitives/
 │   │   ├── filter.ts
 │   │   ├── group.ts
-│   │   ├── truncate.ts        # ring-buffered tail; safe for arbitrary input size
+│   │   ├── truncate.ts        # halka tamponlu kuyruk; rastgele girdi boyutu için güvenli
 │   │   └── dedupe.ts
-│   ├── regex-sandbox.ts       # AbortSignal-bounded regex execution (50ms budget per rule)
-│   ├── verifier.ts            # Haiku integration (triggers + failure-signal fallback + sanitization)
-│   ├── sanitize.ts            # exact-line-match filter for verifier output
-│   ├── tee.ts                 # raw-output archival with secret redaction + 7-day cleanup
-│   ├── redact.ts              # secret-pattern set (AWS/GitHub/GitLab/Slack/JWT/bearer/SSH)
-│   ├── envelope.ts            # JSON I/O contract parsing + validation
-│   ├── doctor.ts              # hook drift detection + repair
-│   ├── analytics.ts           # gain + discover queries against local metadata
-│   └── cli.ts                 # argv dispatch; one thin dispatch per subcommand
-├── benchmark/                 # B-series testbench (hard v1 gate)
+│   ├── regex-sandbox.ts       # AbortSignal sınırlı regex yürütmesi (kural başına 50ms bütçe)
+│   ├── verifier.ts            # Haiku entegrasyonu (tetikleyiciler + başarısızlık sinyali yedek + temizleme)
+│   ├── sanitize.ts            # doğrulayıcı çıktısı için tam satır eşleşme filtresi
+│   ├── tee.ts                 # gizli anahtar sansürü + 7 günlük temizlik ile ham çıktı arşivleme
+│   ├── redact.ts              # gizli desen seti (AWS/GitHub/GitLab/Slack/JWT/bearer/SSH)
+│   ├── envelope.ts            # JSON G/Ç sözleşmesi ayrıştırma + doğrulama
+│   ├── doctor.ts              # hook sapma algılama + onarım
+│   ├── analytics.ts           # kazanç + keşif sorguları yerel meta veriye karşı
+│   └── cli.ts                 # argv gönderimi; alt komut başına ince bir gönderim
+├── benchmark/                 # B-serisi test düzeni (sert v1 geçidi)
 │   └── src/
-│       ├── scanner.ts         # walk ~/.claude/projects/**/*.jsonl; pair tool_use × tool_result
-│       ├── sizer.ts           # tokens per call (ceil(len/4) heuristic); rank heavy tail
-│       ├── cluster.ts         # group high-leverage calls by (tool, command pattern)
-│       ├── scenarios.ts       # emit B1-Bn real-world scenario fixtures
-│       ├── replay.ts          # run compactor against scenarios; measure reduction
-│       ├── pathology.ts       # layer planted-bug P-cases on top of real scenarios
-│       └── report.ts          # dashboard: per-scenario before/after + overall reduction
-├── rules/                     # v1 built-in JSON rule library (13 rules)
+│       ├── scanner.ts         # ~/.claude/projects/**/*.jsonl'ı tara; tool_use × tool_result bloklarını eşleştir
+│       ├── sizer.ts           # çağrı başına token'lar (ceil(len/4) buluşsal); ağır kuyruğu sırala
+│       ├── cluster.ts         # yüksek faydalı çağrıları (araç, komut deseni) ile grupla
+│       ├── scenarios.ts       # B1-Bn gerçek dünya senaryo fixture'larını yayınla
+│       ├── replay.ts          # sıkıştırıcıyı senaryolara karşı çalıştır; azaltmayı ölç
+│       ├── pathology.ts       # gerçek B senaryolarının üzerine dikili hata P durumlarını katmanla
+│       └── report.ts          # panel: senaryo başına önce/sonra + genel azalma
+├── rules/                     # v1 yerleşik JSON kural kütüphanesi (13 kural)
 │   ├── tests/
 │   │   ├── jest.json
 │   │   ├── vitest.json
@@ -434,398 +434,362 @@ compact/
 │   │   ├── diff.json
 │   │   ├── log.json
 │   │   └── status.json
-│   ├── _verifier.json         # verifier config (not a rule per se)
-│   └── _HOLD/                 # v1.1 rule families (not shipped at v1; kept for reference)
+│   ├── _verifier.json         # doğrulayıcı yapılandırması (kural olarak değil)
+│   └── _HOLD/                 # v1.1 kural aileleri (v1'de gönderilmedi; referans için tutuldu)
 │       ├── build/
 │       ├── lint/
 │       └── log/
 └── test/
     ├── unit/
     ├── golden/
-    ├── fuzz/                  # P-series — v1 gate subset only (P1/P3/P6/P8/P15/P18/P26/P28/P30)
-    ├── cross-host/            # v1: claude-code.test.ts only; codex/openclaw stub files
-    ├── adversarial/           # R-series — grows with shipped bugs
-    ├── benchmark/             # B-series scenario fixtures + expected reduction ranges
-    ├── fixtures/              # version-stamped golden inputs (toolVersion: frontmatter)
+    ├── fuzz/                  # P-serisi — yalnızca v1 geçit alt kümesi (P1/P3/P6/P8/P15/P18/P26/P28/P30)
+    ├── cross-host/            # v1: yalnızca claude-code.test.ts; codex/openclaw saplama dosyaları
+    ├── adversarial/           # R-serisi — gönderilen hatalarla büyür
+    ├── benchmark/             # B-serisi senaryo fixture'ları + beklenen azalma aralıkları
+    ├── fixtures/              # sürüm damgalı altın girdiler (toolVersion: ön maddesi)
     └── evals/
 ```
 
-## Testing Strategy
+## Test Stratejisi
 
-The test plan is comprehensive by design. Shipping into a space where the 28K-star incumbent has three years of regex battle-scars, with our wedges (Haiku verifier + native-tool coverage) introducing new failure surfaces, means we get ONE shot at "the compactor made my agent dumb" going viral. Zero appetite for that.
+Test plani tasarım gereği kapsamlıdır. 28K yıldızlı mevcut liderin üç yıllık regex savaş yarası olduğu bir alana gönderim yaparken, kamalarımızın (Haiku doğrulayıcı + yerel araç kapsama) yeni başarısızlık yüzeyleri tanıtması, "sıkıştırıcı aracımı aptal yaptı"nın viral olmasına bir şansımız var demektir. Buna sıfır iştah var.
 
-### Test tiers
+### Test katmanları
 
-| Tier | Cost | Frequency | Blocks merge |
+| Katman | Maliyet | Sıklık | Birleştirmeyi engeller |
 |------|------|-----------|--------------|
-| Unit | free, <1s | every PR | yes |
-| Golden file (with `toolVersion:` frontmatter) | free, <1s | every PR | yes |
-| Rule schema validation | free, <1s | every PR | yes |
-| Fuzz (P-series gate subset: P1/P3/P6/P8/P15/P18/P26/P28/P30) | free, <10s | every PR | yes |
-| Cross-host E2E — Claude Code only at v1 | free, ~1min | every PR (gate tier) | yes |
-| E2E with verifier (mocked Haiku) | free, ~15s | every PR | yes |
-| E2E with verifier (real Haiku) | paid, ~$0.10/run | PR touching verifier files | yes |
-| **B-series benchmark (real-world scenarios)** | **free, ~2min** | **pre-release gate** | **yes (hard gate for v1)** |
-| Token-savings eval (E1-E4 synthetic) | paid, ~$4/run | periodic weekly | no (informational) |
-| Adversarial regression (R-series) | free, <5s | every PR | yes |
-| Tool-version drift warning | free, <1s | every PR | warning only |
+| Birim | ücretsiz, <1s | her PR | evet |
+| Altın dosya (`toolVersion:` ön maddesi ile) | ücretsiz, <1s | her PR | evet |
+| Kural şema doğrulama | ücretsiz, <1s | her PR | evet |
+| Bulanıklaştırma (P-serisi geçit alt kümesi: P1/P3/P6/P8/P15/P18/P26/P28/P30) | ücretsiz, <10s | her PR | evet |
+| Ana bilgisayarlar arası U2U — v1'de yalnızca Claude Code | ücretsiz, ~1dk | her PR (geçit katmanı) | evet |
+| Doğrulayıcı ile U2U (mock Haluk) | ücretsiz, ~15s | her PR | evet |
+| Doğrulayıcı ile U2U (gerçek Haluk) | ücretli, ~$0.10/çalıştırma | doğrulayıcı dosyalarını etkileyen PR | evet |
+| **B-serisi kıyaslama (gerçek dünya senaryoları)** | **ücretsiz, ~2dk** | **yayın öncesi geçit** | **evet (v1 için sert geçit)** |
+| Token tasarrufu değerlendirmesi (E1-E4 sentetik) | ücretli, ~$4/çalıştırma | dönemsel haftalık | hayır (bilgi amaçlı) |
+| Düşmanca regresyon (R-serisi) | ücretsiz, <5s | her PR | evet |
+| Araç sürümü sapma uyarısı | ücretsiz, <1s | her PR | yalnızca uyarı |
 
-Test file layout:
+### G-serisi: iyi durumlar (beklenen azalmayı üretmeli)
 
-```
-compact/test/
-├── unit/
-│   ├── engine.test.ts         # rule matching + primitive application
-│   ├── primitives.test.ts     # filter / group / truncate / dedupe
-│   ├── envelope.test.ts       # JSON input/output contract
-│   ├── triggers.test.ts       # verifier trigger evaluation
-│   └── verifier.test.ts       # Haiku call (mocked)
-├── golden/
-│   ├── tests/                 # one fixture per test runner
-│   │   ├── jest-success.input.txt
-│   │   ├── jest-success.expected.txt
-│   │   ├── jest-fail.input.txt
-│   │   ├── jest-fail.expected.txt
-│   │   └── ... (vitest, pytest, cargo-test, go-test, rspec)
-│   ├── install/
-│   ├── git/
-│   ├── build/
-│   ├── lint/
-│   └── log/
-├── fuzz/
-│   └── pathological.test.ts   # P-series
-├── cross-host/
-│   ├── claude-code.test.ts
-│   ├── codex.test.ts
-│   └── openclaw.test.ts
-├── adversarial/
-│   └── regression.test.ts     # R-series; past bugs that must never recur
-├── fixtures/
-│   └── {tool}/                # shared raw output fixtures
-└── evals/
-    └── token-savings.eval.ts  # periodic-tier; measures real reduction
-```
-
-### G-series: good cases (must produce expected reduction)
-
-| ID | Scenario | Expected reduction |
+| ID | Senaryo | Beklenen azalma |
 |----|----------|-------------------|
-| G1 | `jest` 47 passing tests, clean run | 150+ lines → ≤10 lines |
-| G2 | `jest` 47 tests with 2 failures | 200+ lines → keep both failures + summary |
-| G3 | `vitest` run with `--reporter=verbose` | 300+ lines → ≤15 lines |
-| G4 | `pytest` collection then run | preserve failure tracebacks |
-| G5 | `cargo test` with one panic | panic location preserved verbatim |
-| G6 | `go test -v` with 200 subtests passing | collapse to `PASS: 200 subtests` |
-| G7 | `git diff` on a file with 2 hunks in 500 lines of context | keep hunks, drop context |
-| G8 | `git log -50` | preserve SHA + subject + author, drop body |
-| G9 | `git status` with 30 modified files | group by directory |
-| G10 | `pnpm install` fresh | final count + warnings; drop resolved packages |
-| G11 | `pip install -r requirements.txt` | drop download progress; keep final install list + errors |
-| G12 | `cargo build` success | drop compilation progress; keep final target |
-| G13 | `docker build` success | drop layer pulls; keep final image digest |
-| G14 | `tsc --noEmit` clean | compact to `tsc: 0 errors` |
-| G15 | `tsc --noEmit` with 3 errors | keep all 3 errors with location |
-| G16 | `eslint .` clean | compact to `eslint: 0 problems` |
-| G17 | `eslint .` with violations | group by rule; preserve location + fix suggestion |
-| G18 | `docker logs -f` with 1000 repeating lines | dedupe with count: `[last message repeated 973 times]` |
-| G19 | `kubectl get pods -A` | group by namespace |
-| G20 | `ls -la` deep tree | directory grouping (RTK pattern) |
-| G21 | `find . -type f` 10K files | group by extension with counts |
-| G22 | `grep -r "foo" .` with 500 hits | cap at 50; suffix `[... 450 more matches; use --ripgrep for full]` |
-| G23 | `curl -v https://api.example.com` | strip verbose headers; keep response body |
-| G24 | `aws ec2 describe-instances` 50 instances | columnar summary |
+| G1 | `jest` 47 geçen test, temiz çalıştırma | 150+ satır → ≤10 satır |
+| G2 | `jest` 47 test, 2 başarısızlık ile | 200+ satır → her iki başarısızlığı + özeti koru |
+| G3 | `vitest` `--reporter=verbose` ile çalıştırma | 300+ satır → ≤15 satır |
+| G4 | `pytest` toplama ardından çalıştırma | başarısızlık geri izlemelerini koru |
+| G5 | `cargo test` bir panic ile | panic konumu kelimesi kelimesine korundu |
+| G6 | `go test -v` 200 alt test geçiyor | `PASS: 200 alt test` olarak daralt |
+| G7 | 500 satır bağlam içeren bir dosyada `git diff` 2 parça ile | parçaları koru, bağlamı bırak |
+| G8 | `git log -50` | SHA + konu + yazarı koru, gövdeyi bırak |
+| G9 | `git status` 30 değiştirilmiş dosya ile | dizine göre grupla |
+| G10 | `pnpm install` taze | son sayı + uyarılar; çözülen paketleri bırak |
+| G11 | `pip install -r requirements.txt` | indirme ilerlemesini bırak; son kurulum listesi + hataları koru |
+| G12 | `cargo build` başarılı | derleme ilerlemesini bırak; son hedefi koru |
+| G13 | `docker build` başarılı | katman çekmelerini bırak; son image digest'ini koru |
+| G14 | `tsc --noEmit` temiz | `tsc: 0 hata` olarak sıkıştır |
+| G15 | `tsc --noEmit` 3 hata ile | 3 hatanın tamamını konum ile koru |
+| G16 | `eslint .` temiz | `eslint: 0 sorun` olarak sıkıştır |
+| G17 | `eslint .` ihlaller ile | kurala göre grupla; konum + düzeltme önerisini koru |
+| G18 | `docker logs -f` 1000 tekrarlayan satır ile | sayım ile çiftleri kaldır: `[son mesaj 973 kez tekrarlandı]` |
+| G19 | `kubectl get pods -A` | ad alanına göre grupla |
+| G20 | `ls -la` derin ağaç | dizin gruplama (RTK deseni) |
+| G21 | `find . -type f` 10K dosya | sayımlarla uzantıya göre grupla |
+| G22 | `grep -r "foo" .` 500 eşleşme ile | 50'de sınırla; sonek `[... 450 daha fazla eşleşme; tamamı için --ripgrep kullanın]` |
+| G23 | `curl -v https://api.example.com` | ayrıntılı başlıkları çıkar; yanıt gövdesini koru |
+| G24 | `aws ec2 describe-instances` 50 örnek ile | sütunlu özet |
 
-### P-series: pathological cases (must NOT break the agent)
+### P-serisi: patolojik durumlar (aracıyı BOZMAMALI)
 
-These turn "nice feature" into "catastrophic regression" if we get any of them wrong.
+Bunlardan herhangi birini yanlış yaparsak "güzel özellik"ten "felaket regresyon"a dönüşür.
 
-| ID | Scenario | Required behavior |
+| ID | Senaryo | Gerekli davranış |
 |----|----------|-------------------|
-| P1 | Binary garbage in output (non-UTF8 bytes) | Pass through unchanged; don't crash |
-| P2 | ANSI escape explosion (10K+ codes) | Strip cleanly, don't choke regex |
-| P3 | Empty output (`""`) | Pass through empty; do NOT inject header |
-| P4 | Stdout+stderr interleaved | Rule matches across both streams |
-| P5 | Truncated output (SIGPIPE mid-stream) | Don't mis-compact partial output |
-| P6 | **Failed test, critical stack frame at line 4 of 200** | Must NOT filter the frame (the RTK-killer case) |
-| P7 | Exit 0 but `ERROR:` in output | Rule must not trust exit code alone |
-| P8 | Output contains AWS key / bearer token / password | Tee file must NOT be world-readable; redact in compacted output |
-| P9 | Single-line minified JS error (40KB one line) | Truncate to first 1KB; append `[... truncated ...]` |
-| P10 | Unicode (emoji, RTL, combining chars, CJK) | Byte-safe truncation; don't split codepoints |
-| P11 | Two rules match same command | Deterministic priority: longest `match.commands` prefix wins; tie → rule ID alphabetical |
-| P12 | Rule's compacted output matches another rule's pattern | No recursive application; hook runs once per tool call |
-| P13 | Command contains embedded newlines in quoted arg | Rule doesn't misparse args |
-| P14 | Concurrent tool calls (parallel Bash invocations) | No shared mutable state in hook; each call is isolated |
-| P15 | Hook execution >5s | Pass through raw; emit `meta.timedOut: true` |
-| P16 | Haiku API offline/rate-limited | Skip verifier silently; use pure rule output |
-| P17 | Haiku returns malformed JSON | Skip verifier; do NOT feed raw response to agent |
-| P18 | Haiku response contains prompt-injection (`"Ignore all prior instructions..."`) | Sanitize: only append lines that are substring matches of the original raw output |
-| P19 | 1M-line output | Stream-process, cap memory at 64MB; truncate with clear marker |
-| P20 | Rapid-fire: 50 tool calls / sec | Hook latency stays <15ms p99 |
-| P21 | Command with shell redirects (`cmd >file 2>&1`) | Match on the underlying command name, not the redirect wrapper |
-| P22 | Deeply nested quotes/escapes in command string | Robust arg parser; no shell injection possible |
-| P23 | NULL bytes in output | Strip safely; don't truncate |
-| P24 | Command that exits then writes more to stderr after | Hook receives final combined output; handles gracefully |
-| P25 | Read-only filesystem / no tee write permission | Degrade gracefully; still emit compacted output; record `meta.teeFailed: true` |
-| P26 | User's rule JSON is malformed | Skip that rule; emit warning to stderr; don't break hook |
-| P27 | Rule references a non-existent primitive field | Ignore unknown field; apply rest of rule |
-| P28 | Rule regex has catastrophic backtracking | RE2-compatible engine (no backtracking) OR per-rule timeout |
-| P29 | Exit code 137 (OOM kill) | Rule treats same as generic failure; preserves full output |
-| P30 | Haiku returns lines NOT present in raw output (hallucination) | Drop hallucinated lines; keep only substring matches |
+| P1 | Çıktıda ikili çöp (UTF-8 olmayan baytlar) | Değiştirmeden geçir; çöktürme |
+| P2 | ANSI kaçış patlaması (10K+ kod) | Temizçe çıkar, regex'i boğma |
+| P3 | Boş çıktı (`""`) | Boş geçir; başlık ENJEKTE ETME |
+| P4 | Stdout+stderr karışık | Kural her iki akışta eşleşir |
+| P5 | Kesilmiş çıktı (akış ortasında SIGPIPE) | Kısmi çıktıyı yanlış sıkıştırma |
+| P6 | **Başarısız test, 200 satırın 4. satırında kritik yığın çerçevesi** | Çerçeveyi FILTRELEMEMELİ (RTK-katil durumu) |
+| P7 | Çıkış 0 ama çıktıda `ERROR:` | Kural yalnızca çıkış koduna güvenmemeli |
+| P8 | Çıktı AWS anahtarı / bearer token / parola içeriyor | Tee dosyası dünya tarafından okunabilir OLMAMALI; sıkıştırılmış çıktıda sansürle |
+| P9 | Tek satırlık küçültülmüş JS hatası (40KB bir satır) | İlk 1KB'ye kırp; `[... kırpıldı ...]` ekle |
+| P10 | Unicode (emoji, RTL, birleştirici karakterler, CJK) | Bayt-güvenli kırpmada; kod noktalarını bölme |
+| P11 | İki kural aynı komutu eşleştiriyor | Deterministik öncelik: en uzun `match.commands` öneki kazanır; beraberlik → kural ID'si alfabetik |
+| P12 | Kuralın sıkıştırılmış çıktısı başka bir kuralın desenini eşleştiriyor | Özyinelemeli uygulama yok; hook araç çağrısı başına bir kez çalışır |
+| P13 | Komut tırnak içine alınmış argümanda gömülü yeni satırlar içeriyor | Kural argümanları yanlış ayrıştırmaz |
+| P14 | Eşzamanlı araç çağrıları (paralel Bash çağrıları) | Hook'ta paylaşılan değiştirilebilir durum yok; her çağrı izole |
+| P15 | Hook yürütme >5s | Ham geçir; `meta.timedOut: true` yay |
+| P16 | Haiku API çevrimdışı/hız sınırlı | Doğrulayıcıyı sessizce atla; saf kural çıktısı kullan |
+| P17 | Haiku bozuk JSON döndürür | Doğrulayıcıyı atla; ham yanıtı aracıya BESLEME |
+| P18 | Haiku yanıtı prompt enjeksiyonu içeriyor (`"Tüm önceki talimatları yoksay..."`) | Temizle: yalnızca orijinal ham çıktıda alt dize eşleşmesi olan satırları ekle |
+| P19 | 1M satırlık çıktı | Akış-işle, belleği 64MB'ta sınırla; net işaretçi ile kırp |
+| P20 | Hızlı ateş: saniyede 50 araç çağrısı | Hook gecikmesi <15ms p99 kalır |
+| P21 | Kabuk yönlendirmeleri olan komut (`cmd >file 2>&1`) | Yönlendirme sarmalayıcısında değil, temel komut adında eşleş |
+| P22 | Komut dizesinde derin iç içe geçmiş tırnaklar/kaçışlar | Sağlam argüman ayrıştırıcı; kabuk enjeksiyonu mümkün değil |
+| P23 | Çıktıda NULL baytlar | Güvençe çıkar; kırpmasız |
+| P24 | Çıkış yapan ve ardından stderr'e daha fazla yazan komut | Hook son birleştirilmiş çıktıyı alır; zarifçe işler |
+| P25 | Salt okunur dosya sistemi / tee yazma izni yok | Zarifçe bozul; hala sıkıştırılmış çıktı yay; `meta.teeFailed: true` kaydet |
+| P26 | Kullanıcının kural JSON'u bozuk | O kuralı atla; stderr'a uyarı yay; hook'u bozma |
+| P27 | Kural var olmayan bir ilkel alana başvuruyor | Bilinmeyen alanı yoksay; kuralın geri kalanını uygula |
+| P28 | Kural regex'inin felaket geri izlemesi var | RE2 uyumlu motor (geri izleme yok) VEYA kural başına zaman aşımı |
+| P29 | Çıkış kodu 137 (OOM öldürme) | Kural genel başarısızlıkla aynı şekilde işler; tam çıktıyı korur |
+| P30 | Haiku ham çıktıda OLMAYAN satırlar döndürür (halüsinasyon) | Halüsinasyon yapılmış satırları bırak; yalnızca alt dize eşleşmelerini koru |
 
-### CH-series: cross-host E2E
+### CH-serisi: ana bilgisayaylar arası U2U
 
-Run each scenario on each supported host. Same input, same expected output. If a host does not support a matcher, the test is marked `skip-on-{host}` with a comment linking the upstream limitation.
+Her senaryoyu desteklenen her ana bilgisayarda çalıştır. Aynı girdi, aynı beklenen çıktı. Bir ana bilgisayar bir eşleştiriciyi desteklemiyorsa, test yukarı akış sınırlamasına bağlantılı yorumla `skip-on-{host}` olarak işaretlenir.
 
-| ID | Scenario | Hosts |
+| ID | Senaryo | Ana Bilgisayarlar |
 |----|----------|-------|
-| CH1 | Install hook via `gstack compact install <host>` | Claude Code, Codex, OpenClaw |
-| CH2 | Uninstall hook is idempotent | All |
-| CH3 | Re-install doesn't duplicate entries | All |
-| CH4 | Hook co-exists with user's other PostToolUse hooks | All |
-| CH5 | Hook fires on Bash tool | All |
-| CH6 | Hook fires on Read tool | Claude Code (confirmed); Codex/OpenClaw verify-then-require |
-| CH7 | Hook fires on Grep tool | Same as CH6 |
-| CH8 | Hook fires on Glob tool | Same as CH6 |
-| CH9 | Hook fires on MCP tool (`mcp__*` matcher) | Claude Code; verify on others |
-| CH10 | Config precedence: project > user > built-in | All |
-| CH11 | `GSTACK_RAW=1` env var bypasses hook | All |
-| CH12 | Rule ID override works (project rule replaces built-in) | All |
-| CH13 | `gstack compact doctor` detects drift on each host | All |
-| CH14 | Hook error does not crash the agent session | All |
+| CH1 | `gstack compact install <host>` ile hook'u kurma | Claude Code, Codex, OpenClaw |
+| CH2 | Hook kaldırma idempotent | Tümü |
+| CH3 | Yeniden kurulum girdileri çoğaltmaz | Tümü |
+| CH4 | Hook kullanıcının diğer PostToolUse hook'ları ile bir arada var | Tümü |
+| CH5 | Hook Bash aracında ateşler | Tümü |
+| CH6 | Hook Read aracında ateşler | Claude Code (doğrulanmış); Codex/OpenClaw doğrula-sonra-gerektir |
+| CH7 | Hook Grep aracında ateşler | CH6 ile aynı |
+| CH8 | Hook Glob aracında ateşler | CH6 ile aynı |
+| CH9 | Hook MCP aracında ateşler (`mcp__*` eşleştirici) | Claude Code; diğerlerinde doğrula |
+| CH10 | Yapılandırma önceliği: proje > kullanıcı > yerleşik | Tümü |
+| CH11 | `GSTACK_RAW=1` çevre değişkeni hook'u atlar | Tümü |
+| CH12 | Kural ID geçersiz kılma çalışıyor (proje kuralı yerleşik olanı değiştirir) | Tümü |
+| CH13 | `gstack compact doctor` her ana bilgisayarda sapmayı algılar | Tümü |
+| CH14 | Hook hatası aracı oturumunu çökertmez | Tümü |
 
-Implementation note: cross-host tests reuse the fixture corpus from the `golden/` tree; the harness wraps each fixture in a host-specific hook invocation envelope and asserts the output is byte-identical across hosts (modulo the `host` field).
+Uygulama notu: ana bilgisayaylar arası testler `golden/` ağacından fixture corpus'unu yeniden kullanır; düzenek her fixture'ı ana bilgisayara özgü hook çağırma zarfına sarar ve çıktının ana bilgisayaylar arasında bayt olarak özdeş olduğunu doğrular (`host` alanı dışında).
 
-### V-series: verifier tests (paid)
+### V-serisi: doğrulayıcı testleri (ücretli)
 
-| ID | Scenario | Expected |
+| ID | Senaryo | Beklenen |
 |----|----------|----------|
-| V1 | Rule reduces 200-line test output to 5 lines, exit=1 | Verifier fires (failure + >50% reduction), appends any missing critical lines |
-| V2 | Rule reduces 10-line output to 9 lines, exit=1 | Verifier does NOT fire (reduction too small) |
-| V3 | Rule reduces 200-line output to 5 lines, exit=0 | Verifier does NOT fire (success path, default config) |
-| V4 | `aggressiveReduction` trigger enabled, 300 lines → 20 lines, exit=0 | Verifier fires |
-| V5 | `GSTACK_COMPACT_VERIFY=1` env var set | Verifier fires once for that call |
-| V6 | `ANTHROPIC_API_KEY` missing | Verifier silently skipped; raw rule output returned |
-| V7 | Verifier mocked to return "NONE" | Output identical to pure-rule path |
-| V8 | Verifier mocked to return prompt injection | Injection discarded; only substring-matched lines appended |
-| V9 | Verifier mocked to time out >5s | Skipped; `meta.verifierTimedOut: true` |
-| V10 | Verifier mocked to return 500 error | Skipped; rule output returned |
+| V1 | Kural 200 satırlık test çıktısını 5 satıra indirir, çıkış=1 | Doğrulayıcı ateşler (başarısızlık + >%50 azalma), eksik kritik satırları ekler |
+| V2 | Kural 10 satırlık çıktıyı 9 satıra indirir, çıkış=1 | Doğrulayıcı ateşlemez (azalma çok küçük) |
+| V3 | Kural 200 satırlık çıktıyı 5 satıra indirir, çıkış=0 | Doğrulayıcı ateşlemez (başarı yolu, varsayılan yapılandırma) |
+| V4 | `aggressiveReduction` tetikleyicisi etkin, 300 satır → 20 satır, çıkış=0 | Doğrulayıcı ateşler |
+| V5 | `GSTACK_COMPACT_VERIFY=1` çevre değişkeni ayarlandı | Doğrulayıcı o çağrı için bir kez ateşler |
+| V6 | `ANTHROPIC_API_KEY` eksik | Doğrulayıcı sessizce atlandı; ham kural çıktısı döndürüldü |
+| V7 | Doğrulayıcı "NONE" döndürmek için mock'landı | Çıktı saf kural yolu ile özdeş |
+| V8 | Doğrulayıcı prompt enjeksiyonu döndürmek için mock'landı | Enjeksiyon atıldı; yalnızca alt dize eşleşmeli satırlar eklendi |
+| V9 | Doğrulayıcı >5s zaman aşımına uğramak için mock'landı | Atlandı; `meta.verifierTimedOut: true` |
+| V10 | Doğrulayıcı 500 hatası döndürmek için mock'landı | Atlandı; kural çıktısı döndürüldü |
 
-### R-series: adversarial regression
+### R-serisi: düşmanca regresyon
 
-Every bug caught after v1 ship gets a permanent R-series test. Starts empty; grows with scars. Template:
+v1 gönderildikten sonra yakalanan her hata kalıcı bir R-serisi test alır. Boş başlar; yaralarla büyür. Şablon:
 
 ```
-R{N}: {commit-sha} — {1-line summary}
-Scenario: {reproducer}
-Fix: {PR link}
+R{N}: {commit-sha} — {1-satır özet}
+Senaryo: {yeniden üretici}
+Düzeltme: {PR bağlantısı}
 ```
 
-### Performance budgets (enforced in CI; revised for realistic Bun cold-start)
+### Performans bütçeleri (CI'da uygulanır; gerçekçi Bun soğuk başlangıcı için düzeltilmiştir)
 
-| Metric | Target | Hard limit |
+| Metrik | Hedef | Sınır |
 |--------|--------|-----------|
-| Hook overhead macOS ARM (verifier disabled) | <30ms p50 | <80ms p99 |
-| Hook overhead Linux (verifier disabled) | <20ms p50 | <60ms p99 |
-| Hook overhead (verifier fires) | <600ms p50 | <2s p99 |
-| Bundle deserialize (rules.bundle.json) | <2ms | <10ms |
-| mtime drift check (stat of source files) | <0.5ms | <3ms |
-| Single-regex execution budget (per rule) | <5ms | <50ms (hard abort) |
-| Memory per hook invocation (line-streamed) | <16MB typical | <64MB max |
-| Total rule-payload size on disk (source files) | <5KB | <15KB |
-| Compiled bundle size on disk | <25KB | <80KB |
+| Hook ek yükü macOS ARM (doğrulayıcı devre dışı) | <30ms p50 | <80ms p99 |
+| Hook ek yükü Linux (doğrulayıcı devre dışı) | <20ms p50 | <60ms p99 |
+| Hook ek yükü (doğrulayıcı ateşler) | <600ms p50 | <2s p99 |
+| Paket serileştirme (rules.bundle.json) | <2ms | <10ms |
+| mtime sapma kontrolü (kaynak dosyaların stat'i) | <0.5ms | <3ms |
+| Tek regex yürütme bütçesi (kural başına) | <5ms | <50ms (sert iptal) |
+| Hook çağrısı başına bellek (satır akışlı) | <16MB tipik | <64MB maks |
+| Diskteki toplam kural yükü boyutu (kaynak dosyalar) | <5KB | <15KB |
+| Diskteki derlenmiş paket boyutu | <25KB | <80KB |
 
-Daemon mode is a v2 optimization. If B-series benchmark on the author's corpus shows cold-start meaningfully hurts session-total savings (e.g., total hook overhead >5% of saved tokens' wall time), promote to v1.1.
+Arka plan programı modu v2 optimizasyonudur. Yazarın corpus'unda B-serisi kıyaslama soğuk başlangıcın oturum toplam tasarruflarını anlamlı şekilde etkilediğini gösterirse (örn., toplam hook ek yükü kaydedilen token'ların duvar süresinin >%5'i), v1.1'e yükselt.
 
-### B-series real-world benchmark testbench (hard v1 gate)
+### B-serisi gerçek dünya kıyaslama test düzeni (sert v1 geçidi)
 
-**Why it exists.** Every competing compactor ships with hand-picked fixture numbers. B-series proves the compactor works on the user's *actual* coding sessions before they enable the hook. It's both the ship-gate and the marketing artifact.
+**Neden var.** Rekabet eden her sıkıştırıcı elle seçilmiş fixture sayılarıyla gönderilir. B-serisi, kullanıcı hook'u etkinleştirmeden önce sıkıştırıcının kullanıcının *gerçek* kodlama oturumlarında çalıştığını kanıtlar. Hem gönderim geçidi hem de pazarlama eseridir.
 
-**Architecture** (components in `compact/benchmark/src/`):
+**Mimari** (`compact/benchmark/src/` içindeki bileşenler):
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│  1. SCAN     scanner.ts walks ~/.claude/projects/**/*.jsonl  │
-│              → pairs tool_use × tool_result blocks           │
-│              → emits {tool, command, outputBytes, lineCount, │
-│                estimatedTokens, sessionId, timestamp}        │
+│  1. TARA     scanner.ts ~/.claude/projects/**/*.jsonl'ı tarar  │
+│              → tool_use × tool_result bloklarını eşleştirir           │
+│              → {tool, command, outputBytes, lineCount,         │
+│                estimatedTokens, sessionId, timestamp} yayınlar        │
 ├──────────────────────────────────────────────────────────────┤
-│  2. RANK     sizer.ts sorts corpus by estimatedTokens desc   │
-│              → cluster.ts groups by (tool, command-pattern)  │
-│              → identifies heavy-tail: which 10% of calls     │
-│                produced 80% of the tokens?                   │
+│  2. SIRALA     sizer.ts corpus'u estimatedTokens azalan ile sıralar   │
+│              → cluster.ts (araç, komut deseni) ile gruplandırır  │
+│              → ağır kuyruğu tanımlar: çağrıların hangi %10'u     │
+│                token'ların %80'ini üretti?                   │
 ├──────────────────────────────────────────────────────────────┤
-│  3. SCENARIO scenarios.ts emits fixture files:               │
+│  3. SENARYO scenarios.ts fixture dosyaları yayınlar:               │
 │              B1_bun_test_heavy.jsonl                         │
 │              B2_git_diff_huge.jsonl                          │
 │              B3_tsc_errors_production.jsonl                  │
-│              B4_pnpm_install_fresh.jsonl ... (one per        │
-│              high-leverage cluster, up to ~20 scenarios)     │
+│              B4_pnpm_install_fresh.jsonl ... (her              │
+│              yüksek faydalı küme için bir, ~20 senaryoya kadar)     │
 ├──────────────────────────────────────────────────────────────┤
-│  4. REPLAY   replay.ts runs compactor against each scenario, │
-│              measures token reduction + diff of dropped lines│
-│              → per-rule reduction numbers                    │
-│              → per-scenario before/after token counts        │
+│  4. YENİDEN OYNAT   replay.ts sıkıştırıcıyı her senaryoya karşı çalıştırır, │
+│              token azaltma + bırakılan satırların diff'ini ölçer│
+│              → kural başına azaltma sayıları                    │
+│              → senaryo başına önce/sonra token sayıları        │
 ├──────────────────────────────────────────────────────────────┤
-│  5. PATHOLOGY pathology.ts injects planted critical lines    │
-│              (line 4 of 200 in a failing test fixture) into  │
-│              real B-scenarios. Confirms verifier restores    │
-│              them. Real data + real threats = real proof.    │
+│  5. PATOLOJI pathology.ts dikili kritik satırları enjekte eder    │
+│              (başarısız bir test fixture'ında 200 satırın 4. satırı) içine  │
+│              gerçek B senaryoları. Doğrulayıcının bunları geri yüklediğini    │
+│              doğrular. Gerçek veri + gerçek tehditler = gerçek kanıt.    │
 ├──────────────────────────────────────────────────────────────┤
-│  6. REPORT   report.ts emits HTML + JSON dashboard to        │
+│  6. RAPOR   report.ts HTML + JSON panel yayınlar →        │
 │              ~/.gstack/compact/benchmark/latest/              │
-│              "On YOUR 30 days of Claude Code data, gstack    │
-│              compact would save X tokens in Y scenarios."    │
+│              "SENİN 30 günlük Claude Code verinde, gstack    │
+│              compact X token tasarrufu sağlar Y senaryosunda."    │
 └──────────────────────────────────────────────────────────────┘
 ```
 
-**v1 ship gate (hard):**
-- ≥15% total-token reduction across the aggregated scenario corpus on the author's own 30-day transcript set.
-- Zero critical-line loss on planted-bug scenarios (every planted stack frame must survive either the rule or the verifier).
-- No scenario regresses to <5% reduction under the new rules (catch over-compaction edge cases).
+**v1 gönderim geçidi (sert):**
+- Yazarın kendi 30 günlük transkript setinde birleştirilmiş senaryo corpus'unda ≥%15 toplam token azaltma.
+- Dikili hata senaryolarında sıfır kritik satır kaybı (her dikili yığın çerçevesi ya kural ya da doğrulayıcı tarafından hayatta kalmalıdır).
+- Yeni kurallar altında hiçbir senaryo <%5 azalmaya gerilemez (aşırı sıkıştırma uç durumlarını yakala).
 
-**Privacy (non-negotiable):**
-- Reads `~/.claude/projects/**/*.jsonl` locally only. Never uploads. Never shares. Never logs scenarios to telemetry.
-- Output files live under `~/.gstack/compact/benchmark/` with mode `0600`.
-- The command prints a confirmation banner: *"Scanning local transcripts at ~/.claude/projects/ (local-only; nothing leaves this machine)."*
-- Any future community corpus is a separate v2 workstream built from hand-contributed, secret-scanned fixtures on OSS projects.
+**Gizlilik (pazarlık kabul etmez):**
+- Yalnızca yerel olarak `~/.claude/projects/**/*.jsonl` okur. Asla yüklemez. Asla paylaşmaz. Asla senaryoları telemetriye kaydetmez.
+- Çıktı dosyaları `~/.gstack/compact/benchmark/` altında `0600` modu ile yaşar.
+- Komut bir onay başlığı yazdırır: *"Yerel transkriptleri ~/.claude/projects/ konumunda tarıyor (yalnızca yerel; hiçbir şey bu makineden çıkmaz)."*
+- Herhangi bir gelecek topluluk corpus'u, OSS projelerinde elle katkıda bulunulan, gizli anahtarı taranmış fixture'lardan oluşturulan ayrı bir v2 iş akışmdır.
 
-**Ports from analyze_transcripts (TypeScript reimplementation; not a subprocess call):**
-- JSONL parsing + tool_use/tool_result pairing pattern (from `event_extractor.rb`).
-- Token estimate `ceil(len/4)` (same char-ratio heuristic; sufficient for ranking).
-- Event-type taxonomy (`bash_command`, `file_read`, `test_run`, `error_encountered`) for scenario clustering.
-- Stress-fixture generation pattern for pathology layering.
+**analyze_transcripts'ten taşımalar (TypeScript yeniden uygulaması; alt süreç çağrısı değil):**
+- JSONL ayrıştırma + tool_use/tool_result eşleştirme deseni (`event_extractor.rb`'den).
+- Token tahmini `ceil(len/4)` (aynı karakter-oranı buluşsal yöntem; sıralama için yeterli).
+- Senaryo kümeleme için olay türü taksonomisi (`bash_command`, `file_read`, `test_run`, `error_encountered`).
+- Patoloji katmanlama için stres fixture üretim deseni.
 
-**What we do NOT port:** behavioral scoring, pgvector embeddings, decision-exchange graphs, velocity metrics, the Rails/ActiveRecord layer. Out of scope; not what we're measuring.
+**Taşumadığımız şey:** davranışsal puanlama, pgvector gömmeleri, karar değişim grafikleri, hız metrikleri, Rails/ActiveRecord katmanı. Kapsam dışında; ölçtüğümüz şey bu değil.
 
-### Synthetic token-savings evals (E-series, periodic/informational only)
+### Sentetik token tasarrufu değerlendirmeleri (E-serisi, dönemsel/yalnızca bilgi amaçlı)
 
-Retained from the original plan but now informational-only because B-series is the real gate.
+Orijinal plandan korunmuş ama artık yalnızca bilgi amaçlı çünkü B-serisi gerçek geçit.
 
-- **E1:** simulated 30-min coding session on a medium TypeScript project. Measure total tokens with/without gstack compact enabled. Target: ≥15% reduction.
-- **E2:** same session at `level=aggressive`. Target: ≥25% reduction, zero test-failure increase.
-- **E3:** same session with verifier on `failureCompaction` only. Verifier fire rate ≤10% of tool calls.
-- **E4:** adversarial — inject a planted bug in a test output and confirm the verifier restores the critical stack frame.
+- **E1:** orta büyüklükte bir TypeScript projesinde simüle edilmiş 30 dakikalık kodlama oturumu. gstack compact etkin/kapalı toplam token'ları ölç. Hedef: ≥%15 azalma.
+- **E2:** `level=aggressive` ile aynı oturum. Hedef: ≥%25 azalma, sıfır test başarısızlık artışı.
+- **E3:** yalnızca `failureCompaction` doğrulayıcısı ile aynı oturum. Doğrulayıcı ateşleme oranı araç çağrılarının ≤%10'u.
+- **E4:** düşmanca — bir test çıktısına dikili hata enjekte et ve doğrulayıcının kritik yığın çerçevesini geri yüklediğini doğrula.
 
-### Test corpus sourcing
+### Test corpus kaynaklama
 
-For each rule family, capture 3+ real outputs:
+Her kural ailesi için 3+ gerçek çıktı yakala:
 
-1. Run the tool against a real project (gstack itself for TS; popular OSS for Rust/Go/Python).
-2. Capture stdout+stderr+exit code into a fixture file with `toolVersion:` frontmatter (e.g., `jest@29.7.0`).
-3. Hand-author the expected compacted output once.
-4. Golden file test: rule application must produce byte-identical output.
-5. CI drift warning: if installed tool version differs from fixture's `toolVersion:`, CI warns (not fails). Drift-warning dashboard is checked pre-release.
+1. Aracı gerçek bir projeye karşı çalıştır (TS için gstack'in kendisi; Rust/Go/Python için popüler OSS).
+2. stdout+stderr+çıkış kodunu `toolVersion:` ön maddesi ile bir fixture dosyasına yakala (örn., `jest@29.7.0`).
+3. Beklenen sıkıştırılmış çıktıyı bir kez elle yaz.
+4. Altın dosya testi: kural uygulaması bayt olarak özdeş çıktı üretmeli.
+5. CI sapma uyarısı: kurulu araç sürümü fixture'ın `toolVersion:` değerinden farklıysa, CI uyarır (başarısız olmaz). Sapma uyarı paneli yayın öncesi kontrol edilir.
 
-Draw from:
-- tokenjuice's fixture directory patterns (`tests/fixtures/`)
-- RTK's per-command examples (their README lists real before/after metrics; verify independently)
-- gstack's own test output (eat our own dog food)
-- Real failure archives from `~/.gstack/compact/tee/` (once volunteers contribute)
-- **B-series real-world scenarios are the primary corpus for reduction measurements.**
+Şuradan çek:
+- tokenjuice'ın fixture dizin desenleri (`tests/fixtures/`)
+- RTK'nın komut başına örnekleri (README'lerinde gerçek önce/sonra metrikleri listelenir; bağımsız doğrula)
+- gstack'in kendi test çıktısı (kendi yemeğimizi yiyoruz)
+- `~/.gstack/compact/tee/`'den gerçek hata arşivleri (gönüllüler katkıda bulununca)
+- **B-serisi gerçek dünya senaryoları azaltma ölçümleri için birincil corpus.**
 
-## Pattern adoption table
+## Desen benimseme tablosu
 
-Concrete patterns borrowed from the competitive landscape:
+Rekabetçi manzaradan ödünç alınan somut desenler:
 
-| From | Adopt as | Why |
+| Kaynak | Olarak benimse | Neden |
 |------|----------|-----|
-| RTK | 4 reduction primitives (filter/group/truncate/dedupe) as JSON rule verbs | Table stakes for a serious compactor |
-| RTK | `gstack compact tee` for failure-mode raw save | Better than the original `onFailure.preserveFull` design |
-| RTK | `gstack compact gain` + `gstack compact discover` | Trust + continuous improvement |
-| RTK | `exclude_commands` per-user blocklist | Must-have config |
-| tokenjuice | JSON envelope contract for hook I/O | Clean machine adapter |
-| tokenjuice | `gstack compact doctor` | Hooks drift; self-repair matters |
-| caveman | Intensity levels (minimal/normal/aggressive) | User-tunable safety/savings knob |
-| claude-token-efficient | Rules-file size budget (<5KB total) | Don't bloat context |
+| RTK | 4 azaltma ilkel işlemleri (filter/group/truncate/dedupe) JSON kural fiilleri olarak | Ciddi bir sıkıştırıcı için masa bahisleri |
+| RTK | Hata modu ham kaydı için `gstack compact tee` | Orijinal `onFailure.preserveFull` tasarımından daha iyi |
+| RTK | `gstack compact gain` + `gstack compact discover` | Güven + sürekli iyileştirme |
+| RTK | Kullanıcı başına engelleme listesi olarak `exclude_commands` | Gerekli yapılandırma |
+| tokenjuice | Hook G/Ç için JSON zarfı sözleşmesi | Temiz makine bağdaştırıcısı |
+| tokenjuice | `gstack compact doctor` | Hook'lar sapar; kendi kendini onarım önemli |
+| caveman | Yoğunluk seviyeleri (minimal/normal/aggressive) | Kullanıcı ayarlanabilir güvenlik/tasarruf düğmesi |
+| claude-token-efficient | Kural dosyası boyut bütçesi (toplam <5KB) | Bağlamı şişirme |
 
-## Rollout plan
+## Dağıtım planı
 
-**ALL PHASES TABLED pending Anthropic `updatedBuiltinToolOutput` API.** See Status section at the top of this doc. The rollout below is the intended sequence if/when the API ships and this design un-tables.
+**TÜM AŞAMALAR Anthropic `updatedBuiltinToolOutput` API'sini bekliyor.** Bu dokümanın üstündeki Durum bölümüne bakın. Dağıtım aşağıda, API geldiğinde ve bu tasarım askıdan çıktığında amaçlanan dizilimdir.
 
-### Un-tabling checklist (do in order when the API arrives)
+### Askıdan çıkma kontrol listesi (API geldiğinde sırayla yap)
 
-1. **Confirm the new API's shape.** Read the updated Claude Code hooks reference. Capture a real envelope containing the new output-replacement field for Bash, Read, Grep, Glob. Record in `docs/designs/GCOMPACTION_envelope.md`.
-2. **Re-validate the wedge.** Does the new API cover Read/Grep/Glob (do they fire `PostToolUse` now), or just Bash/WebFetch? If Bash-only, wedge (ii) stays dead and the product needs a new pitch before implementation.
-3. **Re-run `/plan-eng-review`** against the revised plan with the new API. Most of the 15 locked decisions should carry forward; adjust the Architecture data-flow and any envelope-dependent decisions.
-4. **Re-run `/codex review`** against the revised plan. The prior BLOCK verdict's concerns about hook substitution disappear once the API exists; remaining criticals (B-series privacy, regex DoS, JSON-envelope streaming) still apply.
-5. **Execute the original rollout below.**
+1. **Yeni API'nin şeklini doğrula.** Güncellenmiş Claude Code hook'ları referansını oku. Yeni çıktı-değiştirme alanını içeren gerçek bir zarfı Bash, Read, Grep, Glob için yakala. `docs/designs/GCOMPACTION_envelope.md`'da kaydet.
+2. **Kamayı yeniden doğrula.** Yeni API Read/Grep/Glob'ı kapsıyor mu (şimdi `PostToolUse`'ı ateşliyorlar mı), yoksa yalnızca Bash/WebFetch mi? Yalnızca Bash ise, kama (ii) hala ölüdür ve ürünün gönderimden önce yeni bir sunum yapması gerekir.
+3. **Düzeltilmiş plana karşı `/plan-eng-review`'u yeniden çalıştır.** Kilitlenmiş 15 kararın çoğu ileriye taşınabilir; Mimari veri akışını ve zarf-bağımlı kararları güncelle.
+4. **Düzeltilmiş plana karşı `/codex review`'u yeniden çalıştır.** Önceki BLOCK kararının hook ikame endişeleri API geldiğinde kaybolur; kalan kritikler (B-serisi gizlilik, regex DoS, JSON zarf akışı) hala geçerli.
+5. **Orijinal dağıtımı aşağıda çalıştır.**
 
-### Original rollout (preserved for un-tabling)
+### Orijinal dağıtım (askıdan çıkarma için korunmuştur)
 
-Each tier blocks on the prior passing all gate-tier tests. Claude-first — Codex and OpenClaw land at v1.1 after the wedge is proven on the primary host.
+Her katman, önceki katmanın tüm geçit katmanı testlerini geçmesine bağlıdır. Claude-öncelikli — Codex ve OpenClaw kama birincil ana bilgisayarda kanıtlandıktan sonra v1.1'de gelir.
 
-1. **v0.0 (1 day):** rule engine + 4 primitives + line-oriented streaming pipeline + deep-merge + bundle compiler + envelope contract + golden tests for `tests/*` family only. No host integration yet. Measure savings on offline fixtures.
-2. **v0.1 (1 day):** Claude Code hook integration + `gstack compact install` + mtime-based auto-reload. Ship as opt-in; off by default. Ask 10 gstack power users to try it; collect feedback.
-3. **v0.5 (1 day):** B-series benchmark testbench (`compact/benchmark/`). Ship `gstack compact benchmark` so users can measure on their own data. Collect anonymous-from-the-start (nothing uploaded) reduction numbers from dogfooders.
-4. **v1.0 (1 day):** verifier layer with `failureCompaction` trigger on by default + exact-line-match sanitization + layered exitCode/pattern fallback + expanded tee redaction set. **Hard ship gate:** B-series on the author's 30-day local corpus shows ≥15% total reduction AND zero critical-line loss on planted bugs. Publish CHANGELOG entry leading with wedge framing (Claude Code only at v1).
-5. **v1.1 (+1 day):** Codex + OpenClaw hook integration. Cross-host E2E suite green. Build/lint/log rule families land with `gstack compact discover`-derived priorities.
-6. **v1.2+:** expand rule families, community rule contribution workflow, community-corpus benchmark (hand-authored public fixtures, separate from local B-series).
+1. **v0.0 (1 gün):** kural motoru + 4 ilkel + satır yönelimli akış hattı + derin birleştirme + paket derleyici + zarf sözleşmesi + yalnızca `tests/*` ailesi için altın testler. Henüz ana bilgisayar entegrasyonu yok. Çevrimdışı fixture'larda tasarrufları ölç.
+2. **v0.1 (1 gün):** Claude Code hook entegrasyonu + `gstack compact install` + mtime tabanlı otomatik yeniden yükleme. Katılımlı olarak gönder; varsayılan olarak kapalı. 10 gstack güçlü kullanıcısını denemelerini iste; geri bildirim topla.
+3. **v0.5 (1 gün):** B-serisi kıyaslama test düzeneği (`compact/benchmark/`). Kullanıcıların kendi verilerinde ölçebilmeleri için `gstack compact benchmark` gönder. Deneysel kullanıcılardan anonim-baştan (hiçbir şey yüklenmedi) azaltma sayılarını topla.
+4. **v1.0 (1 gün):** varsayılan olarak açık `failureCompaction` tetikleyicisi ile doğrulayıcı katmanı + tam satır eşleşme temizleme + katmanlı exitCode/desen yedek + genişletilmiş tee sansür seti. **Sert gönderim geçidi:** Yazarın 30 günlük yerel corpus'unda B-serisi ≥%15 toplam azalma VE dikili hatalarda sıfır kritik satır kaybı gösterir. CHANGELOG girdisini kama çerçevesiyle öne çıkarak yayınla (v1'de yalnızca Claude Code).
+5. **v1.1 (+1 gün):** Codex + OpenClaw hook entegrasyonu. Ana bilgisayaylar arası U2U paketi yeşil. Derleme/lint/günlük kural aileleri `gstack compact discover`'dan türetilen önceliklerle gelir.
+6. **v1.2+:** kural ailelerini genişlet, topluluk kural katkı iş akışı, topluluk corpus kıyaslaması (yerel B-serisinden ayrı, elle yazılmış genel fixture'lar).
 
-## Risk analysis
+## Risk analizi
 
-| Risk | Severity | Mitigation |
+| Risk | Şiddet | Azaltma |
 |------|----------|------------|
-| RTK adds an LLM verifier in response | Low | Creator is vocal about zero-dependency Rust. Ship first, build the pattern library. |
-| Platform compaction subsumes us (Anthropic Compaction API in Claude Code) | Medium | We operate at a different layer (per-tool output vs whole-context). Position as complementary. |
-| Rules drop something critical → "compactor made my agent dumb" | High | B-series real-world benchmark as hard ship gate; tee mode always available; verifier default-on for failures; exact-line-match sanitization. |
-| Haiku cost creep (triggers fire more than expected) | Medium | E3 eval + B-series fire-rate metric; cost visible in `gstack compact gain`; per-session rate cap in v1.1 if rate >10%. |
-| Rule maintenance debt (jest/vitest output formats change) | Medium | `toolVersion:` fixture frontmatter + CI drift warning; community rule PRs; `discover` flags bypassing commands. |
-| Rules file bloats context | Low | CI-enforced <5KB source + <25KB compiled bundle budget; per-rule size warning at schema-validation. |
-| Regex DoS blocks the agent | Medium | 50ms AbortSignal budget per rule; timeout logged to `meta.regexTimedOut`; stale rules quarantined on repeated failure. |
-| Bundle staleness silently breaks user edits | Low | mtime-check on every hook invocation auto-rebuilds; `gstack compact reload` is a backup not a requirement. |
-| Benchmark leaks user's private data | High | Local-only by construction: no network call, mode-0600 output, explicit banner at runtime. Privacy review before v1 ship. |
+| RTK yanıt olarak bir LLM doğrulayıcı ekler | Düşük | Yaratıcı sıfır bağımlılık Rust konusunda sesli. Önce gönder, desen kütüphanesini oluştur. |
+| Platform sıkıştırması bizi emer (Claude Code'da Anthropic Compaction API) | Orta | Farklı bir katmanda çalışırız (araç başına çıktı vs tüm bağlam). Tamamlayıcı olarak konumlandır. |
+| Kurallar kritik bir şey düşürür → "sıkıştırıcı aracımı aptal etti" | Yüksek | B-serisi gerçek dünya kıyaslaması sert gönderim geçidi olarak; tee modu her zaman mevcut; başarısızlıklar için doğrulayıcı varsayılan olarak açık; tam satır eşleşme temizleme. |
+| Haiku maliyet sızıntısı (tetikleyiciler beklenenden daha sık ateşler) | Orta | E3 değerlendirmesi + B-serisi ateşleme oranı metrik; maliyet `gstack compact gain`'de görünür; oran >%10 ise v1.1'de oturum başına oran sınırı. |
+| Kural bakım borcu (jest/vitest çıktı biçimleri değişir) | Orta | `toolVersion:` fixture ön maddesi + CI sapma uyarısı; topluluk kural PR'ları; `discover` atlayan komutları işaretler. |
+| Kurallar dosyası bağlamı şişirir | Düşük | CI ile zorlanan <5KB kaynak + <25KB derlenmiş paket bütçesi; şema doğrulamada kural başına boyut uyarısı. |
+| Regex DoS aracıyı engeller | Orta | Kural başına 50ms AbortSignal bütçesi; zaman aşımı `meta.regexTimedOut`'a günlüklenir; tekrarlayan başarısızlıkta eski kurallar karantinaya alınır. |
+| Paket eskimesi sessizce kullanıcı düzenlemelerini bozar | Düşük | Her hook çağırmasında mtime kontrolü otomatik yeniden oluşturur; `gstack compact reload` bir gereklilik değil yedektir. |
+| Kıyaslama kullanıcının özel verilerini sızdırır | Yüksek | Yapı gereği yalnızca yerel: ağ çağrısı yok, mod-0600 çıktı, çalışma zamanında açık başlık. v1 gönderiminden önce gizlilik incelemesi. |
 
-## Open questions
+## Açık sorular
 
-1. ~~Does Codex's PostToolUse hook support matchers for Read/Grep/Glob?~~ (Deferred to v1.1 — Claude-first at v1.)
-2. ~~Does OpenClaw's hook API support PostToolUse specifically?~~ (Deferred to v1.1.)
-3. Should the verifier model be pinned, or version-tracked like gstack's other AI calls? (Inclined to pin `claude-haiku-4-5-20251001` and bump explicitly in CHANGELOG.)
-4. ~~Built-in secret-redaction regex set for tee files~~ **(resolved: expanded set — AWS/GitHub/GitLab/Slack/JWT/bearer/SSH-private-key. See decision #10.)**
-5. Should `gstack compact discover` propose auto-generated rules via Haiku? (Deferred to v2; skill-creep risk.)
-6. **New:** Does Claude Code's PostToolUse envelope include `exitCode`? (Still needs empirical verification per pre-implementation task #1; system now has a layered fallback regardless.)
-7. **New:** What's the right scenario-count cap for B-series? Cluster.ts can produce 5-50 scenarios depending on heavy-tail shape. Plan: cap at top 20 clusters by aggregate output volume.
+1. ~~Codex'in PostToolUse hook'u Read/Grep/Glob için eşleştiricileri destekliyor mu?~~ (v1.1'e ertelendi — v1'de Claude-öncelikli.)
+2. ~~OpenClaw'ın hook API'si özel olarak PostToolUse'ı destekliyor mu?~~ (v1.1'e ertelendi.)
+3. Doğrulayıcı model sabitlenmeli mi, yoksa gstack'in diğer AI çağrıları gibi sürüm takipli mi olmalı? (Eğilim: `claude-haiku-4-5-20251001`'i sabitle ve CHANGELOG'da açıkça artır.)
+4. ~~Tee dosyaları için yerleşik gizli anahtar sansür regex seti~~ **(çözüldü: genişletilmiş set — AWS/GitHub/GitLab/Slack/JWT/bearer/SSH-private-key. Karar #10'a bak.)**
+5. `gstack compact discover` Haiku aracılığıyla otomatik oluşturulan kurallar önermeli mi? (v2'ye ertelendi; yetenek kayması riski.)
+6. **Yeni:** Claude Code'un PostToolUse zarfı `exitCode` içeriyor mu? (Hala uygulama öncesi görev #1 için ampirik doğrulama gerekiyor; sistem artık buna bakılmaksızın katmanlı bir yedeklemeye sahip.)
+7. **Yeni:** B-serisi için doğru senaryo sayısı sınırı nedir? Cluster.ts ağır kuyruk şekline bağlı olarak 5-50 senaryo üretebilir. Plan: toplam çıktı hacmine göre en büyük 20 kümeye sınır koy.
 
-## Pre-implementation assignment (must complete before coding)
+## Uygulama öncesi atama (kodlamadan önce tamamlanmalı)
 
-1. **Verify Claude Code's PostToolUse envelope contents empirically.** Ship a no-op hook; confirm `exitCode`, `command`, `argv`, `combinedText` are all present. This is the pivot for wedge (ii) native-tool coverage AND for the failureCompaction trigger. Output: `docs/designs/GCOMPACTION_envelope.md` with real captured envelopes for Bash + Read + Grep + Glob.
-2. **Read RTK's rule definitions** (`ARCHITECTURE.md`, `src/rules/`) and write a 1-paragraph summary of which of the 4 primitives they handle best. Inform our v1 rule set. This is the Search Before Building layer.
-3. **Port analyze_transcripts JSONL parser to TypeScript.** `compact/benchmark/src/scanner.ts`. Write a quick-look output that lists the top-50 noisiest tool calls on the author's `~/.claude/projects/`. Confirms the testbench premise before we build the replay loop. This is the B-series foundation.
-4. **Write the CHANGELOG entry FIRST.** Target sentence: *"Every tool in your agent's toolbox on Claude Code now produces less noise — test runners, git diffs, package installs — with an intelligent Haiku safety net that restores critical stack frames when our rules over-compact, and a local benchmark that proves the savings on your actual 30 days of coding sessions. Codex + OpenClaw land in v1.1."* If we cannot write that sentence honestly, the wedge isn't there yet.
-5. **Ship a rule-only v0** (no Haiku verifier, no benchmark). Measure real token savings with current gstack evals + early B-series prototype. If <10% on local corpus, the whole premise is weaker than claimed — iterate the rules before adding the verifier on top.
+1. **Claude Code'un PostToolUse zarfı içeriğini ampirik olarak doğrula.** No-op hook gönder; `exitCode`, `command`, `argv`, `combinedText`'in hepsinin mevcut olduğunu doğrula. Bu kama (ii) yerel araç kapsama VE failureCompaction tetikleyicisi için dönüm noktasıdır. Çıktı: Bash + Read + Grep + Glob için gerçek yakalanmış zarflar ile `docs/designs/GCOMPACTION_envelope.md`.
+2. **RTK'nın kural tanımlarını oku** (`ARCHITECTURE.md`, `src/rules/`) ve 4 ilkel işlemden hangilerini en iyi işlediklerine dair 1 paragraf özet yaz. v1 kural setimizi bilgilendir. Bu, Yapmadan Önce Ara katmanıdır.
+3. **analyze_transcripts JSONL ayrıştırıcısını TypeScript'e taşı.** `compact/benchmark/src/scanner.ts`. Yazarın `~/.claude/projects/` dizinindeki en gürültülü 50 araç çağrısını listeleyen bir hızlı bakış çıktısı yaz. Yeniden oynatma döngüsünü oluşturmadan önce test düzeni önermesini doğrular. Bu, B-serisi temelidir.
+4. **CHANGELOG girdisini ÖNCE yaz.** Hedef cümle: *"Claude Code'daki aracın araç kutunuzdaki her araç artık daha az gürültü üretiyor — test çalıştırıcıları, git diff'leri, paket kurulumları — kurallarımız aşırı sıkıştırdığında kritik yığın çerçevelerini geri yükleyen akıllı bir Haiku güvenlik ağı ile ve sizin gerçek 30 günlük kodlama oturumlarınızda tasarrufları kanıtlayan yerel bir kıyaslama ile. Codex + OpenClaw v1.1'de geliyor."* Bu cümleyi dürüstçe yazamazsak, kama henüz hazır değil.
+5. **Yalnızca kural v0 gönder** (Haiku doğrulayıcı yok, kıyaslama yok). Mevcut gstack değerlendirmeleri + erken B-serisi prototipi ile gerçek token tasarruflarını ölç. Yerel corpus'ta <%10 ise, tüm önerme iddia edildiğinden daha zayıftır — doğrulayıcıyı üzerine eklemeden önce kuralları yinele.
 
-## License & attribution
+## Lisans ve atıf
 
-gstack ships under MIT. To keep the license clean for downstream users, this project follows a strict clean-room policy for everything borrowed from the competitive landscape:
+gstack MIT altında yayınlanır. Lisansı aşağıdaki kullanıcılar için temiz tutmak için bu proje, rekabetçi manzaradan ödünç alınan her şey için katı bir temiz oda politikası izler:
 
-- **Every project referenced above is permissive-licensed** (MIT or Apache-2.0). No AGPL, GPL, SSPL, or other copyleft exposure.
-  - RTK (rtk-ai/rtk): **Apache-2.0** — MIT-compatible; Apache patent grant is a bonus for us.
+- **Yukarıda referans verilen her proje izinli lisanslıdır** (MIT veya Apache-2.0). AGPL, GPL, SSPL veya diğer copyleft maruziyet yok.
+  - RTK (rtk-ai/rtk): **Apache-2.0** — MIT uyumlu; Apache patent hibesi bizim için bir bonus.
   - tokenjuice, caveman, claude-token-efficient, token-optimizer-mcp, sst/opencode: **MIT**.
-- **Patterns, not code.** We read these projects to understand what they solved and why. We implement independently in TypeScript inside `compact/src/`. We do not copy source files, translate source files line-for-line, or lift test fixtures verbatim.
-- **Attribution.** Where a pattern is directly borrowed (the 4 primitives from RTK, the JSON envelope from tokenjuice, intensity levels from caveman, rules-file size budget from claude-token-efficient), we credit the source inline in comments and in the "Pattern adoption table" above. The project's `README` and `NOTICE` file (if we add one) list the inspirations.
-- **Fixture sourcing.** Golden-file fixtures come from running real tools against real projects — they are our own captures, not imported from RTK or tokenjuice. This keeps the test corpus free of license-tangled content.
-- **Forbidden sources.** Before adding any new reference project, run `gh api repos/OWNER/REPO --jq '.license'` and verify the license key is one of: `mit`, `apache-2.0`, `bsd-2-clause`, `bsd-3-clause`, `isc`, `cc0-1.0`, `unlicense`. If the project has no license field, treat it as "all rights reserved" and do not draw from it. Reject `agpl-3.0`, `gpl-*`, `sspl-*`, and any custom or source-available license.
+- **Desenler, kod değil.** Bu projeleri neyi çözdüklerini ve nedenini anlamak için okuyoruz. `compact/src/` içinde TypeScript olarak bağımsız uyguluyoruz. Kaynak dosyaları kopyalamıyoruz, kaynak dosyaları satır satır çevirmiyoruz veya test fixture'larını kelimesi kelimesine alıyoruz.
+- **Atıf.** Doğrudan ödünç alınan bir desen varsa (RTK'dan 4 ilkel, tokenjuice'dan JSON zarfı, caveman'dan yoğunluk seviyeleri, claude-token-efficient'ten kurallar dosyası boyut bütçesi), kaynağı satır içi yorumlarda ve yukarıdaki "Desen benimseme tablosu"nda onurlandırıyoruz. Projenin `README`'si ve `NOTICE` dosyası (eklersek) ilham kaynaklarını listeler.
+- **Fixture kaynaklama.** Altın dosya fixture'ları gerçek projelere karşı gerçek araçları çalıştırmaktan gelir — bunlar bizim kendi yakalamalarımız, RTK veya tokenjuice'tan içe aktarılmaz. Bu, test corpus'unu lisans dolanmış içeriğinden uzak tutar.
+- **Yasaklı kaynaklar.** Yeni bir referans projesi eklemeden önce `gh api repos/OWNER/REPO --jq '.license'` çalıştırın ve lisans anahtarının şunlardan biri olduğunu doğrulayın: `mit`, `apache-2.0`, `bsd-2-clause`, `bsd-3-clause`, `isc`, `cc0-1.0`, `unlicense`. Projenin lisans alanı yoksa, "tüm hakları saklıdır" olarak değerlendirin ve ondan çekmeyin. `agpl-3.0`, `gpl-*`, `sspl-*` ve herhangi bir özel veya kaynak kullanılabilir lisansı reddedin.
 
-CI enforcement: a `scripts/check-references.ts` script parses `docs/designs/GCOMPACTION.md` for GitHub URLs and re-runs the license check, failing if any referenced project's license moves off the allowlist.
+CI uygulaması: `scripts/check-references.ts` betiği `docs/designs/GCOMPACTION.md`'dan GitHub URL'lerini ayrıştırır ve referans verilen herhangi bir projenin lisansı izin verilenler listesinden çıkarsa başarısız olur.
 
-## References
+## Referanslar
 
 - [RTK (Rust Token Killer) — rtk-ai/rtk](https://github.com/rtk-ai/rtk)
-- [RTK issue #538 — native-tool gap](https://github.com/rtk-ai/rtk/issues/538)
+- [RTK sorun #538 — yerel araç boşluğu](https://github.com/rtk-ai/rtk/issues/538)
 - [tokenjuice — vincentkoc/tokenjuice](https://github.com/vincentkoc/tokenjuice)
 - [caveman — juliusbrussee/caveman](https://github.com/juliusbrussee/caveman)
 - [claude-token-efficient — drona23](https://github.com/drona23/claude-token-efficient)
 - [token-optimizer-mcp — ooples](https://github.com/ooples/token-optimizer-mcp)
 - [6-Layer Token Savings Stack — doobidoo gist](https://gist.github.com/doobidoo/e5500be6b59e47cadc39e0b7c5cd9871)
-- [Claude Code hooks reference](https://code.claude.com/docs/en/hooks)
-- [Chroma context rot research](https://research.trychroma.com/context-rot)
-- [Morph: Why LLMs Degrade as Context Grows](https://www.morphllm.com/context-rot)
+- [Claude Code hook'ları referansı](https://code.claude.com/docs/en/hooks)
+- [Chroma bağlam çürüme araştırması](https://research.trychroma.com/context-rot)
+- [Morph: Neden LLM'ler Bağlam Büyüdükçe Bozulur](https://www.morphllm.com/context-rot)
 - [Anthropic Opus 4.6 Compaction API — InfoQ](https://www.infoq.com/news/2026/03/opus-4-6-context-compaction/)
-- [OpenAI compaction docs](https://developers.openai.com/api/docs/guides/compaction)
-- [Google ADK context compression](https://google.github.io/adk-docs/context/compaction/)
-- [LangChain autonomous context compression](https://blog.langchain.com/autonomous-context-compression/)
-- [sst/opencode context management](https://deepwiki.com/sst/opencode/2.4-context-management-and-compaction)
-- [DEV: Deterministic vs. LLM Evaluators — 2026 trade-off study](https://dev.to/anshd_12/deterministic-vs-llm-evaluators-a-2026-technical-trade-off-study-11h)
-- [MadPlay: RTK 80% token reduction experiment](https://madplay.github.io/en/post/rtk-reduce-ai-coding-agent-token-usage)
-- [Esteban Estrada: RTK 70% Claude Code reduction](https://codestz.dev/experiments/rtk-rust-token-killer)
+- [OpenAI sıkıştırma dokümantasyonu](https://developers.openai.com/api/docs/guides/compaction)
+- [Google ADK bağlam sıkıştırma](https://google.github.io/adk-docs/context/compaction/)
+- [LangChain otonom bağlam sıkıştırma](https://blog.langchain.com/autonomous-context-compression/)
+- [sst/opencode bağlam yönetimi](https://deepwiki.com/sst/opencode/2.4-context-management-and-compaction)
+- [DEV: Belirleyici vs. LLM Değerlendiriciler — 2026 ödünleşim çalışması](https://dev.to/anshd_12/deterministic-vs-llm-evaluators-a-2026-technical-trade-off-study-11h)
+- [MadPlay: RTK %80 token azaltma deneyi](https://madplay.github.io/en/post/rtk-reduce-ai-coding-agent-token-usage)
+- [Esteban Estrada: RTK %70 Claude Code azaltma](https://codestz.dev/experiments/rtk-rust-token-killer)
 
-**End of GCOMPACTION.md canonical section.** On plan approval, everything above is copied verbatim to `docs/designs/GCOMPACTION.md` as a **tabled design artifact**. No code is written; no hook is installed; no CHANGELOG entry is added. The doc exists so a future sprint can unblock quickly when Anthropic ships the built-in-tool output-replace API.
+**GCOMPACTION.md kanonik bölümünün sonu.** Plan onayında, yukarıdaki her şey kelimesi kelimesine `docs/designs/GCOMPACTION.md`'ye bir **askıya alınmış tasarım eseri** olarak kopyalanır. Hiçbir kod yazılmaz; hiçbir hook kurulmaz; hiçbir CHANGELOG girdisi eklenmez. Doküman, Anthropic yerleşik araç çıktı-değiştirme API'sini gönderdiğinde gelecekteki bir sprint'in hızlıca engellemeyi kaldırabilmesi için var.

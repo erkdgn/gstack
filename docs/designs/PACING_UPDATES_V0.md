@@ -1,95 +1,95 @@
-# Pacing Updates v0 — Design Doc
+# Adımlama Güncellemeleri v0 — Tasarım Dokümanı
 
-**Status:** V1.1 plan (not yet implemented).
-**Extracted from:** [PLAN_TUNING_V1.md](./PLAN_TUNING_V1.md) during implementation, when review rigor revealed the pacing workstream had structural gaps unfixable via plan-text editing.
-**Authors:** Garry Tan (user), with AI-assisted reviews from Claude Opus 4.7 + OpenAI Codex gpt-5.4.
-**Review plan:** CEO + Codex + DX + Eng cycle, same rigor as V1.
+**Durum:** V1.1 planı (henüz uygulanmadı).
+**Çıkarıldığı yer:** İnceleme titizliği, adımlama iş kolunun plan-metin düzenlemesiyle düzeltilemeyen yapısal boşluklar olduğunu ortaya çıkardığında, uygulama sırasında [PLAN_TUNING_V1.md](./PLAN_TUNING_V1.md)'den çıkarıldı.
+**Yazarlar:** Garry Tan (kullanıcı), Claude Opus 4.7 + OpenAI Codex gpt-5.4'den AI destekli incelemelerle.
+**İnceleme planı:** CEO + Codex + DX + Mühendislik döngüsü, V1 ile aynı titizlik.
 
-## Credit
+## Teşekkür
 
-This plan exists because of **[Louise de Sadeleer](https://x.com/LouiseDSadeleer/status/2045139351227478199)**. Her "yes yes yes" during architecture review wasn't only about jargon (V1 addresses that) — it was pacing and agency. Too many interruptive decisions over too long a review. V1.1 addresses the pacing half.
+Bu plan **[Louise de Sadeleer](https://x.com/LouiseDSadeleer/status/2045139351227478199)** sayesinde var. Mimari inceleme sırasındaki "evet evet evet"i yalnızca jargonla ilgili değildi (V1 bunu ele alıyor) — adımlama ve ajansla ilgiliydi. Çok uzun bir inceleme boyunca çok fazla kesintiye uğratıcı karar. Teknik olmayan kullanıcılar ~10-15 kesintide kontrol dışı kalır. **Bu V1.1.**
 
-## Problem
+## Sorun
 
-Louise's fatigue reading gstack review output came from two sources:
+Louise'in gstack inceleme çıktısını okurken yaşadığı yorgunluk iki kaynaktan geliyordu:
 
-1. **Jargon density** — technical terms appeared without explanation. *Addressed in V1 (ELI10 writing).*
-2. **Interruption volume** — `/autoplan` ran 4 phases (CEO + Design + Eng + DX), each with 5–10 AskUserQuestion prompts. Total ≈ 30–50 prompts over ~45 minutes. Non-technical users check out at ~10–15 interruptions. **This is V1.1.**
+1. **Jargon yoğunluğu** — teknik terimler açıklama olmadan ortaya çıkıyordu. *V1'de ele alındı (ELI10 yazımı).*
+2. **Kesinti hacmi** — `/autoplan` 4 aşama (CEO + Tasarım + Mühendislik + DX) çalıştırdı, her biri 5-10 AskUserQuestion promptuyla. Toplam ~45 dakika boyunca ~30-50 prompt. Teknik olmayan kullanıcılar ~10-15 kesintide kontrol dışı kalır. **Bu V1.1.**
 
-Translation alone doesn't fix interruption volume. A translated interruption is still an interruption. The fix needs to change WHEN findings surface, not just HOW they're worded.
+Sadece çeviri kesinti hacmini düzeltmez. Çevrilmiş bir kesinti hala bir kesintidir. Düzeltme, bulguların NE ZAMAN ortaya çıktığını değiştirmeli, yalnızca NASIL ifade edildiklerini değil.
 
-## Why it's extracted (structural gaps from V1's third eng review + Codex pass 2)
+## Neden çıkarıldı (V1'in üçüncü mühendislik incelemesinden + Codex 2. geçişinden yapısal boşluklar)
 
-During V1 planning, a pacing workstream was drafted: rank findings, auto-accept two-way doors, max 3 AskUserQuestion prompts per review phase, Silent Decisions block for auto-accepted items, "flip <id>" command to re-open auto-accepted decisions post-hoc. The third eng-review pass + second Codex pass surfaced 10 gaps that couldn't be closed with plan-text edits:
+V1 planlaması sırasında, bir adımlama iş kolu taslağı hazırlandı: bulguları sırala, iki yönlü kapıları otomatik kabul et, aşama başına en fazla 3 AskUserQuestion promptu, otomatik kabul edilen öğeler için Sessiz Kararlar bloğu, kararı sonradan yeniden açmak için `flip <id>` komutu. Üçüncü mühendislik inceleme geçişi + ikinci Codex geçişi, plan-metin düzenlemeleriyle kapatılamayacak 10 boşluk ortaya çıkardı:
 
-1. **Session-state model undefined.** Pacing needs per-phase state (which findings surfaced, which auto-accepted, which user can flip). V1 has per-skill-invocation state for glossing but no backing store for per-phase pacing memory.
-2. **Phase identifier missing from question-log.** Silent Eng #8 wanted to warn when > 3 prompts within one phase. V0's `question-log.jsonl` has no `phase` field. V1 claimed "no schema change" — contradicts the enforcement target.
-3. **Question registry ≠ finding registry.** V0's `scripts/question-registry.ts` covers *questions* (registered at skill definition time). Review findings are *dynamic* (discovered at runtime). `door_type: one-way` enforcement via registry doesn't cover ad-hoc findings. One-way-door safety isn't enforceable for findings the agent generates mid-review.
-4. **Pacing as prose can't invert existing control flow.** V1 planned to add a "rank findings, then ask" rule to preamble prose. But existing skill templates like `plan-eng-review/SKILL.md.tmpl` have per-section STOP/AskUserQuestion sequences. A prose rule in preamble can't reliably override a hardcoded per-section STOP. The behavioral change is sequencing, not prompt wording.
-5. **Flip mechanism has no implementation.** "Reply `flip <id>` to change" was prose. No command parser, no state store, no replay behavior. If the conversation compacts and the Silent Decisions block leaves context, the original decision is lost.
-6. **Migration prompt is itself an interrupt.** V1's post-upgrade migration prompt (offering to restore V0 prose) counts against the interruption budget V1.1 is trying to reduce. V1.1 must decide: exempt from budget, or include as interrupt-1-of-N?
-7. **First-run preamble prompts count too.** Lake intro, telemetry, proactive, routing injection — Louise saw all of them on first run. They're interruptions before the first real skill runs. V1.1 must audit which of these are load-bearing for new users vs. deferrable until session N.
-8. **Ranking formula not calibrated against real data.** V1 considered `product 0-8` (broken: `{0,1,2,4,8}` distribution), then `sum 0-6` with threshold ≥ 4. But neither was validated against actual finding distribution. V1.1 should instrument V0 question-log to measure what real findings look like, then calibrate.
-9. **"Every one-way door surfaces" vs "max 3 per phase" contradicts.** One-way cap = uncapped (safety); two-way cap = 3. But the plan had both rules without explicit precedence. V1.1 must state: one-way doors surface uncapped regardless of phase budget.
-10. **Undefined verification values.** V1 plan had "Silent Decisions block ≥ N entries" with N never defined, and `active: true` field in throughput JSON never defined. V1.1 gets concrete values.
+1. **Oturum-durum modeli tanımsız.** Adımlama, aşama başına durum gerektirir (hangı bulgular ortaya çıktı, hangileri otomatik kabul edildi, hangileri kullanıcı döndürebilir). V1'in glossing için aşama başına durumu var ama aşama başına adımlama belleği için destek deposu yok.
+2. **Soru günlüğünden aşama tanımlayıcısı eksik.** Sessiz Mühendislik #8, bir aşama içinde >3 prompt olduğunda uyarmak istedi. V0'ın `question-log.jsonl`'inde `phase` alanı yok. V1 "şema değişikliği yok" iddia etti — uygulama hedefiyle çelişiyor.
+3. **Soru kayıt defteri ≠ bulgu kayıt defteri.** V0'ın `scripts/question-registry.ts` *soruları* kapsar (skill tanım zamanında kaydedilir). İnceleme bulguları *dinamiktir* (çalışma zamanında keşfedilir). Kayıt defteri aracılığıyla `door_type: one-way` uygulaması, aracının inceleme sırasında oluşturduğu geçici bulguları kapsamaz. Tek yönlü kapı güvenliği, aracının inceleme ortasında oluşturduğu bulgular için uygulanamaz.
+4. **Adımlama düzyazı olarak mevcut kontrol akışını tersine çeviremez.** V1, önyazı düzyazısına "bulguları sırala, sonra sor" kuralı eklemeyi planladı. Ancak `plan-eng-review/SKILL.md.tmpl` gibi mevcut skill şablonlarında aşama başı STOP/AskUserQuestion dizileri var. Önyazı düzyazısındaki bir kural, kalıplaştırılmış aşama başı STOP'u güvenilir şekilde geçersiz kılamaz. Davranışsal değişiklik sıralamadır, prompt şekillendirmesi değil.
+5. **Döndürme mekanizmasının uygulaması yok.** "Değiştirmek için `flip <id>` yanıtla" düzyazıydı. Komut ayrıştırıcı yok, durum deposu yok, yeniden oynatma davranışı yok. Konuşma sıkışırsa ve Sessiz Kararlar bloğu bağlamdan ayrılırsa, orijinal karar kaybolur.
+6. **Geçiş promptunun kendisi bir kesintidir.** V1'in yükseltme sonrası geçiş promptu (V0 düzyazısını geri yüklemeyi teklif eden), V1.1'in azaltmaya çalıştığı kesinti bütçesine karşı sayılır. V1.1 karar vermeli: bütçeden muaf mı, yoksa kesinti-1/N olarak mı dahil?
+7. **İlk çalıştırma önyazı promptları da sayılır.** Lake tanıtımı, telemetri, proaktif, yönlendirme enjeksiyonu — Louise hepsini ilk çalıştırmada gördü. Bunlar ilk gerçek skill çalışmadan önceki kesintiler. V1.1, bunların yeni kullanıcılar için hangilerinin yük taşıyıcı, hangilerinin N. oturuma kadar ertelenebilir olduğunu denetlemeli.
+8. **Sıralama formülü gerçek verilere göre kalibre edilmemiş.** V1, `product 0-8`'i (bozuk: `{0,1,2,4,8}` dağılımı), ardından `sum 0-6` ile eşik ≥ 4'ü düşündü. Ama ikisi de gerçek bulgu dağılımına karşı doğrulanmadı. V1.1, gerçek bulguların neye benzediğini ölçmek için V0 soru günlüğünü araçlandırmalı, sonra kalibre etmeli.
+9. **"Her tek yönlü kapı ortaya çıkar" vs "aşama başına en fazla 3" çelişiyor.** Tek yönlü kapı sınırı = sınırısız (güvenlik); iki yönlü sınır = 3. Ama plan, açık öncelik olmadan her iki kurala da sahipti. V1.1 belirtmeli: tek yönlü kapılar aşama bütçesinden bağımsız olarak sınırısız şekilde ortaya çıkar.
+10. **Tanımsız doğrulama değerleri.** V1 planında "Sessiz Kararlar bloğu ≥ N giriş" vardı, N hiçbir zaman tanımlanmadı, ve throughput JSON'ındaki `active: true` alanı hiçbir zaman tanımlanmadı. V1.1 somut değerler alır.
 
-## Scope for V1.1
+## V1.1 Kapsamı
 
-1. **Define session-state model.** Per-skill-invocation vs per-phase vs per-conversation. Backing store: likely a JSON file at `~/.gstack/sessions/<session_id>/pacing-state.json` that records which findings surfaced vs. auto-accepted per phase. Cleanup: same TTL as existing session tracking in preamble.
+1. **Oturum-durum modelini tanımla.** Skill çağırma başına vs aşama başına vs konuşma başına. Destek deposu: muhtemelen hangı bulguların ortaya çıktığını vs. aşama başına otomatik kabul edildiğini kaydeden `~/.gstack/sessions/<session_id>/pacing-state.json`. Temizlik: önyazıdaki mevcut oturum izleme ile aynı TTL.
 
-2. **Add `phase` field to question-log.jsonl schema.** Classify each AskUserQuestion by which review phase it came from (CEO / Design / Eng / DX / other). Migration: existing entries default to `"unknown"`. Non-breaking schema extension.
+2. **`phase` alanını question-log.jsonl şemasına ekle.** Her AskUserQuestion'ı hangi inceleme aşamasından geldiğini sınıflandır (CEO / Tasarım / Mühendislik / DX / diğer). Geçiş: mevcut girdiler varsayılan olarak `"unknown"`. Bozucu olmayan şema uzantısı.
 
-3. **Extend registry coverage for dynamic findings.** Two options, pick during CEO review:
-   - (a) Widen `scripts/question-registry.ts` to allow runtime registration (ad-hoc IDs still get logged + classified).
-   - (b) Add a secondary runtime classifier `scripts/finding-classifier.ts` that maps finding text → risk tier using pattern matching.
+3. **Dinamik bulgular için kayıt defteri kapsamını genişlet.** İki seçenek, CEO incelemesi sırasında seç:
+   - (a) `scripts/question-registry.ts`'yi çalışma zamanı kaydına izin verecek şekilde genişlet (geçici ID'ler hala günlüğe kaydedilir + sınıflandırılır).
+   - (b) Bulgu metnini → risk katmanına eşleyen ikincil bir çalışma zamanı sınıflandırıcı `scripts/finding-classifier.ts` ekle (desen eşleştirme kullanarak).
 
-4. **Move pacing from preamble prose into skill-template control flow.** Update each review skill template to: (i) internally complete the phase, (ii) rank findings with the `gstack-pacing-rank` binary, (iii) emit up to 3 AskUserQuestion prompts, (iv) emit Silent Decisions block with the rest. Not a preamble rule — explicit sequence in each template.
+4. **Adımlamayı önyazı düzyazısından skill şablonu kontrol akışına taşı.** Her inceleme skill şablonunu güncelle: (i) aşamayı dahili olarak tamamla, (ii) bulguları `gstack-pacing-rank` ikili dosyası ile sırala, (iii) en fazla 3 AskUserQuestion promptu yayın, (iv) geri kalanını Sessiz Kararlar bloğu olarak yayın. Önyazı kuralı değil — her şablonda açık sıralama.
 
-5. **Flip mechanism implementation.** New binary `bin/gstack-flip-decision`. Command parser accepts `flip <id>` from user message. Looks up the original decision in pacing-state.json. Re-opens as an explicit AskUserQuestion. New choice persists.
+5. **Döndürme mekanizması uygulaması.** Yeni ikili dosya `bin/gstack-flip-decision`. Komut ayrıştırıcı kullanıcı mesajından `flip <id>` kabul eder. Orijinal kararı pacing-state.json'da arar. Açık AskUserQuestion olarak yeniden açar. Yeni seçim kalıcı olur.
 
-6. **Migration-prompt budget decision.** Explicit rule: one-shot migration prompts are exempt from the per-phase interruption budget. Rationale: they fire before review phases start, not during.
+6. **Geçiş promptu bütçe kararı.** Açık kural: tek seferlik geçiş promptları aşama başına kesinti bütçesinden muaftır. Gerekçe: inceleme aşamaları başlamadan önce ateşlenir, sırasında değil.
 
-7. **First-run preamble audit.** Audit lake intro, telemetry, proactive, routing injection. For each: is this load-bearing for a first-time user, or deferrable? Likely outcome: suppress all but lake intro until session 2+. Offer remaining ones via a `/plan-tune first-run` command that users can invoke voluntarily.
+7. **İlk çalıştırma önyazı denetimi.** Lake tanıtımı, telemetri, proaktif, yönlendirme enjeksiyonunu denetle. Her biri için: ilk kez kullanıcı için yük taşıyıcı mı, yoksa ertelenebilir mi? Olası sonuç: lake tanıtımı dışında hepsini 2. oturuma kadar bastır. Kalanlarını kullanıcıların isteğe bağlı olarak çaırabileceği bir `/plan-tune first-run` komutu ile sun.
 
-8. **Ranking threshold calibration.** Instrument V0's question-log (already running, has history). Measure the actual distribution of `severity × irreversibility × user-decision-matters` across recent CEO + Eng + DX + Design reviews. Pick threshold based on real data. Target: ~20% of findings surface, ~80% auto-accept.
+8. **Sıralama eşiği kalibrasyonu.** V0'ın soru günlüğünü araçlandır (zaten çalışıyor, geçmişi var). Son CEO + Mühendislik + DX + Tasarım incelemelerindeki `severity × irreversibility × user-decision-matters` gerçek dağılımını ölç. Eşiği gerçek verilere göre seç. Hedef: bulguların ~%20'si ortaya çıkar, ~%80'i otomatik kabul edilir.
 
-9. **Explicit rule: one-way doors uncapped.** Hard-coded in skill template prose: "one-way doors surface regardless of phase interruption budget." Two-way findings cap at 3 per phase.
+9. **Açık kural: tek yönlü kapılar sınırısız.** Skill şablonu düzyazısında sabit kodlanmış: "tek yönlü kapılar aşama kesinti bütçesinden bağımsız olarak ortaya çıkar." İki yönlü bulgular aşama başına 3 ile sınırlıdır.
 
-10. **Concrete verification values.** Define `N` for Silent Decisions (e.g., ≥ 5 entries expected for a non-trivial plan), define the throughput JSON schema with concrete field names.
+10. **Somut doğrulama değerleri.** Sessiz Kararlar için `N`'yi tanımla (örn., önemsiz olmayan bir plan için ≥ 5 giriş beklenir), somut alan adları ile throughput JSON şemasını tanımla.
 
-## Acceptance criteria for V1.1
+## V1.1 için kabul kriterleri
 
-- **Interruption count:** Louise (or similar non-technical collaborator) reruns `/autoplan` end-to-end on a plan comparable to V0-baseline. AskUserQuestion count ≤ 50% of V0 baseline. (V1 captures this baseline transcript for V1.1 calibration.)
-- **One-way-door coverage:** 100% of safety-critical decisions (`door_type: one-way` OR classifier-flagged dynamic findings) surface individually at full technical detail. Uncapped.
-- **Flip round-trip:** User types `flip test-coverage-bookclub-form`. The original auto-accepted decision re-opens as an AskUserQuestion. User's new choice persists to the Silent Decisions block (or is removed if user flips to explicit surfacing).
-- **Per-phase observability:** `/plan-tune` can display per-phase AskUserQuestion counts for any session, reading from question-log.jsonl's new `phase` field.
-- **First-run reduction:** New users see ≤ 1 meta-prompt (lake intro) before their first real skill runs, vs. V1's 4 (lake + telemetry + proactive + routing).
-- **Human rerun:** Louise + Garry independent qualitative reviews, same pattern as V1.
+- **Kesinti sayısı:** Louise (veya benzeri teknik olmayan bir işbirlikçi) V0 temeli ile karşılaştırılabilir bir plan üzerinde uçtan uca `/autoplan`'ı yeniden çalıştırır. AskUserQuestion sayısı V0 temelinin ≤%50'si. (V1, V1.1 kalibrasyonu için bu temel transkripti yakalar.)
+- **Tek yönlü kapı kapsamaı:** Güvenlik kritik kararlarının %100'ü (`door_type: one-way` VEYA sınıflandırıcı tarafından işaretlenmiş dinamik bulgular) tam teknik ayrıntıyla bireysel olarak ortaya çıkar. Sınırısız.
+- **Döndürme gidiş-dönüşü:** Kullanıcı `flip test-coverage-bookclub-form` yazar. Orijinal otomatik kabul edilen karar AskUserQuestion olarak yeniden açılır. Kullanıcının yeni seçimi Sessiz Kararlar bloğunda kalıcı olur (veya kullanıcı açık ortaya çıkarmaya çevirirse kaldırılır).
+- **Aşama başına gözlemlenebilirlik:** `/plan-tune`, herhangi bir oturum için aşama başına AskUserQuestion sayılarını görüntüleyebilir, question-log.jsonl'nin yeni `phase` alanından okuyarak.
+- **İlk çalıştırma azaltma:** Yeni kullanıcılar ilk gerçek skill çalışmadan önce ≤1 meta-prompt (lake tanıtımı) görür, V1'in 4'üne karşı (lake + telemetri + proaktif + yönlendirme).
+- **İnsan yeniden çalıştırma:** Louise + Garry bağımsız nitel incelemeler, V1 ile aynı desen.
 
-## Dependencies on V1
+## V1'e bağımlılıklar
 
-V1.1 builds on V1's infrastructure:
-- `explain_level` config key + preamble echo pattern (A4).
-- Jargon list + Writing Style section (V1.1's interruption language should respect ELI10 rules).
-- V0 dormancy negative tests (V1.1 won't wake the 5D psychographic machinery either).
-- V1's captured Louise transcript (baseline for acceptance criterion calibration).
+V1.1, V1'in altyapısına dayanır:
+- `explain_level` yapılandırma anahtarı + önyazı yankı deseni (A4).
+- Jargon listesi + Yazım Stili bölümü (V1.1'in kesinti dili ELI10 kurallarına saygı duymalıdır).
+- V0 uyku negatif testleri (V1.1 de 5D psikografik makineriyi uyandırmaz).
+- V1'in yakalanan Louise transkripti (kabul kriteri kalibrasyonu için temel).
 
-V1.1 does NOT depend on any V2 items (E1 substrate wiring, narrative/vibe, etc.).
+V1.1 hiçbir V2 öğesine bağlı değildir (E1 alt taban kablolama, anlatım/vibe, vb.).
 
-## Review plan
+## İnceleme planı
 
-- **Pre-work:** capture real question-log distribution from current V0 data. Use as calibration input for Scope #8.
-- **CEO review.** Premise challenge: is pacing the right fix, or should V1.1 consider removing phases entirely? (E.g., collapse CEO + Design + Eng + DX into a single unified review pass.) Scope mode: SELECTIVE EXPANSION likely (pacing is the core, related improvements are cherry-picks).
-- **Codex review.** Independent pass on the V1.1 plan. Expect particular scrutiny on the control-flow change (Scope #4) since that's the area V1 struggled with.
-- **DX review.** Focus on the flip mechanism's DX — is `flip <id>` discoverable, is the command syntax natural, is the error path clear?
-- **Eng review ×N.** Expect multiple passes, same as V1.
+- **Ön çalışma:** mevcut V0 verilerinden gerçek soru günlüğü dağılımını yakala. Kapsam #8 için kalibrasyon girdisi olarak kullan.
+- **CEO incelemesi.** Önerme meydan okuması: adımlama doğru düzeltme mi, yoksa V1.1 aşamaları tamamen kaldırmayı mı düşünmeli? (Örn., CEO + Tasarım + Mühendislik + DX'yi tek bir birleştirilmiş inceleme geçişine daralt.) Kapsam modu: muhtemelen SEÇİCİ GENİŞLEME (adımlama çekirdek, ilgili iyileştirmeler seçme).
+- **Codex incelemesi.** V1.1 planında bağımsız geçiş. V1'in zorlandığı kontrol akışı değişikliği (Kapsam #4) üzerinde özellikle dikkatli olunması beklenir.
+- **DX incelemesi.** Döndürme mekanizmasının DX'ine odaklan — `flip <id>` keşfedilebilir mi, komut sözdizimi doğal mı, hata yolu net mi?
+- **Mühendislik incelemesi ×N.** V1 ile aynı şekilde birden fazla geçiş beklenir.
 
-## NOT touched in V1.1
+## V1.1'de dokunulmayanlar
 
-V2 items remain deferred:
-- Confusion-signal detection
-- 5D psychographic-driven skill adaptation (V0 E1)
-- /plan-tune narrative + /plan-tune vibe (V0 E3)
-- Per-skill or per-topic explain levels
-- Team profiles
-- AST-based "delivered features" metric
+V2 öğeleri ertelenmiş olarak kalır:
+- Karışıklık sinyali algılama
+- 5D psikografik odaklı skill uyarlaması (V0 E1)
+- /plan-tune anlatım + /plan-tune vibe (V0 E3)
+- Skill başına veya konu başına açıklama seviyeleri
+- Takım profilleri
+- AST tabanlı "teslim edilen özellikler" metriği

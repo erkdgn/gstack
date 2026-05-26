@@ -1,78 +1,78 @@
-# Plan Tuning v0 — Design Doc
+# Plan Tuning v0 — Tasarım Dokümanı
 
-**Status:** Approved for v1 implementation
-**Branch:** garrytan/plan-tune-skill
-**Authors:** Garry Tan (user), with AI-assisted reviews from Claude Opus 4.7 + OpenAI Codex gpt-5.4
-**Date:** 2026-04-16
+**Durum:** v1 uygulaması için onaylandı
+**Dal:** garrytan/plan-tune-skill
+**Yazarlar:** Garry Tan (kullanıcı), Claude Opus 4.7 + OpenAI Codex gpt-5.4'den AI destekli incelemelerle
+**Tarih:** 2026-04-16
 
-## What this document is
+## Bu doküman nedir
 
-A canonical record of what `/plan-tune` v1 is, what it is NOT, what we considered, and why we made each call. Committed to the repo so future contributors (and future Garry) can trace reasoning without archeology. Supersedes the two `~/.gstack/projects/` artifacts (office-hours design doc + CEO plan) which are per-user local records.
+`/plan-tune` v1'in ne olduğunun, ne OLMADIĞININ, neyi düşündüğümüzün ve her kararı neden aldığımızın kanonik kaydı. Depoya işlenir, böylece gelecekteki katkı sağlayıcılar (ve gelecekteki Garry) arkeoloji yapmadan akıl yürütmeyi izleyebilir. Kullanıcı başına yerel kayıtlar olan iki `~/.gstack/projects/` eserinin yerini alır.
 
-## The feature, in one paragraph
+## Özellik, bir paragrafta
 
-gstack's 40+ skills fire AskUserQuestion constantly. Power users answer the same questions the same way repeatedly and have no way to tell gstack "stop asking me this." More fundamentally, gstack has no model of how each user prefers to steer their work — scope-appetite, risk-tolerance, detail-preference, autonomy, architecture-care — so every skill's defaults are middle-of-the-road for everyone. `/plan-tune` v1 builds the schema + observation layer: a typed question registry, per-question explicit preferences, inline "tune:" feedback, and a profile (declared + inferred dimensions) inspectable via plain English. It does not yet adapt skill behavior based on the profile. That comes in v2, after v1 proves the substrate works.
+gstack'in 40+ skill'i sürekli AskUserQuestion ateşler. Güçlü kullanıcılar aynı soruları aynı şekilde tekrar tekrar yanıtlar ve gstack'e "bunu bana sormayı bırak" demek için bir yolu yoktur. Daha temel olarak, gstack'in her kullanıcının çalışmasını nasıl yönlendirmeyi tercih ettiğine dair bir modeli yok — kapsam iştahı, risk toleransı, ayrıntı tercihi, özerklik, mimari özen — bu yüzden her skill'in varsayılanları herkes için ortalamadır. `/plan-tune` v1, şema + gözlem katmanını oluşturur: tipli bir soru kayıt defteri, soru başına açık tercihler, satır içi "tune:" geri bildirimi ve düz İngilizce ile incelenebilir bir profil (beyan edilen + çıkarılan boyutlar). Henüz profili temel alarak skill davranışını uyarlamaz. Bu, v1 alt tabanın çalıştığını kanıtladıktan sonra v2'de gelir.
 
-## Why we're building the smaller version
+## Daha küçük sürümü neden oluşturuyoruz
 
-The feature started life as a full adaptive substrate: psychographic dimensions driving auto-decisions, blind-spot coaching, LANDED celebration HTML page, all bundled. Four rounds of review (office-hours, CEO EXPANSION, DX POLISH, eng review) cleared it. Then outside voice (Codex) delivered a 20-point critique. The critical findings, in priority order:
+Özellik, tam uyarlanabilir bir alt taban olarak başladı: psikografik boyutlar otomatik kararları yönlendiren, kör nokta koçluğu, LANDED kutlama HTML sayfası, hepsi paketlenmiş. Dört inceleme turu (office-hours, CEO EXPANSION, DX POLISH, mühendislik incelemesi) bunu temizledi. Sonra dış ses (Codex) 20 noktalı bir eleştiri sundu. Öncelik sırasına göre kritik bulgular:
 
-1. **"Substrate" was false.** The plan wired 5 skills to read the profile on preamble, but AskUserQuestion is a prompt convention, not middleware. Agents can silently skip the instructions. You cannot reliably build auto-decide on top of an unenforceable convention. Without a typed question registry that every AskUserQuestion routes through, the substrate claim is marketing.
-2. **Internal logical contradictions.** E4 (blind-spot) + E6 (mismatch) + ±0.2 clamp on declared dimensions do not compose. If user self-declaration is ground truth via the clamp, E6's mismatch detection is detecting noise. If behavior can correct the profile, the clamp suppresses the signal E6 needs.
-3. **Profile poisoning.** Inline "tune: never ask" could be emitted by malicious repo content (README, PR description, tool output) and the agent would dutifully write it. No prior review caught this security gap.
-4. **E5 LANDED page in preamble.** `gh pr view` + HTML write + browser open on every skill's preamble is latency, auth failures, rate limits, surprise browser opens, and nondeterminism injected into the hottest path.
-5. **Implementation order was backwards.** The plan started with classifiers and bins. The correct order: build the integration point first (typed question registry), then infrastructure, then consumers.
+1. **"Alt taban" yalandı.** Plan 5 skill'i önyazıda profilden okuyacak şekilde bağladı, ancak AskUserQuestion bir prompt kuralıdır, ara yazılım değil. Aracılar talimatları sessizce atlayabilir. Tipli bir soru kayıt defteri olmadan her AskUserQuestion'ın yönlendirildiği bir alt taban üzerinde otomatik karar oluşturamazsınız. Kayıt defteri olmadan alt taban iddası pazarlamadır.
+2. **İçsel mantıksal çelişkiler.** E4 (kör nokta) + E6 (uyumsuzluk) + beyan edilen boyutlar üzerinde ±0.2 kelepçe birleşmez. Kullanıcı kendi beyanını kelepçe ile gerçek kabul ediyorsa, E6'nın uyumsuzluk algılama gürültü algılıyor. Davranış profili düzeltebilirse, kelepçe E6'nın ihtiyaç duyduğu sinyali bastırır.
+3. **Profil zehirlenmesi.** Satır içi "tune: never ask" kötü niyetli repo içeriği (README, PR açıklaması, araç çıktısı) tarafından yayılabilir ve aracı bunu sadakatle yazar. Önceki hiçbir inceleme bu güvenlik boşluğunu yakalamadı.
+4. **E5 LANDED sayfası önyazıda.** Her skill'in önyazısında `gh pr view` + HTML yazma + tarayıcı açma gecikme, kimlik doğrulama başarısızlıkları, hız sınırları, sürpriz tarayıcı açmaları ve en sıcak yola enjekte edilen belirsizliktir.
+5. **Uygulama sırası ters idi.** Plan sınıflandırıcılar ve kutularla başladı. Doğru sıra: önce entegrasyon noktasını oluştur (tipli soru kayıt defteri), sonra altyapı, sonra tüketiciler.
 
-After weighing Codex's argument, we chose to roll back CEO EXPANSION and ship an observational v1 with a real typed registry as the foundation. Psychographic becomes behavioral only after the registry proves durable in production.
+Codex'in argümanını tarttıktan sonra, CEO EXPANSION'ı geri almaya ve gerçek bir tipli kayıt defterini temel olarak gözlemsel bir v1 göndermeye karar verdik. Psikografik, kayıt defteri üretime dayanıklı kanıtlandıktan sonra davranışsal hale gelir.
 
-## v1 Scope (what we're building now)
+## v1 Kapsamı (şimdi oluşturduğumuz)
 
-1. **Typed question registry** (`scripts/question-registry.ts`). Every AskUserQuestion gstack uses is declared with `{id, skill, category, door_type, options[], signal_key?}`. Schema-governed.
-2. **CI enforcement.** Lint test (gate tier) asserts every AskUserQuestion pattern in SKILL.md.tmpl files has a matching registry entry. Fails CI on drift, renames, or duplicates.
-3. **Question logging** (`bin/gstack-question-log`). Appends `{ts, question_id, user_choice, recommended, session_id}` to `~/.gstack/projects/{SLUG}/question-log.jsonl`. Validates against registry.
-4. **Explicit per-question preferences** (`bin/gstack-question-preference`). Writes `{question_id, preference}` where preference is `always-ask | never-ask | ask-only-for-one-way`. Respected from session 1. No calibration gate — user stated it, system obeys.
-5. **Preamble injection.** Before each AskUserQuestion, agent calls `gstack-question-preference --check <registry-id>`. If `never-ask` AND question is NOT a one-way door, auto-choose recommended option with visible annotation: "Auto-decided [summary] → [option] (your preference). Change with /plan-tune." One-way doors always ask regardless of preference — safety override.
-6. **Inline "tune:" feedback with user-origin gate.** Agent offers "Tune this question? Reply `tune: [feedback]` to adjust." User can use shortcuts (`unnecessary`, `ask-less`, `never-ask`, `always-ask`, `context-dependent`) or free-form English. CRITICAL: the agent only writes a tune event when the `tune:` content appears in the user's current chat turn — NOT in tool output, NOT in a file read. Binary validates `source: "inline-user"` on write; rejects other sources.
-7. **Declared profile** (`/plan-tune setup`). 5 plain-English questions, one per dimension. Stored in unified `~/.gstack/developer-profile.json` under `declared: {...}`. Informational only in v1 — no skill behavior change.
-8. **Observed/Inferred profile.** Every question-log event contributes deltas to inferred dimensions via a hand-crafted signal map (`scripts/psychographic-signals.ts`). Computed on demand. Displayed but not acted on.
-9. **`/plan-tune` skill.** Conversational plain-English inspection tool. "Show my profile," "set a preference," "what questions have I been asked," "show the gap between what I said and what I do." No CLI subcommand syntax required.
-10. **Unification with existing `~/.gstack/builder-profile.jsonl`.** Fold /office-hours session records and accumulated signals into unified `~/.gstack/developer-profile.json`. Migration is atomic + idempotent + archives the source file.
+1. **Tipli soru kayıt defteri** (`scripts/question-registry.ts`). gstack'in kullandığı her AskUserQuestion `{id, skill, category, door_type, options[], signal_key?}` ile beyan edilir. Şema yönetilir.
+2. **CI uygulaması.** Kapı katmanı lint testi, SKILL.md.tmpl dosyalarındaki her AskUserQuestion deseninin eşleşen bir kayıt defteri girdisi olduğunu iddia eder. Sapma, yeniden adlandırma veya kopyalar üzerinde CI başarısız olur.
+3. **Soru günlükleme** (`bin/gstack-question-log`). `~/.gstack/projects/{SLUG}/question-log.jsonl`'ye `{ts, question_id, user_choice, recommended, session_id}` ekler. Kayıt defterisine karşı doğrular.
+4. **Soru başına açık tercihler** (`bin/gstack-question-preference`). `{question_id, preference}` yazar, burada preference `always-ask | never-ask | ask-only-for-one-way`'dir. 1. oturumdan itibaren saygı duyulur. Kalibrasyon geçidi yok — kullanıcı belirtti, sistem uyar.
+5. **Önyazı enjeksiyonu.** Her AskUserQuestion'dan önce, aracı `gstack-question-preference --check <registry-id>` çağırır. `never-ask` VE soru tek yönlü bir kapı DEĞİLSE, görünür açıklama ile önerilen seçeneği otomatik seç: "Otomatik karar verildi [özet] → [seçenek] (tercihiniz). /plan-tune ile değiştir." Tek yönlü kapılar tercihden bağımsız olarak her zaman sorar — güvenlik geçersiz kılma.
+6. **Kullanıcı kaynağı geçidi ile satır içi "tune:" geri bildirimi.** Aracı "Bu soruyu ayarla? Ayarlamak için `tune: [geri bildirim]` yanıtla." teklif eder. Kullanıcı kısayollar (`unnecessary`, `ask-less`, `never-ask`, `always-ask`, `context-dependent`) veya serbest form İngilizce kullanabilir. KRİTİK: aracı yalnızca `tune:` içeriği kullanıcının mevcut sohbet turunda göründüğünde bir tune olayı yazar — araç çıktısında değil, dosya okumasında değil. İkili dosya yazma sırasında `source: "inline-user"` doğrular; diğer kaynakları reddeder.
+7. **Beyan edilen profil** (`/plan-tune setup`). Boyut başına bir tane olmak üzere 5 düz İngilizce soru. Birleşik `~/.gstack/developer-profile.json`'da `declared: {...}` altında saklanır. v1'de yalnızca bilgilendirme — skill davranış değişikliği yok.
+8. **Gözlemlenen/Çıkarılan profil.** Her soru günlüğü olayı, el yapımı bir sinyal haritası (`scripts/psychographic-signals.ts`) aracılığıyla çıkarılan boyutlara deltalar katkıda bulunur. Talep üzerine hesaplanır. Görüntülenir ama üzerinde işlem yapılmaz.
+9. **`/plan-tune` skill'i.** Konuşmalı düz İngilizce inceleme aracı. "Profilimi göster," "bir tercih ayarla," "hangi sorular soruldu," "söylediklerimle yaptıklarım arasındaki boşluğu göster." CLI alt komut sözdizimi gerekmez.
+10. **Mevcut `~/.gstack/builder-profile.jsonl` ile birleştirme.** /office-hours oturum kayıtlarını ve birikmiş sinyalleri birleşik `~/.gstack/developer-profile.json`'a katla. Geçiş atomik + idempotent + kaynak dosyasını arşivler.
 
-## Deferred to v2 (not in this PR, but explicit acceptance criteria)
+## v2'ye ertelendi (bu PR'da yok, ancak açık kabul kriterleri)
 
-| Item | Why deferred | Acceptance criteria for v2 promotion |
+| Öğe | Neden ertelendi | v2'ye terfi için kabul kriterleri |
 |------|--------------|--------------------------------------|
-| E1 Substrate wiring (5 skills read profile and adapt) | Requires v1 registry proving durable. Requires real observed data to calibrate signal deltas. Risk of psychographic drift. | v1 registry stable for 90+ days. Inferred dimensions show clear stability across 3+ skills. User dogfood validates that defaults informed by profile feel right. |
-| E3 `/plan-tune narrative` + `/plan-tune vibe` | Event-anchored narrative needs stable profile. Without v1 data, output will be generic slop. | Profile diversity check passes for 2+ weeks real usage. Narrative test proves it quotes specific events, not clichés. |
-| E4 Blind-spot coach | Logically conflicts with E1/E6 without explicit interaction-budget design. Needs global session budget, escalation rules, exclusion from mismatch detection. | Design spec for interaction budget + escalation. Dogfood confirms challenges feel coaching, not nagging. |
-| E5 LANDED celebration HTML page | Cannot live in preamble (Codex #9, #10). When promoted, moves to explicit command `/plan-tune show-landed` OR post-ship hook — not passive detection in the hot path. | Explicit command or hook design. /design-shotgun → /design-html for the visual direction. Security + privacy review for PR data aggregation. |
-| E6 Auto-adjustment based on mismatch | In v1, /plan-tune shows the gap between declared and inferred. In v2, it could suggest declaration updates. Requires dual-track profile to be stable. | Real mismatch data from v1 shows consistent patterns. Suggestion UX designed separately. |
-| Psychographic-driven auto-decide | Zero behavioral change in v1. Only explicit preferences act. | Real usage shows explicit preferences cover most cases. Inferred profile stable enough to trust. |
+| E1 Alt taban kablolama (5 skill profili okur ve uyarlar) | v1 kayıt defterinin dayanıklı olduğunu kanıtlamasını gerektirir. Gerçek gözlemlenen veri sinyal deltalarını kalibre etmesini gerektirir. Psikografik kayma riski. | v1 kayıt defteri 90+ gün dayanıklı. Çıkarılan boyutlar 3+ skill arasında net istikrar gösterir. Kullanıcı deneme yanılması doğrular, profilden bilgilendirilen varsayılanların doğru hissettirdiğini. |
+| E3 `/plan-tune narrative` + `/plan-tune vibe` | Olay-çapalı anlatım kararlı profil gerektirir. v1 verisi olmadan çıktı genel saçmalık olur. | Profil çeşitlilik kontrolü 2+ hafta gerçek kullanım için geçer. Anlatım testinin belirli olayları alıntıladığını, klişeleri değil, kanıtlar. |
+| E4 Kör nokta koçu | E1/E6 ile açık etkileşim bütçesi tasarımı olmadan mantıksal olarak çelişir. Genel oturum bütçesi, yükseltme kuralları, uyumsuzluk algılamasından hariç tutma gerektirir. | Etkileşim bütçesi + yükseltme için tasarım şartnamesi. Deneme yanılması zorlamaların koçluk hissettirdiğini, sıkboğazlık değil, doğrular. |
+| E5 LANDED kutlama HTML sayfası | Önyazıda yaşayamaz (Codex #9, #10). Terfi edildiğinde, açık komut `/plan-tune show-landed` VEYA gönderi sonrası hook'a taşınır — sıcak yolda pasif algılama değil. | Açık komut veya hook tasarımı. /design-shotgun → /design-html görsel yön için. PR veri toplama için güvenlik + gizlilik incelemesi. |
+| E6 Uyumsuzluğa göre otomatik ayarlama | v1'de, /plan-tune beyan edilen ve çıkarılan arasındaki boşluğu gösterir. v2'de, beyan güncellemelerini önerebilir. Çift izli profilin kararlı olmasını gerektirir. | v1'den gerçek uyumsuzluk verisi tutarlı desenler gösterir. Öneri UX'i ayrı olarak tasarlanır. |
+| Psikografik odaklı otomatik karar | v1'de sıfır davranış değişikliği. Yalnızca açık tercihler etki eder. | Gerçek kullanım açık tercihlerin çoğu durumu kapsadığını gösterir. Çıkarılan profil güvenilir olacak kadar kararlı. |
 
-## Rejected entirely (Codex was right, we're not doing these)
+## Tamamen reddedildi (Codex haklıydı, bunları yapmıyoruz)
 
-| Item | Why rejected |
+| Öğe | Neden reddedildi |
 |------|--------------|
-| Substrate-as-prompt-convention (vs. typed registry) | Codex #1. Agents can silently skip instructions. Building psychographic on top is sand. |
-| ±0.2 clamp on declared dimensions | Codex #6. Creates logical contradiction with E6 mismatch detection. Pick ONE: editable preference OR inferred behavior. Now: both, tracked separately (dual-track profile). |
-| One-way door classification by parsing prose summaries | Codex #4. Safety depends on wording. door_type must be declared at question definition site (registry), not inferred. |
-| Single event-schema file mixing declarations + overrides + verdicts + feedback | Codex #5. Incompatible domain objects. Now split into three files: question-log.jsonl, question-preferences.json, question-events.jsonl. |
-| TTHW telemetry for /plan-tune onboarding | Codex #14. Contradicts local-first framing. Local logging only. |
-| Inline tune: writes without user-origin verification | Codex #16. Profile poisoning attack. Now: user-origin gate is non-optional. |
+| Alt taban-prompt-kuralı olarak (vs. tipli kayıt defteri) | Codex #1. Aracılar talimatları sessizce atlayabilir. Psikografik üzerine inşa etmek kumdur. |
+| Beyan edilen boyutlar üzerinde ±0.2 kelepçe | Codex #6. E6 uyumsuzluk algılama ile mantıksal çelişki yaratır. BİRİNİ seçin: düzenlenebilir tercih VEYA çıkarılan davranış. Şimdi: her ikisi, ayrı ayrı izlenir (çift izli profil). |
+| Düz yazı özetlerini ayrıştırarak tek yönlü kapı sınıflandırma | Codex #4. Güvenlik şekillendirmeye bağlı. door_type soru tanım alanında beyan edilmeli (kayıt defteri), çıkarılmamalıdır. |
+| Beyanlar + geçersiz kılmalar + kararlar + geri bildirim karıştıran tek olay şema dosyası | Codex #5. Uyumsuz etki alanı nesneleri. Şimdi üç dosyaya ayrıldı: question-log.jsonl, question-preferences.json, question-events.jsonl. |
+| /plan-tune katılımı için TTHW telemetrisi | Codex #14. Yerel öncelikli çerçevelme ile çelişiyor. Yalnızca yerel günlükleme. |
+| Kullanıcı kaynağı doğrulaması olmadan satır içi tune: yazımları | Codex #16. Profil zehirlenmesi saldırısı. Şimdi: kullanıcı kaynağı geçidi zorunludur. |
 
-## Architecture
+## Mimari
 
 ```
 ~/.gstack/
-  developer-profile.json            # unified: declared + inferred + sessions (from office-hours)
+  developer-profile.json            # birleşik: beyan edilen + çıkarılan + oturumlar (office-hours'dan)
 
 ~/.gstack/projects/{SLUG}/
-  question-log.jsonl                # every AskUserQuestion, append-only, registry-validated
-  question-preferences.json         # explicit per-question user choices
-  question-events.jsonl             # tune: feedback events, user-origin gated
+  question-log.jsonl                # her AskUserQuestion, yalnızca ekleme, kayıt defteri doğrulanmış
+  question-preferences.json         # soru başına açık kullanıcı tercihleri
+  question-events.jsonl             # tune: geri bildirim olayları, kullanıcı kaynağı geçitli
 ```
 
-**Unified profile schema** (superseding both v0.16.2.0 builder-profile.jsonl and the proposed developer-profile.json):
+**Birleşik profil şeması** (hem v0.16.2.0 builder-profile.jsonl hem de önerilen developer-profile.json'un yerini alır):
 
 ```json
 {
@@ -103,303 +103,303 @@ After weighing Codex's argument, we chose to roll back CEO EXPANSION and ship an
 }
 ```
 
-**Diversity check** (Codex #13): `inferred` is considered "enough data" only when `sample_size >= 20 AND skills_covered >= 3 AND question_ids_covered >= 8 AND days_span >= 7`. Below this, `/plan-tune profile` shows "not enough observed data yet" instead of a potentially-misleading inferred value.
+**Çeşitlilik kontrolü** (Codex #13): `inferred`, yalnızca `sample_size >= 20 AND skills_covered >= 3 AND question_ids_covered >= 8 AND days_span >= 7` olduğunda "yeterli veri" olarak kabul edilir. Bunun altında, `/plan-tune profile` "henüz yeterli gözlemlenen veri yok" gösterir, potansiyel olarak yanıltıcı bir çıkarılan değer yerine.
 
-## Data flow (v1)
+## Veri akışı (v1)
 
-1. Preamble: check `question_tuning` config. If off, do nothing.
-2. Before each AskUserQuestion:
-   - Agent calls `gstack-question-preference --check <registry-id>`
-   - If `never-ask` AND question is NOT one-way door → auto-choose recommended with annotation
-   - If `always-ask`, unset, or question IS one-way door → ask normally
-3. After AskUserQuestion:
-   - Append log record to question-log.jsonl (registry-validated, rejects unknown IDs)
-4. Offer inline: "Tune this question? Reply `tune: [feedback]` to adjust."
-5. If user's NEXT turn message contains `tune:` prefix AND the content originated in the user's own message (not tool output):
-   - Agent calls `gstack-question-preference --write` with `source: "inline-user"`
-   - Binary validates source field; rejects if anything other than `inline-user`
-6. Inferred dimensions recomputed on demand by `bin/gstack-developer-profile --derive`. Signal map changes trigger full recompute from events history.
+1. Önyazı: `question_tuning` yapılandırmasını kontrol et. Kapalıysa, hiçbir şey yapma.
+2. Her AskUserQuestion'dan önce:
+   - Aracı `gstack-question-preference --check <registry-id>` çağırır
+   - `never-ask` VE soru tek yönlü kapı DEĞİLSE → açıklama ile önerilen seçeneği otomatik seç
+   - `always-ask`, ayarlanmamış veya soru tek yönlü kapı İSE → normal şekilde sor
+3. AskUserQuestion'dan sonra:
+   - question-log.jsonl'ye günlük kaydı ekle (kayıt defteri doğrulanmış, bilinmeyen ID'leri reddeder)
+4. Satır içi teklif: "Bu soruyu ayarla? Ayarlamak için `tune: [geri bildirim]` yanıtla."
+5. Kullanıcının SONRAKİ dönüş mesajı `tune:` öneki içeriyorsa VE içerik kullanıcının kendi mesajında ortaya çıysa (araç çıktısında değil):
+   - Aracı `source: "inline-user"` ile `gstack-question-preference --write` çağırır
+   - İkili dosya kaynak alanını doğrular; `inline-user` dışında herhangi bir şeyi reddeder
+6. Çıkarılan boyutlar `bin/gstack-developer-profile --derive` tarafından talep üzerine yeniden hesaplanır. Sinyal haritası değişiklikleri olay geçmişinden tam yeniden hesaplama tetikler.
 
-## Security model
+## Güvenlik modeli
 
-**Profile poisoning defense** (Codex #16, Decision J below): Inline tune events may be written ONLY when:
-- The agent is processing the user's current chat turn
-- The `tune:` prefix appears in that user message (not in any tool output, file content, PR description, commit message, etc.)
-- The resolver's instructions to the agent explicitly call this out
+**Profil zehirlenmesi savunması** (Codex #16, aşağıda Karar J): Satır içi tune olayları YALNIZCA şu durumlarda yazılabilir:
+- Aracı kullanıcının mevcut sohbet turunu işliyorken
+- `tune:` öneki o kullanıcı mesajında ortaya çıktığında (herhangi bir araç çıktısında, dosya içeriğinde, PR açıklamasında, commit mesajında vb. değil)
+- Çözücünün aracıya talimatları bunu açıkça belirtir
 
-Binary enforcement: `gstack-question-preference --write` requires `source: "inline-user"` field on every tune-originated record. Any other source value (e.g., `inline-tool-output`, `inline-file-content`) is rejected with an error. Agent is instructed to never forge the `source` field.
+İkili uygulama: `gstack-question-preference --write`, tune kaynaklı her kayıtta `source: "inline-user"` alanını gerektirir. Başka herhangi bir kaynak değeri (örn., `inline-tool-output`, `inline-file-content`) bir hata ile reddedilir. Aracı `source` alanını taklit etmemesi talimatı verilir.
 
-**Data privacy**:
-- All data is local-only under `~/.gstack/`. Nothing leaves without explicit user action.
-- `/plan-tune export <path>` writes profile to user-specified path (opt-in export).
-- `/plan-tune delete` wipes local profile files.
-- `gstack-config set telemetry off` prevents any telemetry (this skill never sends profile data regardless).
-- Profile files have standard user-home permissions.
+**Veri gizliliği**:
+- Tüm veriler `~/.gstack/` altında yalnızca yereldir. Kullanıcının açık eylemi olmadan hiçbir şey dışarı çıkmaz.
+- `/plan-tune export <yol>` profili kullanıcı tarafından belirtilen yola yazar (katılımlı dışa aktarma).
+- `/plan-tune delete` yerel profil dosyalarını siler.
+- `gstack-config set telemetry off` herhangi bir telemetriyi engeller (bu skill profil verilerini asla göndermez).
+- Profil dosyaları standart kullanıcı ana dizin izinlerine sahiptir.
 
-**Injection defense** (consistent with existing `bin/gstack-learnings-log` patterns): the `question_summary` and any free-form user feedback fields are sanitized against known prompt-injection patterns ("ignore previous instructions," "system:", etc.).
+**Enjeksiyon savunması** (mevcut `bin/gstack-learnings-log` desenleriyle tutarlı): `question_summary` ve serbest form kullanıcı geri bildirimi alanları, bilinen prompt enjeksiyonu desenlerine karşı temizlenir ("önceki talimatları yoksay", "system:", vb.).
 
-## 5 Hard Constraints (preserved from office-hours, updated for Codex feedback)
+## 5 Sıkı Kısıtlama (office-hours'dan korunmuş, Codex geri bildirimi için güncellenmiş)
 
-1. **One-way doors are classified deterministically by registry declaration**, NOT by runtime summary parsing. Each registry entry declares `door_type: one-way | two-way`. Keyword pattern fallback (`scripts/one-way-doors.ts`) is a belt-and-suspenders secondary check for edge cases.
-2. **Profile dimensions are inspectable AND editable.** `/plan-tune profile` shows declared + inferred + gap. Edits via plain English go to `declared` only. System tracks `inferred` independently.
-3. **Signal map is hand-crafted in TypeScript.** `scripts/psychographic-signals.ts` maps `{question_id, user_choice} → {dimension, delta}`. Not agent-inferred. In v1, consumed only for `inferred.values` display — not for driving decisions.
-4. **No psychographic-driven auto-decide in v1.** Only explicit per-question preferences act. This sidesteps the "calibration gate can be gamed" critique (Codex #13) entirely — v1 doesn't have a gate to pass.
-5. **Per-project preferences beat global preferences.** `~/.gstack/projects/{SLUG}/question-preferences.json` wins over any future global preference file. Global profile (`~/.gstack/developer-profile.json`) is a starting point for diversity across projects.
+1. **Tek yönlü kapılar kayıt defteri beyanı ile belirleyici olarak sınıflandırılır**, çalışma zamanı özet ayrıştırması ile DEĞİL. Her kayıt defteri girdisi `door_type: one-way | two-way` beyan eder. Anahtar kelime deseni yedeklemesi (`scripts/one-way-doors.ts`), uç durumlar için bir kemer-ve-yedek koruması ikincil kontroludur.
+2. **Profil boyutları incelenebilir VE düzenlenebilir.** `/plan-tune profile` beyan edilen + çıkarılan + boşluğu gösterir. Düz İngilizce ile düzenlemeler yalnızca `declared`'a gider. Sistem `inferred`'ı bağımsız olarak izler.
+3. **Sinyal haritası TypeScript'te el yapımı.** `scripts/psychographic-signals.ts`, `{question_id, user_choice} → {dimension, delta}` eşler. Aracı tarafından çıkarılan değil. v1'de yalnızca `inferred.values` gösterimi için tüketilir — kararları yönlendirmek için değil.
+4. **v1'de psikografik odaklı otomatik karar yok.** Yalnızca açık soru başına tercihler etki eder. Bu, "kalibrasyon geçidi manipüle edilebilir" eleştirisini (Codex #13) tamamen ortadan kaldırır — v1'in geçecek bir geçidi yok.
+5. **Proje başına tercihler genel tercihleri geçersiz kılar.** `~/.gstack/projects/{SLUG}/question-preferences.json`, gelecekteki herhangi bir genel tercih dosyasını geçersiz kılar. Genel profil (`~/.gstack/developer-profile.json`), projeler arasında çeşitlilik için bir başlangıç noktasıdır.
 
-## Why event-sourced + dual-track
+## Neden olay kaynaklı + çift izli
 
-**Why event-sourced for the inferred profile**:
-- Signal map can change between gstack versions. Recompute from events, no data migration needed.
-- Auditable: `/plan-tune profile --trace autonomy` shows every event that contributed to the value.
-- Future-proof: new dimensions can be derived from existing history.
+**Çıkarılan profil için neden olay kaynaklı**:
+- Sinyal haritası gstack sürümleri arasında değişebilir. Olaylardan yeniden hesapla, veri göçüne gerek yok.
+- Denetlenebilir: `/plan-tune profile --trace autonomy` değere katkıda bulunan her olayı gösterir.
+- Geleceğe hazır: yeni boyutlar mevcut geçmişten türetilebilir.
 
-**Why dual-track (declared + inferred, separately)** (Decision B below):
-- Resolves the logical contradiction Codex #6 identified.
-- `declared` is user sovereignty. User states who they are. System obeys for anything user-driven (preferences, declarations, overrides).
-- `inferred` is observation. System tracks behavioral patterns. Displayed but not acted on in v1.
-- `gap` is the interesting signal. Large gaps suggest the user's self-description isn't matching their behavior — valuable self-insight, but not auto-corrected.
+**Neden çift izli (beyan edilen + çıkarılan, ayrı ayrı)** (Aşağıda Karar B):
+- Codex #6'nın tanımladığı mantıksal çelişkiyi çözer.
+- `declared` kullanıcı egemenliğidir. Kullanıcı kim olduğunu belirtir. Sistem, kullanıcı odaklı her şey için uyar (tercihler, beyanlar, geçersiz kılmalar).
+- `inferred` gözlemdir. Sistem davranışsal desenleri izler. Görüntülenir ama v1'de üzerinde işlem yapılmaz.
+- `gap` ilginç sinyaldir. Büyük boşluklar, kullanıcının kendi tanımının davranışıyla eşleşmediğini önerir — değerli özdeneyim, ama otomatik olarak düzeltilmez.
 
-## Interaction model — plain English everywhere
+## Etkileşim modeli — her yerde düz İngilizce
 
-(From /plan-devex-review, user correction on CLI syntax):
+(/plan-devex-review'dan, CLI sözdizimi üzerine kullanıcı düzeltmesi):
 
-`/plan-tune` (no args) enters conversational mode. No CLI subcommand syntax required.
+`/plan-tune` (argümansız) konuşmalı moda girer. CLI alt komut sözdizimi gerekmez.
 
-Menu in plain language:
-- "Show me my profile"
-- "Review questions I've been asked"
-- "Set a preference about a question"
-- "Update my profile — I've changed my mind about something"
-- "Show me the gap between what I said and what I do"
-- "Turn it off"
+Düz İngilizce menü:
+- "Profilimi göster"
+- "Sorulduğum soruları incele"
+- "Bir soru hakkında tercih ayarla"
+- "Profilimi güncelle — bir şeyi değiştirdim"
+- "Söylediklerimle yaptıklarım arasındaki boşluğu göster"
+- "Kapat"
 
-User replies conversationally. Agent interprets, confirms the intended change, then writes. For example:
-- User: "I'm more of a boil-the-ocean person than 0.5 suggests"
-- Agent: "Got it — update `declared.scope_appetite` from 0.5 to 0.8? [Y/n]"
-- User: "Yes"
-- Agent writes the update
+Kullanıcı konuşmalı olarak yanıt verir. Aracı yorumlar, amaçlanan değişikliği onaylar, sonra yazar. Örneğin:
+- Kullanıcı: "0.5'in öne sürdüğünden daha bir okyanus kaynatma kişisiyim"
+- Aracı: "Anlaşıldı — `declared.scope_appetite`'ı 0.5'ten 0.8'e güncelle? [E/h]"
+- Kullanıcı: "Evet"
+- Aracı güncellemeyi yazar
 
-Confirmation step is required for any mutation of `declared` from free-form input (Codex #15 trust boundary).
+Serbest form girdiden `declared`'ın herhangi bir mutasyonu için onay adımı gereklidir (Codex #15 güven sınırı).
 
-Power users can type shortcuts (`narrative`, `vibe`, `reset`, `stats`, `enable`, `disable`, `diff`). Neither is required. Both work.
+Güçlü kullanıcılar kısayollar yazabilir (`narrative`, `vibe`, `reset`, `stats`, `enable`, `disable`, `diff`). Hiçbiri gerekli değil. Her ikisi de çalışır.
 
-## Files to Create
+## Oluşturulacak Dosyalar
 
-### Core schema
-- `scripts/question-registry.ts` — typed registry. Seeded from audit of all SKILL.md.tmpl AskUserQuestion invocations.
-- `scripts/one-way-doors.ts` — secondary keyword fallback. Primary: `door_type` in registry.
-- `scripts/psychographic-signals.ts` — hand-crafted signal map for inferred computation.
+### Çekirdek şema
+- `scripts/question-registry.ts` — tipli kayıt defteri. Tüm SKILL.md.tmpl AskUserQuestion çağrılarının denetiminden tohumlanır.
+- `scripts/one-way-doors.ts` — ikincil anahtar kelime yedeklemesi. Birincil: kayıt defterinde `door_type`.
+- `scripts/psychographic-signals.ts` — çıkarılan hesaplama için el yapımı sinyal haritası.
 
-### Binaries
-- `bin/gstack-question-log` — append log record, validate against registry.
-- `bin/gstack-question-preference` — read/write/check/clear explicit preferences.
-- `bin/gstack-developer-profile` — supersedes `bin/gstack-builder-profile`. Subcommands: `--read` (legacy compat), `--derive`, `--gap`, `--profile`.
+### İkili dosyalar
+- `bin/gstack-question-log` — günlük kaydı ekle, kayıt defterine karşı doğrula.
+- `bin/gstack-question-preference` — açık tercihleri oku/yaz/kontrol/temizle.
+- `bin/gstack-developer-profile` — `bin/gstack-builder-profile`'ın yerini alır. Alt komutlar: `--read` (eski uyum), `--derive`, `--gap`, `--profile`.
 
-### Resolvers
-- `scripts/resolvers/question-tuning.ts` — three generators: `generateQuestionPreferenceCheck(ctx)` (pre-question check), `generateQuestionLog(ctx)` (post-question log), `generateInlineTuneFeedback(ctx)` (post-question tune: prompt with user-origin gate instructions).
+### Çözücüler
+- `scripts/resolvers/question-tuning.ts` — üç üreteç: `generateQuestionPreferenceCheck(ctx)` (soru öncesi kontrol), `generateQuestionLog(ctx)` (soru sonrası günlük), `generateInlineTuneFeedback(ctx)` (soru sonrası tune: kullanıcı kaynağı geçit talimatları ile prompt).
 
 ### Skill
-- `plan-tune/SKILL.md.tmpl` — conversational, plain-English inspection and preference tool.
+- `plan-tune/SKILL.md.tmpl` — konuşmalı, düz İngilizce inceleme ve tercih aracı.
 
-### Tests
-- `test/plan-tune.test.ts` — registry completeness, duplicate ID check, preference precedence (never-ask + not-one-way → AUTO_DECIDE; never-ask + one-way → ASK_NORMALLY), user-origin gate (rejects non-inline-user sources), derivation + recompute, unified profile schema, migration regression with 7-session fixture.
+### Testler
+- `test/plan-tune.test.ts` — kayıt defteri tamlılığı, kopya ID kontrolü, tercih önceliği (never-ask + tek yönlü değil → OTOMATİK_KARAR; never-ask + tek yönlü → NORMAL_SOR), kullanıcı kaynağı geçidi (inline-user olmayan kaynakları reddeder), türetme + yeniden hesaplama, birleşik profil şeması, 7 oturumlu fixture ile geçiş regresyonu.
 
-## Files to Modify
+## Değiştirilecek Dosyalar
 
-- `scripts/resolvers/index.ts` — register 3 new resolvers.
-- `scripts/resolvers/preamble.ts` — `_QUESTION_TUNING` config read; inject 3 resolvers for tier >= 2.
-- `bin/gstack-builder-profile` — legacy shim delegates to `bin/gstack-developer-profile --read`.
-- Migration script — folds existing builder-profile.jsonl into unified developer-profile.json. Atomic, idempotent, archives source as `.migrated-YYYY-MM-DD`.
+- `scripts/resolvers/index.ts` — 3 yeni çözücü kaydet.
+- `scripts/resolvers/preamble.ts` — `_QUESTION_TUNING` yapılandırma okuma; tier >= 2 için 3 çözücü enjekte et.
+- `bin/gstack-builder-profile` — eski shim `bin/gstack-developer-profile --read`'e devreder.
+- Geçiş betiği — mevcut builder-profile.jsonl'ı birleşik developer-profile.json'a katlar. Atomik, idempotent, kaynağı `.migrated-YYYY-MM-DD` olarak arşivler.
 
-## NOT touched in v1
+## v1'de dokunulmayanlar
 
-Explicitly unchanged — no `{{PROFILE_ADAPTATION}}` placeholders, no behavior change based on profile:
+Açıkça değişmeden — `{{PROFILE_ADAPTATION}}` yer tutucuları yok, profil temelinde davranış değişikliği yok:
 
 - `ship/SKILL.md.tmpl`, `review/SKILL.md.tmpl`, `office-hours/SKILL.md.tmpl`, `plan-ceo-review/SKILL.md.tmpl`, `plan-eng-review/SKILL.md.tmpl`
 
-These skills gain preamble injection for logging / preference checking / tune feedback only. No profile-driven defaults. v2 work.
+Bu skill'ler yalnızca günlükleme / tercih kontrolü / tune geri bildirimi için önyazı enjeksiyonu kazanır. Profil temelli varsayılanlar yok. v2 işi.
 
-## Decisions log (with pros/cons for each)
+## Karar günlüğü (her biri için artıları/eksileri)
 
-### Decision A: Bundle all three (question-log + sensitivity + psychographic) vs. ship smaller wedge — INITIAL ANSWER: BUNDLE; REVISED: REGISTRY-FIRST OBSERVATIONAL
+### Karar A: Üçünü birden paketle (soru günlüğü + duyarlılık + psikografik) vs. daha küçük kama gönder — İLK YANIT: PAKETLE; DÜZELTİLMİŞ: KAYIT DEFTERİ İLKİ GÖZLEMSEL
 
-Initial user position (office-hours): "The psychographic IS the differentiation. Ship the whole thing so the feedback loop can actually tune behavior." This drove CEO EXPANSION.
+İlk kullanıcı pozisyonu (office-hours): "Psikografik farklılaştırma. Geri bildirim döngüsü davranışı gerçekten ayarlayabilsin diye tümünü gönder." Bu CEO EXPANSION'ı yönlendirdi.
 
-**Pros of bundling:** Ambition. The learning layer is what makes this more than config. Without psychographic, it's a fancy settings menu.
+**Paketlemenin artıları:** Hırs. Öğrenme katmanı bunu yapılandırmadan daha fazlasını yapar. Psikografik olmadan bu süslü bir ayarlar menüsü.
 
-**Cons of bundling (surfaced by Codex):** The substrate didn't exist. Psychographic on top of prompt-convention is sand. E1/E4/E6 compose incoherently. Profile poisoning was unaddressed. E5 in preamble is a hidden hot-path side effect. Implementation order built machinery around an unenforceable convention.
+**Paketlemenin eksileri (Codex tarafından ortaya çıkarıldı):** Alt taban mevcut değildi. Psikografik prompt kuralı üzerinde kumdur. E1/E4/E6 tutarsız birleşir. Profil zehirlenmesi ele alınmamıştı. E5 önyazıda gizli sıcak yol yan etkisi. Uygulama sırası uygulanamaz bir kural çevresinde makine inşa etti.
 
-**Revised answer:** Registry-first observational v1 (this doc). Preserves the ambition as a v2 target with explicit acceptance criteria. Ships a defensible foundation. User accepted this after seeing Codex's 20-point critique.
+**Düzeltilmiş yanıt:** Kayıt defteri ilk gözlemsel v1 (bu doküman). Hırssı açık kabul kriterleri ile v2 hedefi olarak korur. Savunulabilir bir temel gönderir. Kullanıcı Codex'in 20 noktalı eleştirisini gördükten sonra bunu kabul etti.
 
-### Decision B: Event-sourced vs. stored dimensions vs. hybrid — ANSWER: EVENT-SOURCED + USER-DECLARED ANCHOR (B+C)
+### Karar B: Olay kaynaklı vs. saklanan boyutlar vs. karma — YANIT: OLAY KAYNAKLI + KULLANICI BEYANI ÇAPASI (B+C)
 
-**Approach A (stored dimensions):** Mutate in place. Simple.
-- Pros: Smallest data model. Easy to reason about.
-- Cons: Lossy. No history. Signal map changes require migration. Profile changes are opaque to the user.
+**Yaklaşım A (saklanan boyutlar):** Yerinde mutasyon. Basit.
+- Artıları: En küçük veri modeli. Akıl yürütmesi kolay.
+- Eksileri: Kayıplı. Geçmiş yok. Sinyal haritası değişiklikleri göç gerektirir. Profil değişiklikleri kullanıcı için opak.
 
-**Approach B (event-sourced):** Store raw events, derive dimensions.
-- Pros: Auditable. Recomputable on signal map changes. No data migration ever. Matches existing learnings.jsonl pattern.
-- Cons: More complex derivation. Events file grows over time (compaction deferred to v2).
+**Yaklaşım B (olay kaynaklı):** Ham olayları sakla, boyutları türet.
+- Artıları: Denetlenebilir. Sinyal haritası değişikliklerinde yeniden hesaplanabilir. Asla veri göçü yok. Mevcut learnings.jsonl deseniyle eşleşir.
+- Eksileri: Daha karmaşık türetme. Olaylar dosyası zamanla büyür (sıkıştırma v2'ye ertelendi).
 
-**Approach C (hybrid — user-declared anchor, events refine):** Initial profile is user-stated; events refine within ±0.2.
-- Pros: Day-1 value. User sovereignty. Calibration anchor instead of starting from zero.
-- Cons: ±0.2 clamp creates logical conflict with mismatch detection (Codex #6 caught this).
+**Yaklaşım C (karma — kullanıcı beyanı çapası, olaylar rafine eder):** İlk profil kullanıcı tarafından belirtilir; olaylar ±0.2 içinde rafine eder.
+- Artıları: 1. gün değeri. Kullanıcı egemenliği. Sıfırdan başlamak yerine kalibrasyon çapası.
+- Eksileri: ±0.2 kelepçe uyumsuzluk algılama ile mantıksal çelişki yaratır (Codex #6 bunu yakaladı).
 
-**Chosen: B+C combined with ±0.2 CLAMP REMOVED.** Event-sourced underneath, declared profile as first-class separate field. No clamp. Declared and inferred live as independent values. Gap between them is displayed but not auto-corrected in v1.
+**Seçilen: ±0.2 KELEPÇE KALDIRILARAK B+C birleştirildi.** Altta olay kaynaklı, beyan edilen profil birinci sınıf ayrı alan. Kelepçe yok. Beyan edilen ve çıkarılan bağımsız değerler olarak yaşar. Aralarındaki boşluk görüntülenir ama v1'de otomatik olarak düzeltilmez.
 
-### Decision C: One-way door classification — runtime prose parsing vs. registry declaration — ANSWER: REGISTRY DECLARATION (post-Codex)
+### Karar C: Tek yönlü kapı sınıflandırma — çalışma zamanı düzyazı ayrıştırma vs. kayıt defteri beyanı — YANIT: KAYIT DEFTERİ BEYANI (Codex sonrası)
 
-**Runtime prose parsing (original):** `isOneWayDoor(skill, category, summary)` plus keyword patterns.
-- Pros: Minimal friction for skill authors. No schema to maintain.
-- Cons (Codex #4): Safety depends on wording. A destructive-op question phrased mildly could be misclassified. Unacceptable for a safety gate.
+**Çalışma zamanı düzyazı ayrıştırma (orijinal):** `isOneWayDoor(skill, category, summary)` artı anahtar kelime desenleri.
+- Artıları: Skill yazarları için minimum sürtünme. Bakımı şema yok.
+- Eksileri (Codex #4): Güvenlik şekillendirmeye bağlı. Yıkıcı işlem sorusu hafifçe ifade edilirse yanlış sınıflandırılabilir. Bir güvenlik geçidi için kabul edilemez.
 
-**Registry declaration (revised):** Every registry entry declares `door_type`.
-- Pros: Deterministic. Auditable. CI-enforceable (all questions must declare).
-- Cons: Maintenance burden. Every new skill question must classify.
+**Kayıt defteri beyanı (düzeltilmiş):** Her kayıt defteri girdisi `door_type` beyan eder.
+- Artıları: Belirleyici. Denetlenebilir. CI ile uygulanabilir (tüm sorular beyan etmeli).
+- Eksileri: Bakım yükü. Her yeni skill sorusu sınıflandırmalıdır.
 
-**Chosen: registry declaration as primary, keyword patterns as fallback.** Schema governance is the cost of safety.
+**Seçilen: birincil olarak kayıt defteri beyanı, yedek olarak anahtar kelime desenleri.** Şema yönetimi güvenliğin bedelidir.
 
-### Decision D: Inline tune feedback grammar — structured keywords vs. free-form natural language — ANSWER: STRUCTURED WITH FREE-FORM FALLBACK
+### Karar D: Satır içi tune geri bildirim grameri — yapılandırılmış anahtar kelimeler vs. serbest form doğal dil — YANIT: YAPILANDIRILMIŞ VE SERBEST FORM YEDEK
 
-**Structured keywords only:** `tune: unnecessary | ask-less | never-ask | always-ask | context-dependent`.
-- Pros: Unambiguous. Clean profile data.
-- Cons: Users must memorize.
+**Yalnızca yapılandırılmış anahtar kelimeler:** `tune: unnecessary | ask-less | never-ask | always-ask | context-dependent`.
+- Artıları: Belirsiz değil. Temiz profil verisi.
+- Eksileri: Kullanıcılar ezberlemeli.
 
-**Free-form only:** Agent interprets whatever user says.
-- Pros: Natural. No syntax to learn.
-- Cons: Inconsistent profile data. Hard to debug why a tune didn't take effect.
+**Yalnızca serbest form:** Aracı kullanıcının söylediği her şeyi yorumlar.
+- Artıları: Doğal. Öğrenilecek sözdizimi yok.
+- Eksileri: Tutarsız profil verisi. Bir tune'un neden etkili olmadığını hata ayıklamak zor.
 
-**Chosen: both.** Shortcuts documented for power users; agent accepts and normalizes free English. Plain-English interaction is the default; structured keywords are an optional fast-path.
+**Seçilen: her ikisi.** Güçlü kullanıcılar için belgelenen kısayollar; aracı serbest İngilizce'yi kabul eder ve normalleştirir. Düz İngilizce etkileşim varsayılan; yapılandırılmış anahtar kelimeler isteğe bağlı hızlı yoldur.
 
-### Decision E: CLI subcommand structure for /plan-tune — ANSWER: PLAIN ENGLISH CONVERSATIONAL (no subcommand syntax required)
+### Karar E: /plan-tune için CLI alt komut yapısı — YANIT: DÜZ İNGILIZCE KONUŞMALI (alt komut sözdizimi gerekmez)
 
-**`/plan-tune profile`, `/plan-tune profile set autonomy 0.4`, etc.** (original):
-- Pros: Fast for power users. Self-documenting via --help.
-- Cons: Users must memorize. Every invocation feels like a CLI session, not a conversation.
+**`/plan-tune profile`, `/plan-tune profile set autonomy 0.4`, vb.** (orijinal):
+- Artıları: Güçlü kullanıcılar için hızlı. --help ile kendi kendini belgeleyen.
+- Eksileri: Kullanıcılar ezberlemeli. Her çağırma bir CLI oturumu gibi hissettirir, bir konuşma gibi değil.
 
-**Plain-English conversational (revised after user correction):** `/plan-tune` enters a menu. User says what they want in natural language.
-- Pros: Zero memorization. Feels like talking to a coach, not a shell.
-- Cons: Slower for power users. Requires good agent interpretation.
+**Düz İngilizce konuşmalı (kullanıcı düzeltmesinden sonra düzeltilmiş):** `/plan-tune` bir menüye girer. Kullanıcı doğal dilde ne istediğini söyler.
+- Artıları: Sıfır ezberleme. Bir kabukla değil, bir koçla konuşmak gibi hissettirir.
+- Eksileri: Güçlü kullanıcılar için daha yavaş. İyi aracı yorumlama gerektirir.
 
-**Chosen: conversational with optional shortcuts.** Neither path is required. Most users never see the shortcuts. Confirmation step required before mutating declared profile (safety against agent misinterpretation — Codex #15 trust boundary).
+**Seçilen: isteğe bağlı kısayollarla konuşmalı.** Hiçbir yol gerekmez. Çoğu kullanıcı kısayolları hiç görmez. Beyan edilen profili mutasyona uğratmadan önce onay adımı gerekir (aracı yanlış yorumlamaya karşı güven — Codex #15 güven sınırı).
 
-### Decision F: Landed celebration — passive preamble detection vs. explicit command vs. post-ship hook — ANSWER: DEFERRED TO v2; WHEN PROMOTED, NOT IN PREAMBLE
+### Karar F: LANDED kutlama — pasif önyazı algılama vs. açık komut vs. gönderi sonrası hook — YANIT: v2'YE ERTELENDİ; TERFİ EDİLDİĞİNDE, ÖNYAZIDA DEĞİL
 
-**Passive detection in preamble (original):** Every skill's preamble runs `gh pr view` to detect recent merges.
-- Pros: Works regardless of which skill the user runs. User doesn't need to do anything special.
-- Cons (Codex #9): Latency, auth failures, rate limits, surprise browser opens, nondeterminism injected into every skill's preamble. Side effect in hot path.
+**Önyazıda pasif algılama (orijinal):** Her skill'in önyazısı yakın birleştirmeleri algılamak için `gh pr view` çalıştırır.
+- Artıları: Hangı skill çalıştırılırsa çalıştırılsın çalışır. Kullanıcının özel bir şey yapması gerekmez.
+- Eksileri (Codex #9): Gecikme, kimlik doğrulama başarısızlıkları, hız sınırları, sürpriz tarayıcı açmaları, her skill'in önyazısına enjekte edilen belirsizlik. Sıcak yolda yan etki.
 
-**Explicit command (`/plan-tune show-landed`):** User opts in.
-- Pros: No hot-path side effects. User controls when to see it.
-- Cons: Requires user discovery. The "surprise you when you earned it" magic is lost.
+**Açık komut (`/plan-tune show-landed`):** Kullanıcı katılır.
+- Artıları: Sıcak yol yan etkisi yok. Kullanıcı ne zaman göreceğini kontrol eder.
+- Eksileri: Kullanıcı keşfi gerektirir. "Kazandığınızda sizi şaşırt" büyüsü kaybolur.
 
-**Post-ship hook (`/ship` triggers detection after PR creation):** Tied to /ship.
-- Pros: Natural timing. No preamble cost.
-- Cons: /ship isn't always the landing event (manual merges, team members merging, etc.).
+**Gönderi sonrası hook (`/ship` PR oluşturmadan sonra algılamayı tetikler):** /ship'e bağlı.
+- Artıları: Doğal zamanlama. Önyazı maliyeti yok.
+- Eksileri: /ship her zaman lan etme olayı değildir (manuel birleştirmeler, takım üyelerinin birleştirmesi, vb.).
 
-**Chosen: DEFERRED entirely.** v2 will design this properly. When promoted, it moves out of preamble. User accepted Codex's argument that a celebration page in the preamble is strategic misfit for an already-risky feature.
+**Seçilen: TAMAMEN ERTELENDİ.** v2 bunu düzgün tasarlayacak. Terfi edildiğinde, önyazıdan çıkar. Kullanıcı Codex'in kutlama sayfasının zaten riskli bir özellik için stratejik olarak uymadığı argümanını kabul etti.
 
-### Decision G: Calibration gate — 20 events vs. diversity-checked — ANSWER: DIVERSITY-CHECKED
+### Karar G: Kalibrasyon geçidi — 20 olay vs. çeşitlilik kontrolü — YANIT: ÇEŞİTLİLİK KONTROLÜ
 
-**"20 events" (original):** Simple count.
-- Pros: Trivial to implement.
-- Cons (Codex #13): Gameable. 20 inline "unnecessary" replies to ONE question should not calibrate five dimensions.
+**"20 olay" (orijinal):** Basit sayı.
+- Artıları: Uygulama açısından önemsiz.
+- Eksileri (Codex #13): Manipüle edilebilir. TEK soruya 20 satır içi "gereksiz" yanıt beş boyutu kalibre etmemeli.
 
-**Diversity check (revised):** `sample_size >= 20 AND skills_covered >= 3 AND question_ids_covered >= 8 AND days_span >= 7`.
-- Pros: Profile has actually been exercised across the system before it's trusted.
-- Cons: Slightly more complex.
+**Çeşitlilik kontrolü (düzeltilmiş):** `sample_size >= 20 AND skills_covered >= 3 AND question_ids_covered >= 8 AND days_span >= 7`.
+- Artıları: Profil gerçekten sistem genelinde egzersiz yapılmış before it's trusted.
+- Eksileri: Biraz daha karmaşık.
 
-**Chosen: diversity check.** In v1 used only for "enough data to display" threshold. In v2 will be the gate for psychographic-driven auto-decide.
+**Seçilen: çeşitlilik kontrolü.** v1'de yalnızca "görüntülemek için yeterli veri" eşiği için kullanılır. v2'de psikografik odaklı otomatik karar için geçit olacak.
 
-### Decision H: Implementation order — classifiers first vs. integration point first — ANSWER: INTEGRATION POINT FIRST (registry + CI lint)
+### Karar H: Uygulama sırası — önce sınıflandırıcılar vs. önce entegrasyon noktası — YANIT: ÖNCE ENTEGRASYON NOKTASI (kayıt defteri + CI lint)
 
-**Classifiers first (original):** Build bin tools, then resolvers, then skill template.
-- Pros: Atomic building blocks. Can unit-test before integration.
-- Cons (Codex #19): Builds machinery around an unenforceable convention. If the convention doesn't hold, all the work is wasted.
+**Önce sınıflandırıcılar (orijinal):** İkili araçları oluştur, sonra çözücüler, sonra skill şablonu.
+- Artıları: Atomik yapı taşları. Entegrasyondan önce birim test edebilirsin.
+- Eksileri (Codex #19): Uygulanamaz bir kural çevresinde makine inşa eder. Kural tutmazsa, tüm iş boşa gider.
 
-**Integration point first (revised):** Build typed registry + CI lint first. Prove the integration works before building infrastructure on top.
-- Pros: Foundation is proven. Infrastructure has something durable to rely on.
-- Cons: Requires auditing every existing AskUserQuestion in gstack — substantial up-front work.
+**Önce entegrasyon noktası (düzeltilmiş):** Önce tipli kayıt defteri + CI lint oluştur. Altyapıyı üzerine inşa etmeden önce entegrasyonun çalıştığını kanıtla.
+- Artıları: Temel kanıtlanır. Altyapının dayanabileceği bir şey var.
+- Eksileri: gstack'teki her mevcut AskUserQuestion'ı denetlemeyi gerektirir — önemli ön çalışma.
 
-**Chosen: integration point first.** Codex's argument was decisive. The audit is exactly the point — it forces us to catalog what we actually have before building adaptation on top.
+**Seçilen: önce entegrasyon noktası.** Codex'in argümanı belirleyici oldu. Denetim tam olarak amaç — uyarlamayı üzerine inşa etmeden önce gerçekten neye sahip olduğumuzu kataloglamamızı zorlar.
 
-### Decision I: Telemetry for TTHW — opt-in telemetry vs. local-only — ANSWER: LOCAL-ONLY
+### Karar I: TTHW için telemetri — katılımlı telemetri vs. yalnızca yerel — YANIT: YALNIZCA YEREL
 
-**Opt-in telemetry (original, suggested in DX review):** Instrument TTHW via telemetry event.
-- Pros: Quantitative measure of onboarding experience across all users.
-- Cons (Codex #14): Contradicts local-first OSS framing. Adds telemetry surface specifically for this skill.
+**Katılımlı telemetri (orijinal, DX incelemesinde önerildi):** TTHW'yi telemetri olayı üzerinden araçlandır.
+- Artıları: Tüm kullanıcılar arasında katılım deneyiminin nicel ölçüsü.
+- Eksileri (Codex #14): Yerel öncelikli OSS çerçevelmesi ile çelişiyor. Bu skill için özel olarak telemetri yüzeyi ekler.
 
-**Local-only (revised):** Logging is local. Respect existing `telemetry` config; skill adds no new telemetry channels.
-- Pros: Consistent with gstack's local-first ethos.
-- Cons: No aggregate view of onboarding time.
+**Yalnızca yerel (düzeltilmiş):** Günlükleme yereldir. Mevcut `telemetry` yapılandırmasına saygı duyar; skill yeni telemetri kanalları eklemez.
+- Artıları: gstack'in yerel öncelikli etosuyla tutarlı.
+- Eksileri: Katılım zamanının toplu görünümü yok.
 
-**Chosen: local-only.** If we need TTHW data later, we add it as a gstack-wide telemetry event behind existing opt-in, not a skill-specific one.
+**Seçilen: yalnızca yerel.** Daha sonra TTHW verisine ihtiyacımız varsa, skill'e özel biri yerine gstack genelinde bir telemetri olayı olarak mevcut katılımlı bayrağın arkasına ekleriz.
 
-### Decision J: Profile poisoning defense — no defense vs. confirmation gate vs. user-origin gate — ANSWER: USER-ORIGIN GATE
+### Karar J: Profil zehirlenmesi savunması — savunma yok vs. onay geçidi vs. kullanıcı kaynağı geçidi — YANIT: KULLANICI KAYNAĞI GEÇİDİ
 
-**No defense (original — caught by Codex):** Agent writes any tune event it sees.
-- Pros: Simplest. No additional trust checks.
-- Cons (Codex #16): Malicious repo content, PR descriptions, tool output can inject `tune: never ask` and poison the profile. This is a real attack surface.
+**Savunma yok (orijinal — Codex tarafından yakalandı):** Aracı gördüğü her tune olayını yazar.
+- Artıları: En basit. Ek güven kontrolü yok.
+- Eksileri (Codex #16): Kötü niyetli repo içeriği, PR açıklamaları, araç çıktısı `tune: never ask` enjekte edebilir ve profili zehirleyebilir. Bu gerçek bir saldırı yüzeyidir.
 
-**Confirmation gate:** Every tune write prompts "Confirmed? [Y/n]".
-- Pros: Universal defense.
-- Cons: Friction on every legitimate use.
+**Onay geçidi:** Her tune yazımı "Onaylıyor musunuz? [E/h]" sorar.
+- Artıları: Evrensel savunma.
+- Eksileri: Her meşru kullanımda sürtünme.
 
-**User-origin gate:** Agent only writes tune events when the `tune:` prefix appears in the user's own chat message for the current turn (not tool output, not file content). Binary validates `source: "inline-user"`.
-- Pros: Blocks the attack without friction on legitimate use.
-- Cons: Relies on agent correctly identifying source. Binary-level validation is the enforcement.
+**Kullanıcı kaynağı geçidi:** Aracı yalnızca `tune:` öneki kullanıcının mevcut sohbet turundaki mesajında ortaya çıktığında tune olaylarını yazar (araç çıktısında değil, dosya içeriğinde değil). İkili dosya `source: "inline-user"` doğrular.
+- Artıları: Saldırıyı meşru kullanımda sürtünme olmadan engeller.
+- Eksileri: Aracının kaynağı doğru tanımlamasına bağlıdır. İkili düzey doğrulama, uygulamadır.
 
-**Chosen: user-origin gate.** Matches the threat model (malicious content in automated inputs) without degrading the normal flow.
+**Seçilen: kullanıcı kaynağı geçidi.** Tehdit modeline (otomatik girdilerdeki kötü niyetli içerik) normal akışı bozmadan karşı gelir.
 
-## Success Criteria
+## Başarı Kriterleri
 
-- `bun test` passes including new `test/plan-tune.test.ts`.
-- Every AskUserQuestion invocation in every SKILL.md.tmpl has a registry entry. CI lint enforces.
-- Migration from `~/.gstack/builder-profile.jsonl` preserves 100% of sessions + signals_accumulated. Regression test with 7-session fixture.
-- One-way door registry-declared entries: 100% of destructive ops, architecture forks, scope-adds > 1 day CC effort, security/compliance choices are classified `one-way`.
-- User-origin gate test: attempting to write a tune event with `source: "inline-tool-output"` is rejected.
-- Dogfood: Garry uses `/plan-tune` for 2+ weeks. Reports back whether:
-  - `tune: never-ask` felt natural to type or got ignored
-  - Registry maintenance (adding new questions) felt like reasonable discipline or schema bureaucracy
-  - Inferred dimensions were stable across sessions or noisy
-  - Plain-English interaction felt like a coach or like arguing with a chatbot
+- `bun test` yeni `test/plan-tune.test.ts` dahil geçer.
+- Her SKILL.md.tmpl'deki her AskUserQuestion çağırmasının bir kayıt defteri girdisi var. CI lint uygular.
+- `~/.gstack/builder-profile.jsonl`'dan geçiş, oturumların %100'ünü + signals_accumulated'ı korur. 7 oturumlu fixture ile regresyon testi.
+- Tek yönlü kapı kayıt defteri beyan edilen girdileri: yıkıcı işlemlerin, mimari çatalların, > 1 gün CC çabası kapsam eklemelerin, güvenlik/uyumluluk seçimlerinin %100'ü `one-way` olarak sınıflandırılır.
+- Kullanıcı kaynağı geçidi testi: `source: "inline-tool-output"` ile bir tune olayı yazmaya çalışmak reddedilir.
+- Deneme yanılmaları: Garry 2+ hafta `/plan-tune` kullanır. Geri bildirimde bulunur:
+  - `tune: never-ask` yazmak doğal hissettirdi mi yoksa göz ardı edildi mi
+  - Kayıt defteri bakımı (yeni sorular eklemek) makul bir disiplin mi yoksa şema bürokrasisi mi hissettirdi mi
+  - Çıkarılan boyutlar oturumlar arasında kararlı mı yoksa gürültülü mü
+  - Düz İngilizce etkileşim bir koç gibi mi yoksa bir sohbet botuyla tartışmak gibi mi hissettirdi mi
 
-## Implementation Order
+## Uygulama Sırası
 
-1. Audit every `AskUserQuestion` invocation in every gstack SKILL.md.tmpl. Build initial `scripts/question-registry.ts` with IDs, categories, door_types, options. This is the foundation; everything else sits on it.
-2. Write `test/plan-tune.test.ts` registry-completeness test (gate tier). Verify it catches drift — temporarily remove one registry entry, confirm CI fails.
-3. Seed `scripts/one-way-doors.ts` with keyword-pattern fallback classifier.
-4. Seed `scripts/psychographic-signals.ts` with initial `{question_id, user_choice} → {dimension, delta}` mappings. Numbers are tentative — v1 ships, v2 recalibrates.
-5. Seed `scripts/archetypes.ts` with archetype definitions (referenced by future v2 `/plan-tune vibe`).
-6. `bin/gstack-question-log` — validates against registry, rejects unknown IDs.
-7. `bin/gstack-question-preference` — all subcommands + tests.
-8. `bin/gstack-developer-profile` — `--read` (legacy), `--derive`, `--gap`, `--profile`.
-9. Migration script — builder-profile.jsonl → unified developer-profile.json. Atomic, idempotent, archives source. Regression test with fixture.
-10. `scripts/resolvers/question-tuning.ts` — three generators (preference check, log, inline tune with user-origin gate instructions).
-11. Register the 3 resolvers in `scripts/resolvers/index.ts`.
-12. Update `scripts/resolvers/preamble.ts` — `_QUESTION_TUNING` config read; conditionally inject for tier >= 2 skills.
-13. `plan-tune/SKILL.md.tmpl` — conversational plain-English skill.
-14. `bun run gen:skill-docs` — all SKILL.md files regenerated; verify each stays under 100KB token ceiling.
-15. `bun test` — all 45+ test cases green.
-16. Dogfood 2+ weeks. Collect real question-log + preferences data. Measure against success criteria.
-17. `/ship` v1. v2 scope discussion after dogfood.
+1. gstack'teki her SKILL.md.tmpl'deki her `AskUserQuestion` çağırmasını denetle. ID'ler, kategoriler, door_types, seçenekler ile ilk `scripts/question-registry.ts`'yi oluştur. Bu temeldir; diğer her şey bunun üzerinde oturur.
+2. Kayıt defteri tamlılık testi (geçit katmanı) yaz `test/plan-tune.test.ts`. Sapmayı yakaladığını doğrula — geçici olarak bir kayıt defteri girdisini kaldır, CI'nın başarısız olduğunu onayla.
+3. Anahtar kelime deseni yedekleme sınıflandırıcı ile `scripts/one-way-doors.ts`'yi tohumla.
+4. İlk `{question_id, user_choice} → {dimension, delta}` eşlemeleri ile `scripts/psychographic-signals.ts`'yi tohumla. Sayılar geçici — v1 gönderilir, v2 yeniden kalibre eder.
+5. Gelecekteki v2 `/plan-tune vibe` tarafından referans verilen arketip tanımları ile `scripts/archetypes.ts`'yi tohumla.
+6. `bin/gstack-question-log` — kayıt defterine karşı doğrular, bilinmeyen ID'leri reddeder.
+7. `bin/gstack-question-preference` — tüm alt komutlar + testler.
+8. `bin/gstack-developer-profile` — `--read` (eski), `--derive`, `--gap`, `--profile`.
+9. Geçiş betiği — builder-profile.jsonl → birleşik developer-profile.json. Atomik, idempotent, kaynağı arşivler. Fixture ile regresyon testi.
+10. `scripts/resolvers/question-tuning.ts` — üç üreteç (tercih kontrolü, günlük, kullanıcı kaynağı geçit talimatları ile satır içi tune).
+11. 3 çözücüyü `scripts/resolvers/index.ts`'ye kaydet.
+12. `scripts/resolvers/preamble.ts`'yi güncelle — `_QUESTION_TUNING` yapılandırma okuma; tier >= 2 skill'ler için koşullu enjekte et.
+13. `plan-tune/SKILL.md.tmpl` — konuşmalı düz İngilizce skill.
+14. `bun run gen:skill-docs` — tüm SKILL.md dosyaları yeniden oluşturulur; her birinin 100KB token tavanının altında kaldığını doğrula.
+15. `bun test` — tüm 45+ test durumu yeşil.
+16. 2+ hafta deneme yanılmaları. Gerçek soru günlüğü + tercih verisi topla. Başarı kriterlerine karşı ölç.
+17. `/ship` v1. Deneme yanılmalarından sonra v2 kapsam tartışması.
 
-## Open Questions (v2 scope decisions, deferred until real data)
+## Açık Sorular (v2 kapsam kararları, gerçek verilere kadar ertelendi)
 
-1. Exact signal map deltas. v1 ships with initial guesses; v2 recalibrates from observed data.
-2. When `inferred` and `declared` gap becomes large, do we auto-suggest updating `declared`? Or just display?
-3. When a signal map version changes, do we auto-recompute or prompt user? Default: auto-recompute with diff display.
-4. Cross-project profile inheritance vs. isolation. v1 is per-project preferences + global profile; v2 may add explicit cross-project learning opt-ins.
-5. Should /plan-tune support a "team profile" mode where a shared developer-profile informs collaboration? v2+.
+1. Kesin sinyal haritası deltaları. v1 ilk tahminlerle gönderilir; v2 gözlemlenen verilerden yeniden kalibre eder.
+2. `inferred` ve `declared` boşluğu büyük olduğunda, `declared`'ı güncellemeyi otomatik önermeli miyiz? Yoksa yalnızca görüntülemeli miyiz?
+3. Bir sinyal haritası sürümü değiştiğinde, otomatik yeniden hesaplamalı mıyız yoksa kullanıcıyı bilgilendirmeli miyiz? Varsayılan: diff gösterimi ile otomatik yeniden hesaplama.
+4. Çapraz proje profil mirası vs. izolasyon. v1 proje başına tercihler + genel profil; v2 açık çapraz proje öğrenme katılımı ekleyebilir.
+5. `/plan-tune` paylaşık bir developer-profile'ın işbirliğini bilgilendirdiği bir "takım profili" modu desteklemeli mi? v2+.
 
-## Reviews incorporated
+## Dahil edilen incelemeler
 
-- **/office-hours (2026-04-16, 1 session):** Set 5 hard constraints, chose event-sourced + user-declared architecture.
-- **/plan-ceo-review (2026-04-16, EXPANSION mode):** 6 expansions accepted, later rolled back after Codex review.
-- **/plan-devex-review (2026-04-16, POLISH mode):** Plain-English interaction model; this survived to v1.
-- **/plan-eng-review (2026-04-16):** Test plan and completeness checks; partially superseded by registry-first rewrite.
-- **/codex (2026-04-16, gpt-5.4 high reasoning):** 20-point critique drove the rollback. 15+ legitimate findings the Claude reviews missed.
+- **/office-hours (2026-04-16, 1 oturum):** 5 sıkı kısıtlama belirledi, olay kaynaklı + kullanıcı beyanı mimarisini seçti.
+- **/plan-ceo-review (2026-04-16, EXPANSION modu):** 6 genişleme kabul edildi, daha sonra Codex incelemesinden sonra geri alındı.
+- **/plan-devex-review (2026-04-16, POLISH modu):** Düz İngilizce etkileşim modeli; bu v1'e kadar hayatta kaldı.
+- **/plan-eng-review (2026-04-16):** Test planı ve tamlık kontrolleri; kısmen kayıt defteri ilk yeniden yazımı tarafından geçersiz kılındı.
+- **/codex (2026-04-16, gpt-5.4 yüksek akıl yürütme):** 20 noktalı eleştiri geri almaya yönelti. Claude incelemelerinin kaçırdığı 15+ meşru bulgu.
 
-## Credits and caveats
+## Katkılar ve uyarılar
 
-This plan was developed through an iterative AI-collaboration loop over ~6 hours of planning. The author (Garry Tan) directed every scope decision; AI voices (Claude Opus 4.7 and OpenAI Codex gpt-5.4) challenged and refined the plan. Without Codex's outside voice, a much larger and less-defensible plan would have shipped. The value of cross-model review on high-stakes architectural changes is real and measurable.
+Bu plan ~6 saatlik planlama boyunca yinelemeli bir AI işbirliği döngüsü aracılığıyla geliştirildi. Yazar (Garry Tan) her kapsam kararını yönlendirdi; AI sesleri (Claude Opus 4.7 ve OpenAI Codex gpt-5.4) planı sorguladı ve rafine etti. Codex'in dış sesi olmadan, çok daha büyük ve daha az savunulabilir bir plan gönderilirdi. Yüksek riskli mimari değişikliklerde çapraz model incelemenin değeri gerçek ve ölçülebilirdir.
