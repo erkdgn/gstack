@@ -1,135 +1,108 @@
-# Session Intelligence Layer
+# Oturum Zeka Katmanı
 
-## The Problem
+## Sorun
 
-Claude Code's context window is ephemeral. Every session starts fresh. When
-auto-compaction fires at ~167K tokens, it preserves a generic summary but
-destroys file reads, reasoning chains, and intermediate decisions.
+Claude Code'un bağlam penceresi geçici. Her oturum taze başlıyor. Otomatik sıkıştırma ~167K token'da tetiklendiğinde, genel bir özet saklar ama dosya okumalarını, akıl yürütme zincirlerini ve ara kararları yok eder.
 
-gstack already produces valuable artifacts that survive on disk: CEO plans,
-eng reviews, design reviews, QA reports, learnings. These files contain
-decisions, constraints, and context that shaped the current work. But Claude
-doesn't know they exist. After compaction, the plans and reviews that
-informed every decision silently vanish from context.
+gstack zaten diskte hayatta kalan değerli yapıtlar üretiyor: CEO planları, mühendislik incelemeleri, tasarım incelemeleri, QA raporları, öğrenmeler. Bu dosyalar mevcut çalışmayı şekillendiren kararları, kısıtlamaları ve bağlamı içeriyor. Ama Claude bunların varlığını bilmiyor. Sıkıştırmadan sonra, her kararı bilgilendiren planlar ve incelemeler sessizce bağlamdan kayboluyor.
 
-The ecosystem is working on this. claude-mem (9K+ stars) captures tool usage
-and injects context into future sessions. Claude HUD shows real-time agent
-status. Anthropic's own `claude-progress.txt` pattern uses a progress file
-that agents read at the start of each session.
+Ekosistem bunun üzerinde çalışıyor. claude-mem (9K+ yıldız) araç kullanımını yakalar ve gelecek oturumlara bağlam enjekte eder. Claude HUD gerçek zamanlı ajans durumu gösterir. Anthropic'in kendi `claude-progress.txt` kalıbı, ajansların her oturumun başında okuduğu bir ilerleme dosyası kullanır.
 
-Nobody is solving the specific problem of making **skill-produced artifacts**
-survive compaction. Because nobody else has gstack's artifact architecture.
+Kimse **yetenek tarafından üretilen yapıtların** sıkıştırmayı yaşatması için özel sorunu çözmüyor. Çünkü başka kimsenin gstack'in yapıt mimarisi yok.
 
-## The Insight
+## İçgörü
 
-gstack already writes structured artifacts to `~/.gstack/projects/$SLUG/`:
-- CEO plans: `ceo-plans/`
-- Design reviews: `design-reviews/`
-- Eng reviews: `eng-reviews/`
-- Learnings: `learnings.jsonl`
-- Skill usage: `../analytics/skill-usage.jsonl`
+gstack zaten `~/.gstack/projects/$SLUG/` konumuna yapılandırılmış yapıtlar yazıyor:
+- CEO planları: `ceo-plans/`
+- Tasarım incelemeleri: `design-reviews/`
+- Mühendislik incelemeleri: `eng-reviews/`
+- Öğrenmeler: `learnings.jsonl`
+- Yetenek kullanımı: `../analytics/skill-usage.jsonl`
 
-The missing piece is not storage. It's awareness. The preamble needs to tell
-the agent: "These files exist. They contain decisions you've already made.
-After compaction, re-read them."
+Eksik parça depolama değil. Farkındalık. Preamble'ın aracıya söylemesi gerekiyor: "Bu dosyalar var. Zaten verdiğiniz kararları içeriyor. Sıkıştırmadan sonra, onları yeniden okuyun."
 
-## The Architecture
+## Mimari
 
 ```
                    ┌─────────────────────────────────────┐
-                   │        Claude Context Window         │
-                   │   (ephemeral, ~167K token limit)     │
+                   │        Claude Bağlam Penceresi        │
+                   │   (geçici, ~167K token sınırı)       │
                    │                                      │
-                   │   Compaction fires ──► summary only   │
+                   │   Sıkıştırma tetiklendi ──► sadece özet   │
                    └──────────────┬──────────────────────┘
                                   │
-                          reads on start / after compaction
+                          başlangıçta / sıkıştırmadan sonra okur
                                   │
                    ┌──────────────▼──────────────────────┐
                    │    ~/.gstack/projects/$SLUG/         │
-                   │    (persistent, survives everything) │
+                   │    (kalıcı, her şeyi yaşatır) │
                    │                                      │
                    │  ceo-plans/         ← /plan-ceo-review
                    │  eng-reviews/       ← /plan-eng-review
                    │  design-reviews/    ← /plan-design-review
-                   │  checkpoints/       ← /checkpoint (new)
-                   │  timeline.jsonl     ← every skill (new)
+                   │  checkpoints/       ← /checkpoint (yeni)
+                   │  timeline.jsonl     ← her yetenek (yeni)
                    │  learnings.jsonl    ← /learn
                    └─────────────────────────────────────┘
                                   │
-                          rolled up weekly
+                          haftalık olarak özetlenir
                                   │
                    ┌──────────────▼──────────────────────┐
                    │           /retro                      │
-                   │  Timeline: 3 /review, 2 /ship, ...   │
-                   │  Health trends: compile 8/10 (↑2)     │
-                   │  Learnings applied: 4 this week       │
+                   │  Zaman Çizelgesi: 3 /review, 2 /ship, ...   │
+                   │  Sağlık trendleri: compile 8/10 (↑2)     │
+                   │  Uygulanan öğrenmeler: bu hafta 4       │
                    └─────────────────────────────────────┘
 ```
 
-## The Features
+## Özellikler
 
-### Layer 1: Context Recovery (preamble, all skills)
-~10 lines of prose in the preamble. After compaction or context degradation,
-the agent checks `~/.gstack/projects/$SLUG/` for recent plans, reviews, and
-checkpoints. Lists the directory, reads the most recent file.
+### Katman 1: Bağlam Kurtarma (preamble, tüm yetenekler)
+Preamble'da ~10 satır düzyazı. Sıkıştırma veya bağlam bozulmasından sonra, aracı `~/.gstack/projects/$SLUG/` konumundaki son planları, incelemeleri ve kontrol noktalarını kontrol eder. Dizini listeler, en son dosyayı okur.
 
-Cost: near-zero. Benefit: every skill's plans/reviews survive compaction.
+Maliyet: sıfıra yakın. Fayda: her yeteneğin planları/incelemeleri sıkıştırmayı yaşatır.
 
-### Layer 2: Session Timeline (preamble, all skills)
-Every skill appends a one-line JSONL entry to `timeline.jsonl`: timestamp,
-skill name, branch, key outcome. `/retro` renders it.
+### Katman 2: Oturum Zaman Çizelgesi (preamble, tüm yetenekler)
+Her yetenek `timeline.jsonl` dosyasına tek satırlık bir JSONL girdisi ekler: zaman damgası, yetenek adı, dal, ana sonuç. `/retro` bunu işler.
 
-Makes the project's AI-assisted work history visible. "This week: 3 /review,
-2 /ship, 1 /investigate across branches feature-auth and fix-billing."
+Projenin AI destekli çalışma geçmişini görünür kılar. "Bu hafta: 3 /review, 2 /ship, 1 /investigate, feature-auth ve fix-billing dallarında."
 
-### Layer 3: Cross-Session Injection (preamble, all skills)
-When a new session starts on a branch with recent artifacts, the preamble
-prints a one-liner: "Last session: implemented JWT auth, 3/5 tasks done.
-Plan: ~/.gstack/projects/$SLUG/checkpoints/latest.md"
+### Katman 3: Oturumlar Arası Enjeksiyon (preamble, tüm yetenekler)
+Yeni bir oturum, yakın yapıtları olan bir dalda başladığında, preamble tek satırlık bir mesaj yazdırır: "Son oturum: JWT auth uygulandı, 3/5 görev tamamlandı. Plan: ~/.gstack/projects/$SLUG/checkpoints/latest.md"
 
-The agent knows where you left off before reading any files.
+Aracı herhangi bir dosya okumadan önce nerede kaldığınızı bilir.
 
-### Layer 4: /checkpoint (opt-in skill)
-Manual snapshot of working state: what's being done, files being edited,
-decisions made, what's remaining. Useful before stepping away, before
-complex operations, for workspace handoffs, or coming back after days.
+### Katman 4: /checkpoint (isteğe bağlı yetenek)
+Çalışma durumunun manuel anlık görüntüsü: ne yapılıyor, hangi dosyalar düzenleniyor, verilen kararlar, ne kaldı. Uzaklaşmadan önce, karmaşık işlemlerden önce, çalışma alanı devirleri için veya günler sonra geri dönmeden önce kullanışlı.
 
-### Layer 5: /health (opt-in skill)
-Code quality dashboard: type-check, lint, test suite, dead code scan.
-Composite 0-10 score. Tracks over time. `/retro` shows trends. `/ship`
-gates on configurable threshold.
+### Katman 5: /health (isteğe bağlı yetenek)
+Kod kalite panosu: tür kontrolü, lint, test takımı, ölü kod taraması. Bileşik 0-10 puan. Zaman içinde takip eder. `/retro` trendleri gösterir. `/ship` yapılandırılabilir eşikte geçit sağlar.
 
-## The Compounding Effect
+## Bileşik Etki
 
-Each feature is independently useful. Together, they create something
-that compounds:
+Her özellik bağımsız olarak kullanışlıdır. Birlikte, bileşikleşen bir şey yaratırlar:
 
-Session 1: /plan-ceo-review produces a plan. Saved to disk.
-Session 2: Agent reads the plan after preamble. Doesn't re-ask decisions.
-Session 3: /checkpoint saves progress. Timeline shows 2 /review, 1 /ship.
-Session 4: Compaction fires mid-refactor. Agent re-reads the checkpoint.
-           Recovers key decisions, types, remaining work. Continues.
-Session 5: /retro rolls up the week. Health trend: 6/10 → 8/10.
-           Timeline shows 12 skill invocations across 3 branches.
+Oturum 1: /plan-ceo-review bir plan üretir. Diske kaydedilir.
+Oturum 2: Arşı planı preamble'dan sonra okur. Kararları yeniden sormaz.
+Oturum 3: /checkpoint ilerlemeyi kaydeder. Zaman çizelgesi 2 /review, 1 /ship gösterir.
+Oturum 4: Sıkıştırma yeniden düzenleme sırasında tetiklenir. Arşı kontrol noktasını yeniden okur.
+           Anahtar kararları, türleri, kalan işi kurtarır. Devam eder.
+Oturum 5: /retro haftayı özetler. Sağlık trendi: 6/10 → 8/10.
+           Zaman çizelgesi 3 dalda 12 yetenek çağrısı gösterir.
 
-The project's AI history is no longer ephemeral. It persists, compounds,
-and makes every future session smarter. That's the session intelligence
-layer.
+Projenin AI geçmişi artık geçici değil. Kalıcıdır, bileşikleşir ve her gelecek oturumu daha akıllı yapar. Oturum zeka katmanı budur.
 
-## What This Is Not
+## Bu Ne Değildir
 
-- Not a replacement for Claude's built-in compaction (that handles session
-  state; we handle gstack artifacts)
-- Not a full memory system like claude-mem (that handles cross-session
-  memory via SQLite; we handle structured skill artifacts)
-- Not a database or service (just markdown files on disk)
+- Claude'un yerleşik sıkıştırmasının yerine geçmez (oturum durumunu o işler; gstack yapıtlarını biz işleriz)
+- claude-mem gibi tam bir bellek sistemi değildir (SQLite üzerinden oturumlar arası belleği o işler; yapılandırılmış yetenek yapıtlarını biz işleriz)
+- Bir veritabanı veya servis değildir (diskte sadece markdown dosyaları)
 
-## Research Sources
+## Araştırma Kaynakları
 
-- [Anthropic: Effective harnesses for long-running agents](https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents)
-- [Anthropic: Effective context engineering](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents)
+- [Anthropic: Uzun süre çalışan ajanslar için etkili donanımlar](https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents)
+- [Anthropic: Etkili bağlam mühendisliği](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents)
 - [claude-mem](https://github.com/thedotmack/claude-mem)
 - [Claude HUD](https://github.com/jarrodwatts/claude-hud)
-- [CodeScene: Agentic AI coding best practices](https://codescene.com/blog/agentic-ai-coding-best-practice-patterns-for-speed-with-quality)
-- [Post-compaction recovery via git-persisted state (Beads)](https://dev.to/jeremy_longshore/building-post-compaction-recovery-for-ai-agent-workflows-with-beads-207l)
+- [CodeScene: Agentic AI kodlama en iyi uygulamaları](https://codescene.com/blog/agentic-ai-coding-best-practice-patterns-for-speed-with-quality)
+- [Sıkıştırma sonrası kurtarma, git ile kalıcı durum (Beads)](https://dev.to/jeremy_longshore/building-post-compaction-recovery-for-ai-agent-workflows-with-beads-207l)

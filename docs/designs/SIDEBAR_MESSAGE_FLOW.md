@@ -1,22 +1,16 @@
-# Sidebar Flow
+# Kenar Çubuğu Akışı
 
-How the GStack Browser sidebar actually works. Read this before touching
-`sidepanel.js`, `background.js`, `content.js`, `terminal-agent.ts`, or
-sidebar-related server endpoints.
+GStack Browser kenar çubuğunun gerçekte nasıl çalıştığı. `sidepanel.js`, `background.js`, `content.js`, `terminal-agent.ts` veya kenar çubuğu ile ilgili sunucu endpoint'lerine dokunmadan önce bunu okuyun.
 
-The sidebar has one primary surface — the **Terminal** pane, an interactive
-`claude` PTY. Activity / Refs / Inspector survive as debug overlays behind
-the `debug` toggle in the footer. The chat queue path (one-shot `claude -p`,
-sidebar-agent.ts) was ripped once the PTY proved out — the Terminal pane is
-strictly more capable.
+Kenar çubuğunun bir birincil yüzeyi var — **Terminal** bölmesi, etkileşimli bir `claude` PTY. Activity / Refs / Inspector, alt bilgi çubuğundaki `debug` geçişi arkasında hata ayıklama katmanları olarak kalır. Sohbet kuyruğu yolu (tek seferlik `claude -p`, sidebar-agent.ts), PTY kanıtlandığında kaldırıldı — Terminal bölmesi kesinlikle daha yeteneklidir.
 
-## Components
+## Bileşenler
 
 ```
 ┌─────────────────┐     ┌──────────────┐     ┌──────────────────┐
 │  sidepanel.js + │────▶│  server.ts   │────▶│terminal-agent.ts │
-│  -terminal.js   │     │  (compiled)  │     │  (non-compiled)  │
-│  (xterm.js)     │     │              │     │  PTY listener    │
+│  -terminal.js   │     │  (derlenmiş)  │     │  (derlenmemiş)  │
+│  (xterm.js)     │     │              │     │  PTY dinleyicisi    │
 └─────────────────┘     └──────────────┘     └──────────────────┘
         ▲                       │                      │
         │  ws://127.0.0.1:<termPort>/ws (Sec-WebSocket-Protocol auth)
@@ -32,169 +26,128 @@ strictly more capable.
                        ┌──────────────────┐
                        │ pty-session-     │
                        │ cookie.ts        │
-                       │ (in-memory token │
-                       │  registry)       │
+                       │ (bellek içi token │
+                       │  kayıt defteri)       │
                        └──────────────────┘
                                 │
-                                │ POST /internal/grant (loopback)
+                                │ POST /internal/grant (geri döngü)
                                 ▼
                        ┌──────────────────┐
                        │  validTokens Set │
-                       │  in agent memory │
+                       │  ajans belleğinde │
                        └──────────────────┘
 ```
 
-The compiled browse server can't `posix_spawn` external executables —
-`terminal-agent.ts` runs as a separate non-compiled `bun run` process and
-owns the `claude` subprocess.
+Derlenmiş browse sunucusu harici çalıştırılabilir dosyaları `posix_spawn` yapamaz — `terminal-agent.ts` ayrı bir derlenmemiş `bun run` süreci olarak çalışır ve `claude` alt sürecine sahiptir.
 
-## Startup + first-keystroke timeline
+## Başlangıç + ilk tuş vuruşu zaman çizelgesi
 
 ```
-T+0ms     CLI runs `$B connect`
-            ├── Server starts (compiled)
-            └── Spawns terminal-agent.ts via `bun run`
+T+0ms     CLI `$B connect` çalıştırır
+            ├── Sunucu başlar (derlenmiş)
+            └── terminal-agent.ts'yi `bun run` ile başlatır
 
-T+500ms   terminal-agent.ts boots
-            ├── Bun.serve on 127.0.0.1:0 (random port)
-            ├── Writes <stateDir>/terminal-port (server reads it for /health)
-            ├── Writes <stateDir>/terminal-internal-token (loopback handshake)
-            └── Probes claude → writes claude-available.json
+T+500ms   terminal-agent.ts başlar
+            ├── 127.0.0.1:0 üzerinde Bun.serve (rastgele port)
+            ├── <stateDir>/terminal-port yazar (sunucu /health için okur)
+            ├── <stateDir>/terminal-internal-token yazar (geri döngü el sıkışması)
+            └── claude'u yoklar → claude-available.json yazar
 
-T+1-3s    Extension loads, sidebar opens
-            ├── sidepanel-terminal.js: setState(IDLE), shows "Starting Claude Code..."
-            └── tryAutoConnect() polls until window.gstackServerPort + token are set
+T+1-3s    Uzantı yüklenir, kenar çubuğu açılır
+            ├── sidepanel-terminal.js: setState(IDLE), "Starting Claude Code..." gösterir
+            └── tryAutoConnect(), window.gstackServerPort + token ayarlanana kadar yoklar
 
-T+ready   tryAutoConnect calls connect()
+T+ready   tryAutoConnect, connect() çağırır
             ├── POST /pty-session (Authorization: Bearer AUTH_TOKEN)
-            │   └── server mints session token, posts /internal/grant to agent
-            │   └── responds with {terminalPort, ptySessionToken}
-            ├── GET /claude-available (preflight)
+            │   └── sunucu oturum tokeni oluşturur, ajansa /internal/grant gönderir
+            │   └── {terminalPort, ptySessionToken} ile yanıt verir
+            ├── GET /claude-available (ön kontrol)
             ├── new WebSocket(`ws://127.0.0.1:<terminalPort>/ws`,
             │                 [`gstack-pty.<token>`])
-            │   └── Browser sends Sec-WebSocket-Protocol + Origin
-            │   └── Agent validates Origin AND token BEFORE upgrading
-            │   └── Agent echoes the protocol back (REQUIRED — browser
-            │       closes the connection without it)
-            ├── On open: send {type:"resize"} then a single \n byte
-            └── Agent message handler sees the byte → spawnClaude()
+            │   └── Browser Sec-WebSocket-Protocol + Origin gönderir
+            │   └── Arşı Origin VE tokeni yükseltmeden ÖNCE doğrular
+            │   └── Arşı protokolü geri yansıtır (GEREKLI — browser olmadan
+            │       bağlantıyı kapatır)
+            ├── Açıkta: {type:"resize"} gönder, ardından tek bir \n byte gönder
+            └── Arşı mesaj işleyicisi byte'i görür → spawnClaude()
 ```
 
-## Auth: WebSocket can't send Authorization headers
+## Kimlik Doğrulama: WebSocket Authorization başlıkları gönderemez
 
-Browser WebSocket clients can't set `Authorization`. They CAN set
-`Sec-WebSocket-Protocol` via the second arg of `new WebSocket(url,
-protocols)`. We exploit that:
+Browser WebSocket istemcileri `Authorization` ayarlayamaz. `new WebSocket(url, protocols)`'ün ikinci argümanı ile `Sec-WebSocket-Protocol` ayarlayabilirler. Bunu kullanırız:
 
-1. `POST /pty-session` (auth: Bearer AUTH_TOKEN) → server mints a
-   short-lived session token, pushes it to the agent over loopback,
-   returns it in the JSON body.
-2. Extension calls `new WebSocket(url, ['gstack-pty.<token>'])`.
-3. Agent reads `Sec-WebSocket-Protocol`, strips `gstack-pty.`, validates
-   against `validTokens`, echoes the protocol back. Echo is mandatory —
-   without it Chromium closes the connection on receipt of the upgrade
-   response.
+1. `POST /pty-session` (auth: Bearer AUTH_TOKEN) → sunucu kısa ömürlü bir oturum tokeni oluşturur, geri döngü üzerinden ajansa iletir, JSON gövdesinde döndürür.
+2. Uzantı `new WebSocket(url, ['gstack-pty.<token>'])` çağırır.
+3. Arşı `Sec-WebSocket-Protocol` okur, `gstack-pty.`'yi ayırır, `validTokens` ile doğrular, protokolü geri yansıtır. Yansıtma zorunludur — olmadan Chromium yükseltme yanıtını alır almaz bağlantıyı kapatır.
 
-A `Set-Cookie: gstack_pty=...` header is also returned for non-browser
-callers (curl, integration tests). The cookie path was the original v1
-design but `SameSite=Strict` cookies don't survive the cross-port jump
-from server.ts:34567 → agent:<random> from a chrome-extension origin.
-The protocol-token path is what the browser actually uses.
+Browser dışı çağıranlar (curl, entegrasyon testleri) için bir `Set-Cookie: gstack_pty=...` başlığı da döndürülür. Çerez yolu orijinal v1 tasarımıydı ama `SameSite=Strict` çerezleri, chrome-extension kaynağından server.ts:34567 → agent:<random> arasındaki çapraz port geçişini yaşamıyor. Protokol-token yolu browser'ın gerçekten kullandığı şeydir.
 
-### Dual-token model
+### Çift-token modeli
 
-| Token | Lives in | Used for | Lifetime |
+| Token | Yaşadığı yer | Kullanım amacı | Ömür |
 |-------|----------|----------|----------|
-| `AUTH_TOKEN` | `<stateDir>/browse.json`; in-memory in server.ts | `/pty-session` POST (mint cookie + token) | server lifetime |
-| `gstack-pty.<...>` (Sec-WebSocket-Protocol) | Browser memory only; agent `validTokens` Set | `/ws` upgrade auth | 30 min, auto-revoked on WS close |
-| `INTERNAL_TOKEN` | `<stateDir>/terminal-internal-token`; in agent memory | server → agent loopback `/internal/grant` | agent lifetime |
+| `AUTH_TOKEN` | `<stateDir>/browse.json`; server.ts içinde bellekte | `/pty-session` POST (çerez + token oluştur) | sunucu ömrü |
+| `gstack-pty.<...>` (Sec-WebSocket-Protocol) | Sadece browser belleği; ajans `validTokens` Set'i | `/ws` yükseltme auth | 30 dk, WS kapandığında otomatik iptal |
+| `INTERNAL_TOKEN` | `<stateDir>/terminal-internal-token`; ajans belleğinde | sunucu → ajans geri döngü `/internal/grant` | ajans ömrü |
 
-`AUTH_TOKEN` is **never** valid for `/ws` directly. The session token is
-**never** valid for `/pty-session` or `/command`. Strict separation
-prevents an SSE or page-content token leak from escalating into shell
-access.
+`AUTH_TOKEN` doğrudan `/ws` için **asla** geçerli değildir. Oturum tokeni `/pty-session` veya `/command` için **asla** geçerli değildir. Katı ayrım, SSE veya sayfa içeriği token sızıntısının shell erişimine yükselmesini önler.
 
-## Threat model
+## Tehdit modeli
 
-The Terminal pane **bypasses the prompt-injection security stack** on
-purpose — the user is typing directly to claude, there's no untrusted
-page content in the loop. Trust source is the keyboard, same as any
-local terminal.
+Terminal bölmesi **prompt enjeksiyon güvenlik yığınını kasıtlı olarak atlar** — kullanıcı doğrudan claude'a yazıyor, döngüde güvenilmeyen sayfa içeriği yok. Güven kaynağı klavyedir, herhangi bir yerel terminal ile aynı.
 
-That trust assumption is load-bearing on three transport guarantees:
+Bu güven varsayımı üç taşıyıcı aktarım garantisine dayanır:
 
-1. **Local-only listener.** terminal-agent.ts binds `127.0.0.1` only.
-   The dual-listener tunnel surface (server.ts `TUNNEL_PATHS`) does
-   not include `/pty-session` or `/terminal/*`, so the tunnel returns
-   404 by default-deny.
-2. **Origin gate.** `/ws` upgrades require
-   `Origin: chrome-extension://<id>`. A localhost web page can't mount
-   a cross-site WebSocket hijack against the shell because its Origin
-   is a regular `http(s)://...`.
-3. **Session token auth.** Minted only by an authenticated
-   `/pty-session` POST, scoped to one WS, auto-revoked on close.
+1. **Sadece yerel dinleyici.** terminal-agent.ts sadece `127.0.0.1` bağlar. Çift dinleyici tünel yüzeyi (server.ts `TUNNEL_PATHS`) `/pty-session` veya `/terminal/*` içermez, bu nedenle tünel varsayılan reddetme ile 404 döndürür.
+2. **Origin geçidi.** `/ws` yükseltmeleri `Origin: chrome-extension://<id>` gerektirir. Yerel bir web sayfası, Origin'i normal bir `http(s)://...` olduğu için shell'e karşı siteler arası WebSocket kaçırma saldırısı başlatamaz.
+3. **Oturum tokeni kimlik doğrulaması.** Sadece kimliği doğrulanmış bir `/pty-session` POST tarafından oluşturulur, tek bir WS'ye kapsamlı, kapandığında otomatik iptal.
 
-Drop any one of those three and the whole tab becomes unsafe.
+Bu üçünden birini bırakın ve tüm sekmeyi güvensiz hale getirin.
 
-## Lifecycle
+## Yaşam Döngüsü
 
-- **Eager auto-connect.** Sidebar opens → tryAutoConnect polls for the
-  bootstrap globals and connects as soon as they're set. No keypress
-  required.
-- **One PTY per WS.** Closing the WebSocket SIGINTs claude, then SIGKILLs
-  after 3s. The session token is revoked so a stolen token can't be
-  replayed.
-- **No auto-reconnect on close.** The user sees "Session ended, click to
-  start a new session." Auto-reconnect would burn a fresh claude session
-  on every reload. v1.1 may add session resumption keyed on tab/session
-  id (see TODOS).
-- **Manual restart anytime.** A `↻ Restart` button lives in the always-
-  visible terminal toolbar — works mid-session, not just from the ENDED
-  state.
+- **İstekli otomatik bağlanma.** Kenar çubuğu açılır → tryAutoConnect, bootstrap global değişkenleri için yoklar ve ayarlanır ayarlanmaz bağlanır. Tuş vuruşu gerekmez.
+- **WS başına bir PTY.** WebSocket kapatıldığında önce claude'a SIGINT gönderir, ardından 3s sonra SIGKILL. Oturum tokeni iptal edilir, bu nedenle çalınmış bir token yeniden oynatılamaz.
+- **Kapandığında otomatik yeniden bağlanma yok.** Kullanıcı "Oturum sona erdi, yeni oturum başlatmak için tıklayın" mesajını görür. Otomatik yeniden bağlanma her yeniden yüklemede yeni bir claude oturumu yakar. v1.1, sekme/oturum kimliğine dayalı oturum sürdürme ekleyebilir (bkz. TODOS).
+- **Her zaman manuel yeniden başlatma.** Terminal bölmesinin her zaman görünür araç çubuğunda bir `↻ Restart` düğmesi bulunur — oturum sırasında da çalışır, sadece ENDED durumundan değil.
 
-## Quick-action toolbar
+## Hızlı eylem araç çubuğu
 
-Three browser-action buttons live next to the Restart button at the top
-of the Terminal pane:
+Terminal bölmesinin üst kısmındaki Restart düğmesinin yanında üç browser eylem düğmesi bulunur:
 
-| Button | Behavior |
+| Düğme | Davranış |
 |--------|----------|
-| 🧹 Cleanup | `window.gstackInjectToTerminal(prompt)` — pipes a "remove ads/banners" instruction into the live PTY. claude in the terminal sees it and acts. |
-| 📸 Screenshot | `POST /command screenshot` — direct browse-server call, no PTY involvement. |
-| 🍪 Cookies | Navigates to the `/cookie-picker` page. |
+| 🧹 Temizle | `window.gstackInjectToTerminal(prompt)` — canlı PTY'ye "reklamları/bannerları kaldır" talimatı gönderir. terminaldeki claude bunu görür ve eyleme geçirir. |
+| 📸 Ekran Görüntüsü | `POST /command screenshot` — doğrudan browse sunucusu çağrısı, PTY katılımı yok. |
+| 🍪 Çerezler | `/cookie-picker` sayfasına yönlendirir. |
 
-The Inspector's "Send to Code" button uses the same `gstackInjectToTerminal`
-path to forward CSS inspector data into claude.
+Denetçinin "Send to Code" düğmesi, CSS denetçi verilerini claude'a iletmek için aynı `gstackInjectToTerminal` yolunu kullanır.
 
-## Debug surfaces (Activity / Refs / Inspector)
+## Hata ayıklama yüzeyleri (Activity / Refs / Inspector)
 
-Behind the `debug` toggle in the footer. SSE-driven, independent of the
-Terminal pane:
+Alt bilgi çubuğundaki `debug` geçişi arkasında. SSE güdümlü, Terminal bölmesinden bağımsız:
 
-- **Activity** — streams every browse command via `/activity/stream` SSE.
-- **Refs** — REST: `GET /refs` — current page's `@ref` element labels.
-- **Inspector** — CDP-based element picker; SSE on `/inspector/events`.
+- **Activity** — `/activity/stream` SSE üzerinden her browse komutunu akıtır.
+- **Refs** — REST: `GET /refs` — geçerli sayfanın `@ref` öğe etiketleri.
+- **Inspector** — CDP tabanlı öğe seçici; `/inspector/events` üzerinde SSE.
 
-When the debug strip closes, the Terminal pane re-becomes visible.
-xterm.js doesn't auto-redraw when its container flips from `display:none`
-to `display:flex`, so sidepanel-terminal.js runs a `MutationObserver` on
-`#tab-terminal`'s class attribute and forces a fit + refresh when
-`.active` returns.
+Hata ayıklama şeridi kapandığında, Terminal bölmesi yeniden görünür hale gelir.
+xterm.js, kabı `display:none`'dan `display:flex`'e geçtiğinde otomatik olarak yeniden çizmez, bu nedenle sidepanel-terminal.js `#tab-terminal`'in sınıf niteliği üzerinde bir `MutationObserver` çalıştırır ve `.active` döndüğünde fit + yenileme zorlar.
 
-## Files
+## Dosyalar
 
-| Component | File | Runs in |
+| Bileşen | Dosya | Çalıştığı yer |
 |-----------|------|---------|
-| Sidebar UI shell | `extension/sidepanel.html` + `sidepanel.js` + `sidepanel.css` | Chrome side panel |
-| Terminal UI | `extension/sidepanel-terminal.js` + `extension/lib/xterm.js` | Chrome side panel |
-| Service worker | `extension/background.js` | Chrome background |
-| Content script | `extension/content.js` | Page context |
-| HTTP server | `browse/src/server.ts` | Bun (compiled binary) |
-| PTY agent | `browse/src/terminal-agent.ts` | Bun (non-compiled) |
-| PTY token store | `browse/src/pty-session-cookie.ts` | Bun (compiled, in server.ts) |
-| CLI entry | `browse/src/cli.ts` | Bun (compiled binary) |
-| State file | `<stateDir>/browse.json` | Filesystem |
-| Terminal port | `<stateDir>/terminal-port` | Filesystem |
-| Internal token | `<stateDir>/terminal-internal-token` | Filesystem |
-| Claude probe | `<stateDir>/claude-available.json` | Filesystem |
-| Active tab | `<stateDir>/active-tab.json` | Filesystem (claude reads) |
+| Kenar çubuğu UI kabı | `extension/sidepanel.html` + `sidepanel.js` + `sidepanel.css` | Chrome yan panel |
+| Terminal UI | `extension/sidepanel-terminal.js` + `extension/lib/xterm.js` | Chrome yan panel |
+| Servis çalışanı | `extension/background.js` | Chrome arka plan |
+| İçerik betiği | `extension/content.js` | Sayfa bağlamı |
+| HTTP sunucusu | `browse/src/server.ts` | Bun (derlenmiş ikili) |
+| PTY aracı | `browse/src/terminal-agent.ts` | Bun (derlenmemiş) |
+| PTY token deposu | `browse/src/pty-session-cookie.ts` | Bun (derlenmiş, server.ts içinde) |
+| CLI giriş | `browse/src/cli.ts` | Bun (derlenmiş ikili) |
+| Durum dosyası | `<stateDir>/browse.json` | Dosya sistemi |
+| Terminal portu | `<stateDir>/terminal-port` | Dosya sistemi |
+| İç token | `<stateDir>/terminal-internal-token` | Dosya sistemi |
+| Claude yoklaması | `<stateDir>/claude-available.json` | Dosya sistemi |
+| Aktif sekme | `<stateDir>/active-tab.json` | Dosya sistemi (claude okur) |

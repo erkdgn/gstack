@@ -1,35 +1,34 @@
-# Slate Host Integration — Research & Design Doc
+# Slate Host Entegrasyonu — Araştırma & Tasarım Belgesi
 
-**Date:** 2026-04-02
-**Branch:** garrytan/slate-agent-support
-**Status:** Research complete, blocked on host config refactor
-**Supersedes:** None
+**Tarih:** 2026-04-02
+**Dal:** garrytan/slate-agent-support
+**Durum:** Araştırma tamamlandı, host config yeniden düzenlemesine bağlı
+**Yerine geçer:** Yok
 
-## What is Slate
+## Slate Nedir
 
-Slate is a proprietary coding agent CLI from Random Labs.
-Install: `npm i -g @randomlabs/slate` or `brew install anthropic/tap/slate`.
-License: Proprietary. 85MB compiled Bun binary (arm64/x64, darwin/linux/windows).
-npm package: `@randomlabs/slate@1.0.25` (thin 8.8KB launcher + platform-specific optional deps).
+Slate, Random Labs'ten tescilli bir kodlama ajansı CLI'sidir.
+Kurulum: `npm i -g @randomlabs/slate` veya `brew install anthropic/tap/slate`.
+Lisans: Tescil. 85MB derlenmiş Bun ikili dosyası (arm64/x64, darwin/linux/windows).
+npm paketi: `@randomlabs/slate@1.0.25` (ince 8.8KB başlatıcı + platforma özel isteğe bağlı bağımlılıklar).
 
-Multi-model: dynamically selects Claude Sonnet/Opus/Haiku, plus other models.
-Built for "swarm orchestration" with extended multi-hour sessions.
+Çoklu model: Claude Sonnet/Opus/Haiku ve diğer modelleri dinamik olarak seçer.
+"Swarm orkestrasyonu" ve genişletilmiş çok saatlik oturumlar için inşa edilmiştir.
 
-## Slate is an OpenCode fork
+## Slate bir OpenCode çatalıdır
 
-**Confirmed via binary strings analysis** of the 85MB Mach-O arm64 binary:
+85MB Mach-O arm64 ikili dosyasının **ikili dize analizi ile doğrulandı:**
 
-- Internal name: `name: "opencode"` (literal string in binary)
-- All `OPENCODE_*` env vars present alongside `SLATE_*` equivalents
-- Shares OpenCode's tool/skill architecture, LSP integration, terminal management
-- Own branding, API endpoints (`api.randomlabs.ai`, `agent-worker-prod.randomlabs.workers.dev`), and config paths
+- İç ad: `name: "opencode"` (ikili dosyada kelimesi kelimesine dize)
+- Tüm `OPENCODE_*` ortam değişkenleri `SLATE_*` karşılıklarıyla birlikte mevcut
+- OpenCode'un araç/yetenek mimarisini, LSP entegrasyonunu, terminal yönetimini paylaşıyor
+- Kendi markalaşması, API endpoint'leri (`api.randomlabs.ai`, `agent-worker-prod.randomlabs.workers.dev`) ve config yolları
 
-This matters for integration: OpenCode conventions mostly apply, but Slate adds
-its own paths and env vars on top.
+Bu entegrasyon için önemli: OpenCode kuralları çoğunlukla geçerlidir, ancak Slate kendi yollarını ve ortam değişkenlerini ekler.
 
-## Skill Discovery (confirmed from binary)
+## Yetenek Keşfi (ikili dosyadan doğrulanmış)
 
-Slate scans ALL four directory families for skills. Error messages in binary confirm:
+Slate yetenekler için DÜRT dizin ailesinin hepsini tarar. İkili dosyadaki hata mesajları doğrular:
 
 ```
 "failed .slate directory scan for skills"
@@ -38,110 +37,108 @@ Slate scans ALL four directory families for skills. Error messages in binary con
 "failed .opencode directory scan for skills"
 ```
 
-**Discovery paths (priority order from Slate docs):**
+**Keşif yolları (Slate belgelerinden öncelik sırası):**
 
-1. `.slate/skills/<name>/SKILL.md` — project-level, highest priority
+1. `.slate/skills/<name>/SKILL.md` — proje düzeyinde, en yüksek öncelik
 2. `~/.slate/skills/<name>/SKILL.md` — global
-3. `.opencode/skills/`, `.agents/skills/` — compatibility fallback
-4. `.claude/skills/` — Claude Code compatibility fallback (lowest)
-5. Custom paths via `slate.json`
+3. `.opencode/skills/`, `.agents/skills/` — uyumluluk geri dönüşü
+4. `.claude/skills/` — Claude Code uyumluluk geri dönüşü (en düşük)
+5. `slate.json` aracılığıyla özel yollar
 
-**Glob patterns:** `**/SKILL.md` and `{skill,skills}/**/SKILL.md`
+**Glob kalıpları:** `**/SKILL.md` ve `{skill,skills}/**/SKILL.md`
 
-**Commands:** Same directory structure but under `commands/` subdirs:
+**Komutlar:** Aynı dizin yapısı ama `commands/` alt dizinleri altında:
 `/.slate/commands/`, `/.claude/commands/`, `/.agents/commands/`, `/.opencode/commands/`
 
-**Skill frontmatter:** YAML with `name` and `description` fields (per Slate docs).
-No documented length limits on either field.
+**Yetenek ön bilgisinde:** `name` ve `description` alanları ile YAML (Slate belgelerine göre).
+Her iki alan için belgelenmiş uzunluk sınırı yok.
 
-## Project Instructions
+## Proje Talimatları
 
-Slate reads both `CLAUDE.md` and `AGENTS.md` for project instructions.
-Both literal strings confirmed in binary. No changes needed to existing
-gstack projects... CLAUDE.md works as-is.
+Slate proje talimatları için `CLAUDE.md` ve `AGENTS.md`'yi okur.
+Her iki kelimesi kelimesine dize de ikili dosyada doğrulanmış. Mevcut gstack projelerinde değişiklik gerekmiyor... CLAUDE.md olduğu gibi çalışıyor.
 
-## Configuration
+## Yapılandırma
 
-**Config file:** `slate.json` / `slate.jsonc` (NOT opencode.json)
+**Config dosyası:** `slate.json` / `slate.jsonc` (opencode.json DEĞİL)
 
-**Config options (from Slate docs):**
-- `privacy` (boolean) — disables telemetry/logging
-- Permissions: `allow`, `ask`, `deny` per tool (`read`, `edit`, `bash`, `grep`, `webfetch`, `websearch`, `*`)
-- Model slots: `models.main`, `models.subagent`, `models.search`, `models.reasoning`
-- MCP servers: local or remote with custom commands and headers
-- Custom commands: `/commands` with templates
+**Config seçenekleri (Slate belgelerinden):**
+- `privacy` (boolean) — telemetri/günlüklemeyi devre dışı bırakır
+- İzinler: araç başına `allow`, `ask`, `deny` (`read`, `edit`, `bash`, `grep`, `webfetch`, `websearch`, `*`)
+- Model yuvaları: `models.main`, `models.subagents`, `models.search`, `models.reasoning`
+- MCP sunucuları: özel komutlar ve başlıklarla yerel veya uzak
+- Özel komutlar: şablonlarla `/commands`
 
-The setup script should NOT create `slate.json`. Users configure their own permissions.
+Kurulum betiği `slate.json` oluşturmamalıdır. Kullanıcılar kendi izinlerini yapılandırır.
 
-## CLI Flags (Headless Mode)
+## CLI Bayrakları (Başsız Mod)
 
 ```
---stream-json / --output-format stream-json  — JSONL output, "compatible with Anthropic Claude Code SDK"
---dangerously-skip-permissions               — bypass all permission checks (CI/automation)
---input-format stream-json                   — programmatic input
--q                                           — non-interactive mode
--w <dir>                                     — workspace directory
---output-format text                         — plain text output (default)
+--stream-json / --output-format stream-json  — JSONL çıktısı, "Anthropic Claude Code SDK ile uyumlu"
+--dangerously-skip-permissions               — tüm izin kontrollerini atla (CI/otomasyon)
+--input-format stream-json                   — programlı giriş
+-q                                           — etkileşimli olmayan mod
+-w <dir>                                     — çalışma alanı dizini
+--output-format text                         — düz metin çıktısı (varsayılan)
 ```
 
-**Stream-JSON format:** Slate docs claim "compatible with Anthropic Claude Code SDK."
-Not yet empirically verified. Given OpenCode heritage, likely matches Claude Code's
-NDJSON event schema (type: "assistant", type: "tool_result", type: "result").
+**Stream-JSON formatı:** Slate belgeleri "Anthropic Claude Code SDK ile uyumlu" iddia ediyor.
+Henüz ampirik olarak doğrulanmadı. OpenCode mirası göz önüne alındığında, muhtemelen Claude Code'un
+NDJSON olay şemasıyla eşleşiyor (type: "assistant", type: "tool_result", type: "result").
 
-**Need to verify:** Run `slate -q "hello" --stream-json` with valid credits and
-capture actual JSONL events before building the session runner parser.
+**Doğrulanması gereken:** Oturum çalıştırıcı ayrıştırıcısını inşa etmeden önce `slate -q "hello" --stream-json` komutunu geçerli kredilerle çalıştırın ve gerçek JSONL olaylarını yakalayın.
 
-## Environment Variables (from binary strings)
+## Ortam Değişkenleri (ikili dizilerden)
 
-### Slate-specific
+### Slate'e özgü
 ```
-SLATE_API_KEY                              — API key
-SLATE_AGENT                                — agent selection
-SLATE_AUTO_SHARE                           — auto-share setting
-SLATE_CLIENT                               — client identifier
-SLATE_CONFIG                               — config override
-SLATE_CONFIG_CONTENT                       — inline config
-SLATE_CONFIG_DIR                           — config directory
-SLATE_DANGEROUSLY_SKIP_PERMISSIONS         — bypass permissions
-SLATE_DIR                                  — data directory override
-SLATE_DISABLE_AUTOUPDATE                   — disable auto-update
-SLATE_DISABLE_CLAUDE_CODE                  — disable Claude Code integration entirely
-SLATE_DISABLE_CLAUDE_CODE_PROMPT           — disable Claude Code prompt loading
-SLATE_DISABLE_CLAUDE_CODE_SKILLS           — disable .claude/skills/ loading
-SLATE_DISABLE_DEFAULT_PLUGINS              — disable default plugins
-SLATE_DISABLE_FILETIME_CHECK               — disable file time checks
-SLATE_DISABLE_LSP_DOWNLOAD                 — disable LSP auto-download
-SLATE_DISABLE_MODELS_FETCH                 — disable models config fetch
-SLATE_DISABLE_PROJECT_CONFIG               — disable project-level config
-SLATE_DISABLE_PRUNE                        — disable session pruning
-SLATE_DISABLE_TERMINAL_TITLE               — disable terminal title updates
-SLATE_ENABLE_EXA                           — enable Exa search
-SLATE_ENABLE_EXPERIMENTAL_MODELS           — enable experimental models
-SLATE_EXPERIMENTAL                         — enable experimental features
-SLATE_EXPERIMENTAL_BASH_DEFAULT_TIMEOUT_MS — bash timeout override
-SLATE_EXPERIMENTAL_DISABLE_COPY_ON_SELECT  — disable copy on select
-SLATE_EXPERIMENTAL_DISABLE_FILEWATCHER     — disable file watcher
-SLATE_EXPERIMENTAL_EXA                     — Exa search (alt flag)
-SLATE_EXPERIMENTAL_FILEWATCHER             — enable file watcher
-SLATE_EXPERIMENTAL_ICON_DISCOVERY          — icon discovery
-SLATE_EXPERIMENTAL_LSP_TOOL               — LSP tool
-SLATE_EXPERIMENTAL_LSP_TY                 — LSP type checking
-SLATE_EXPERIMENTAL_MARKDOWN               — markdown mode
-SLATE_EXPERIMENTAL_OUTPUT_TOKEN_MAX       — output token limit
-SLATE_EXPERIMENTAL_OXFMT                  — oxfmt integration
-SLATE_EXPERIMENTAL_PLAN_MODE              — plan mode
-SLATE_FAKE_VCS                            — fake VCS for testing
-SLATE_GIT_BASH_PATH                       — git bash path (Windows)
-SLATE_MODELS_URL                          — models config URL
-SLATE_PERMISSION                          — permission override
-SLATE_SERVER_PASSWORD                     — server auth
-SLATE_SERVER_USERNAME                     — server auth
-SLATE_TELEMETRY_DISABLED                  — disable telemetry
-SLATE_TEST_HOME                           — test home directory
-SLATE_TOKEN_DIR                           — token storage directory
+SLATE_API_KEY                              — API anahtarı
+SLATE_AGENT                                — ajans seçimi
+SLATE_AUTO_SHARE                           — otomatik paylaşım ayarı
+SLATE_CLIENT                               — istemci tanımlayıcısı
+SLATE_CONFIG                               — config geçersiz kılma
+SLATE_CONFIG_CONTENT                       — satır içi config
+SLATE_CONFIG_DIR                           — config dizini
+SLATE_DANGEROUSLY_SKIP_PERMISSIONS         — izinleri atla
+SLATE_DIR                                  — veri dizini geçersiz kılma
+SLATE_DISABLE_AUTOUPDATE                   — otomatik güncellemeyi devre dışı bırak
+SLATE_DISABLE_CLAUDE_CODE                  — Claude Code entegrasyonunu tamamen devre dışı bırak
+SLATE_DISABLE_CLAUDE_CODE_PROMPT           — Claude Code prompt yüklemeyi devre dışı bırak
+SLATE_DISABLE_CLAUDE_CODE_SKILLS           — .claude/skills/ yüklemeyi devre dışı bırak
+SLATE_DISABLE_DEFAULT_PLUGINS              — varsayılan eklentileri devre dışı bırak
+SLATE_DISABLE_FILETIME_CHECK               — dosya zaman kontrollerini devre dışı bırak
+SLATE_DISABLE_LSP_DOWNLOAD                 — LSP otomatik indirmeyi devre dışı bırak
+SLATE_DISABLE_MODELS_FETCH                 — modeller config getirme devre dışı bırak
+SLATE_DISABLE_PROJECT_CONFIG               — proje düzeyi config devre dışı bırak
+SLATE_DISABLE_PRUNE                        — oturum budamayı devre dışı bırak
+SLATE_DISABLE_TERMINAL_TITLE               — terminal başlık güncellemelerini devre dışı bırak
+SLATE_ENABLE_EXA                           — Exa aramayı etkinleştir
+SLATE_ENABLE_EXPERIMENTAL_MODELS           — deneysel modelleri etkinleştir
+SLATE_EXPERIMENTAL                         — deneysel özellikleri etkinleştir
+SLATE_EXPERIMENTAL_BASH_DEFAULT_TIMEOUT_MS — bash zaman aşımı geçersiz kılma
+SLATE_EXPERIMENTAL_DISABLE_COPY_ON_SELECT  — seçimde kopyalamayı devre dışı bırak
+SLATE_EXPERIMENTAL_DISABLE_FILEWATCHER     — dosya izleyiciyi devre dışı bırak
+SLATE_EXPERIMENTAL_EXA                     — Exa arama (alternatif bayrak)
+SLATE_EXPERIMENTAL_FILEWATCHER             — dosya izleyiciyi etkinleştir
+SLATE_EXPERIMENTAL_ICON_DISCOVERY          — ikon keşfi
+SLATE_EXPERIMENTAL_LSP_TOOL               — LSP aracı
+SLATE_EXPERIMENTAL_LSP_TY                 — LSP tür kontrolü
+SLATE_EXPERIMENTAL_MARKDOWN               — markdown modu
+SLATE_EXPERIMENTAL_OUTPUT_TOKEN_MAX       — çıktı token sınırı
+SLATE_EXPERIMENTAL_OXFMT                  — oxfmt entegrasyonu
+SLATE_EXPERIMENTAL_PLAN_MODE              — plan modu
+SLATE_FAKE_VCS                            — test için sahte VCS
+SLATE_GIT_BASH_PATH                       — git bash yolu (Windows)
+SLATE_MODELS_URL                          — modeller config URL'si
+SLATE_PERMISSION                          — izin geçersiz kılma
+SLATE_SERVER_PASSWORD                     — sunucu auth
+SLATE_SERVER_USERNAME                     — sunucu auth
+SLATE_TELEMETRY_DISABLED                  — telemetriyi devre dışı bırak
+SLATE_TEST_HOME                           — test ana dizini
+SLATE_TOKEN_DIR                           — token depolama dizini
 ```
 
-### OpenCode legacy (still functional)
+### OpenCode mirası (hâlâ işlevsel)
 ```
 OPENCODE_DISABLE_LSP_DOWNLOAD
 OPENCODE_EXPERIMENTAL_DISABLE_FILEWATCHER
@@ -155,53 +152,52 @@ OPENCODE_LIBC
 OPENCODE_TERMINAL
 ```
 
-### Critical env vars for gstack integration
+### gstack entegrasyonu için kritik ortam değişkenleri
 
-**`SLATE_DISABLE_CLAUDE_CODE_SKILLS`** — When set, `.claude/skills/` loading is disabled.
-This makes publishing to `.slate/skills/` load-bearing, not just an optimization.
-Without native `.slate/` publishing, gstack skills vanish when this flag is set.
+**`SLATE_DISABLE_CLAUDE_CODE_SKILLS`** — Ayarlandığında, `.claude/skills/` yüklemesi devre dışı bırakılır.
+Bu, `.slate/skills/` yayınlamayı sadece bir optimizasyondan daha fazla, kritik hale getirir.
+Yerel `.slate/` yayınlama olmadan, bu bayrak ayarlandığında gstack yetenekleri kaybolur.
 
-**`SLATE_TEST_HOME`** — Useful for E2E tests. Can redirect Slate's home directory
-to an isolated temp directory, similar to how Codex tests use a temp HOME.
+**`SLATE_TEST_HOME`** — Uçtan uca testler için kullanışlı. Slate'in ana dizinini yalıtılmış bir geçici dizine yönlendirebilir, Codex testlerinin geçici HOME kullanmasına benzer şekilde.
 
-**`SLATE_DANGEROUSLY_SKIP_PERMISSIONS`** — Required for headless E2E tests.
+**`SLATE_DANGEROUSLY_SKIP_PERMISSIONS`** — Başsız uçtan uca testler için gerekli.
 
-## Model References (from binary)
+## Model Referansları (ikili dosyadan)
 
 ```
 anthropic/claude-sonnet-4.6
 anthropic/claude-opus-4
 anthropic/claude-haiku-4
-anthropic/slate              — Slate's own model routing
+anthropic/slate              — Slate'in kendi model yönlendirmesi
 openai/gpt-5.3-codex
 google/nano-banana
 randomlabs/fast-default-alpha
 ```
 
-## API Endpoints (from binary)
+## API Endpoint'leri (ikili dosyadan)
 
 ```
-https://api.randomlabs.ai                          — main API
-https://api.randomlabs.ai/exaproxy                 — Exa search proxy
-https://agent-worker-prod.randomlabs.workers.dev   — production worker
-https://agent-worker-dev.randomlabs.workers.dev    — dev worker
-https://dashboard.randomlabs.ai                    — dashboard
-https://docs.randomlabs.ai                         — documentation
-https://randomlabs.ai/config.json                  — remote config
+https://api.randomlabs.ai                          — ana API
+https://api.randomlabs.ai/exaproxy                 — Exa arama proxy'si
+https://agent-worker-prod.randomlabs.workers.dev   — üretim çalışanı
+https://agent-worker-dev.randomlabs.workers.dev    — geliştirme çalışanı
+https://dashboard.randomlabs.ai                    — pano
+https://docs.randomlabs.ai                         — belgeler
+https://randomlabs.ai/config.json                  — uzaktan config
 ```
 
-Brew tap: `anthropic/tap/slate` (notable: under Anthropic's tap, not Random Labs)
+Brew tap: `anthropic/tap/slate` (dikkat çekici: Random Labs'ın değil, Anthropic'ın tap'ı altında)
 
-## npm Package Structure
+## npm Paket Yapısı
 
 ```
-@randomlabs/slate (8.8 kB, thin launcher)
-├── bin/slate           — Node.js launcher (finds platform binary in node_modules)
-├── bin/slate1          — Bun launcher (same logic, import.meta.filename)
-├── postinstall.mjs     — Verifies platform binary exists, symlinks if needed
-└── package.json        — Declares optionalDependencies for all platforms
+@randomlabs/slate (8.8 kB, ince başlatıcı)
+├── bin/slate           — Node.js başlatıcı (platform ikili dosyasını node_modules içinde bulur)
+├── bin/slate1          — Bun başlatıcı (aynı mantık, import.meta.filename)
+├── postinstall.mjs     — Platform ikili dosyasının varlığını doğrular, gerekirse sembolik bağ oluşturur
+└── package.json        — Tüm platformlar için optionalDependencies bildirir
 
-Platform packages (85MB each):
+Platform paketleri (her biri 85MB):
 ├── @randomlabs/slate-darwin-arm64
 ├── @randomlabs/slate-darwin-x64
 ├── @randomlabs/slate-linux-arm64
@@ -215,58 +211,50 @@ Platform packages (85MB each):
 └── @randomlabs/slate-windows-x64-baseline
 ```
 
-Binary override: `SLATE_BIN_PATH` env var skips all discovery, runs the specified binary directly.
+İkili dosya geçersiz kılma: `SLATE_BIN_PATH` ortam değişkeni tüm keşfi atlar ve belirtilen ikili dosyayı doğrudan çalıştırır.
 
-## What Already Works Today
+## Bugün Zaten Çalışan Şey
 
-gstack skills already work in Slate via the `.claude/skills/` fallback path.
-No changes needed for basic functionality. Users who install gstack for Claude Code
-and also use Slate will find their skills available in both agents.
+gstack yetenekleri `.claude/skills/` geri dönüş yolu üzerinden Slate'te zaten çalışıyor.
+Temel işlevsellik için değişiklik gerekmiyor. Claude Code için gstack yükleyen ve ayrıca Slate kullanan kullanıcılar, yeteneklerini her iki ajansında da mevcut bulacaktır.
 
-## What First-Class Support Adds
+## Birinci Sınıf Destek Ne Ekler
 
-1. **Reliability** — `.slate/skills/` is Slate's highest-priority path. Immune to
-   `SLATE_DISABLE_CLAUDE_CODE_SKILLS`.
-2. **Optimized frontmatter** — Strip Claude-specific fields (allowed-tools, hooks, version)
-   that Slate doesn't use. Keep only `name` and `description`.
-3. **Setup script** — Auto-detect `slate` binary, install skills to `~/.slate/skills/`.
-4. **E2E tests** — Verify skills work when invoked by Slate directly.
+1. **Güvenilirlik** — `.slate/skills/` Slate'in en yüksek öncelikli yoludur. `SLATE_DISABLE_CLAUDE_CODE_SKILLS`'ten etkilenmez.
+2. **Optimize edilmiş ön bilgi** — Slate'in kullanmadığı Claude'a özgü alanları (allowed-tools, hooks, version) çıkarır. Sadece `name` ve `description` saklanır.
+3. **Kurulum betiği** — `slate` ikili dosyasını otomatik algılar, yetenekleri `~/.slate/skills/` konumuna kurar.
+4. **Uçtan uca testler** — Yeteneklerin Slate tarafından doğrudan çağrıldığında çalıştığını doğrular.
 
-## Blocked On: Host Config Refactor
+## Bağlı: Host Config Yeniden Düzenlemesi
 
-Codex's outside voice review identified that adding Slate as a 4th host (after Claude,
-Codex, Factory) is "host explosion for a path alias." The current architecture has:
+Codex'in dış ses incelemesi, Slate'i 4. host (Claude, Codex, Factory'den sonra) olarak eklemenin "bir yol diğer adı için host patlaması" olduğunu belirledi. Mevcut mimari şunlara sahip:
 
-- Hard-coded host names in `type Host = 'claude' | 'codex' | 'factory'`
-- Per-host branches in `transformFrontmatter()` with near-duplicate logic
-- Per-host config in `EXTERNAL_HOST_CONFIG` with similar patterns
-- Per-host functions in the setup script (`create_codex_runtime_root`, `link_codex_skill_dirs`)
-- Host names duplicated in `bin/gstack-platform-detect`, `bin/gstack-uninstall`, `bin/dev-setup`
+- `type Host = 'claude' | 'codex' | 'factory` içinde sabit kodlu host adları
+- Yakın kopya mantıkla `transformFrontmatter()`
+- Benzer kalıplarla `EXTERNAL_HOST_CONFIG` içinde host başına config
+- Kurulum betiğinde host başına işlevler (`create_codex_runtime_root`, `link_codex_skill_dirs`)
+- `bin/gstack-platform-detect`, `bin/gstack-uninstall`, `bin/dev-setup` içinde çoğaltılan host adları
 
-Adding Slate means copying all of these patterns again. A refactor to make hosts
-data-driven (config objects instead of if/else branches) would make Slate integration
-trivial AND make future hosts (any new OpenCode fork, any new agent) zero-effort.
+Slate eklemek, bu kalıpların hepsinin kopyalanması demek. Hostları veri güdümlü (if/else dalları yerine config nesneleri) yapan bir yeniden düzenleme, Slate entegrasyonunu önemsiz hale getirir VE gelecekteki hostları (herhangi bir yeni OpenCode çatalı, herhangi bir yeni ajans) sıfır çabayla yapar.
 
-### Missing from the plan (identified by Codex)
+### Plandan eksik (Codex tarafından tanımlandı)
 
-- `lib/worktree.ts` only copies `.agents/`, not `.slate/` — E2E tests in worktrees won't
-  have Slate skills
-- `bin/gstack-uninstall` doesn't know about `.slate/`
-- `bin/dev-setup` doesn't wire `.slate/` for contributor dev mode
-- `bin/gstack-platform-detect` doesn't detect Slate
-- E2E tests should set `SLATE_DISABLE_CLAUDE_CODE_SKILLS=1` to prove `.slate/` path
-  actually works (not just falling back to `.claude/`)
+- `lib/worktree.ts` sadece `.agents/` kopyalar, `.slate/` değil — worktree'lerdeki uçtan uca testlerde Slate yetenekleri olmayacak
+- `bin/gstack-uninstall` `.slate/` bilmiyor
+- `bin/dev-setup` katılımcı geliştirme modu için `.slate/` bağlamıyor
+- `bin/gstack-platform-detect` Slate'i algılamıyor
+- Uçtan uca testler `.slate/` yolunun gerçekten çalıştığını kanıtlamak için `SLATE_DISABLE_CLAUDE_CODE_SKILLS=1` ayarlamalıdır (sadece `.claude/`'a geri dönmek değil)
 
-## Session Runner Design (for later)
+## Oturum Çalıştırıcı Tasarımı (daha sonra)
 
-When the JSONL format is verified, the session runner should:
+JSONL formatı doğrulandığında, oturum çalıştırıcısı şunları yapmalıdır:
 
-- Spawn: `slate -q "<prompt>" --stream-json --dangerously-skip-permissions -w <dir>`
-- Parse: Claude Code SDK-compatible NDJSON (assumed, needs verification)
-- Skills: Install to `.slate/skills/` in test fixture (not `.claude/skills/`)
-- Auth: Use `SLATE_API_KEY` or existing `~/.slate/` credentials
-- Isolation: Use `SLATE_TEST_HOME` for home directory isolation
-- Timeout: 300s default (same as Codex)
+- Başlat: `slate -q "<prompt>" --stream-json --dangerously-skip-permissions -w <dir>`
+- Ayrıştır: Claude Code SDK uyumlu NDJSON (varsayılan, doğrulanması gerekiyor)
+- Yetenekler: Test fixture'ında `.slate/skills/` konumuna kur (`.claude/skills/` değil)
+- Auth: `SLATE_API_KEY` veya mevcut `~/.slate/` kimlik bilgilerini kullan
+- İzolasyon: Ana dizin izolasyonu için `SLATE_TEST_HOME` kullan
+- Zaman aşımı: 300s varsayılan (Codex ile aynı)
 
 ```typescript
 export interface SlateResult {
@@ -281,10 +269,10 @@ export interface SlateResult {
 }
 ```
 
-## Docs References
+## Belgeler Referansları
 
-- Slate docs: https://docs.randomlabs.ai
-- Quickstart: https://docs.randomlabs.ai/en/getting-started/quickstart
-- Skills: https://docs.randomlabs.ai/en/using-slate/skills
-- Configuration: https://docs.randomlabs.ai/en/using-slate/configuration
-- Hotkeys: https://docs.randomlabs.ai/en/using-slate/hotkey_reference
+- Slate belgeleri: https://docs.randomlabs.ai
+- Hızlı başlangıç: https://docs.randomlabs.ai/en/getting-started/quickstart
+- Yetenekler: https://docs.randomlabs.ai/en/using-slate/skills
+- Yapılandırma: https://docs.randomlabs.ai/en/using-slate/configuration
+- Kısayol tuşları: https://docs.randomlabs.ai/en/using-slate/hotkey_reference

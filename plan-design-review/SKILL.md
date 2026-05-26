@@ -4,13 +4,13 @@ preamble-tier: 3
 interactive: true
 version: 2.0.0
 description: |
-  Designer's eye plan review — interactive, like CEO and Eng review.
-  Rates each design dimension 0-10, explains what would make it a 10,
-  then fixes the plan to get there. Works in plan mode. For live site
-  visual audits, use /design-review. Use when asked to "review the design plan"
-  or "design critique".
-  Proactively suggest when the user has a plan with UI/UX components that
-  should be reviewed before implementation. (gstack)
+  Tasarımcı gözüyle plan incelemesi — etkileşimli, CEO ve Mühendislik incelemesi gibi.
+  Her tasarım boyutunu 0-10 puanlar, 10'u neyin yapacağını açıklar,
+  sonra planı bu seviyeye ulaşacak şekilde düzeltir. Plan modunda çalışır. Canlı site
+  görsel denetimleri için /plan-design-review kullanın. "tasarım planını incele"
+  veya "tasarım eleştirisi" isteklerinde kullanın.
+  Kullanıcının uygulama öncesi incelenmesi gereken UI/UX bileşenleri olan planı
+  olduğunda proaktif olarak öner. (gstack)
 allowed-tools:
   - Read
   - Edit

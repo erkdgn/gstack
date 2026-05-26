@@ -3,10 +3,10 @@ name: land-and-deploy
 preamble-tier: 4
 version: 1.0.0
 description: |
-  Land and deploy workflow. Merges the PR, waits for CI and deploy,
-  verifies production health via canary checks. Takes over after /ship
-  creates the PR. Use when: "merge", "land", "deploy", "merge and verify",
-  "land it", "ship it to production". (gstack)
+  Birleştir ve dağıt iş akışı. PR'ı birleştirir, CI ve dağıtımı bekler,
+  canary kontrolleriyle üretim sağlığını doğrular. /ship PR'ı oluşturduktan sonra
+  devralır. Şu durumlarda kullanın: "birleştir", "gönder", "dağıt", "birleştir ve doğrula",
+  "gönder", "üretime dağıt". (gstack)
 allowed-tools:
   - Bash
   - Read
@@ -14,9 +14,9 @@ allowed-tools:
   - Glob
   - AskUserQuestion
 triggers:
-  - merge and deploy
-  - land the pr
-  - ship to production
+  - birleştir ve dağıt
+  - PR'ı gönder
+  - üretime dağıt
 ---
 <!-- AUTO-GENERATED from SKILL.md.tmpl — do not edit directly -->
 <!-- Regenerate: bun run gen:skill-docs -->

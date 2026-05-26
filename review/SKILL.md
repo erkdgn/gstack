@@ -3,10 +3,10 @@ name: review
 preamble-tier: 4
 version: 1.0.0
 description: |
-  Pre-landing PR review. Analyzes diff against the base branch for SQL safety, LLM trust
-  boundary violations, conditional side effects, and other structural issues. Use when
-  asked to "review this PR", "code review", "pre-landing review", or "check my diff".
-  Proactively suggest when the user is about to merge or land code changes. (gstack)
+  İniş öncesi PR incelemesi. Diff'i temel dala karşı SQL güvenliği, LLM güven sınırı
+  ihlalleri, koşullu yan etkiler ve diğer yapısal sorunlar için analiz eder. "bu PR'ı incele",
+  "kod incelemesi", "iniş öncesi inceleme" veya "diff'imi kontrol et" isteklerinde kullanın.
+  Kullanıcı kod değişikliklerini birleştirmek veya göndermek üzereyken proaktif olarak öner. (gstack)
 allowed-tools:
   - Bash
   - Read
@@ -18,10 +18,10 @@ allowed-tools:
   - AskUserQuestion
   - WebSearch
 triggers:
-  - review this pr
-  - code review
-  - check my diff
-  - pre-landing review
+  - bu PR'ı incele
+  - kod incelemesi
+  - diff'imi kontrol et
+  - iniş öncesi inceleme
 ---
 <!-- AUTO-GENERATED from SKILL.md.tmpl — do not edit directly -->
 <!-- Regenerate: bun run gen:skill-docs -->

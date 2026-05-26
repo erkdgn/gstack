@@ -3,11 +3,11 @@ name: ship
 preamble-tier: 4
 version: 1.0.0
 description: |
-  Ship workflow: detect + merge base branch, run tests, review diff, bump VERSION,
-  update CHANGELOG, commit, push, create PR. Use when asked to "ship", "deploy",
-  "push to main", "create a PR", "merge and push", or "get it deployed".
-  Proactively invoke this skill (do NOT push/PR directly) when the user says code
-  is ready, asks about deploying, wants to push code up, or asks to create a PR. (gstack)
+  Gönder iş akışı: temel dalı algıla + birleştir, testleri çalıştır, diff'i incele, SÜRÜM'ü güncelle,
+  DEĞİŞİKLİKLER'i güncelle, commit et, push et, PR oluştur. "gönder", "dağıt",
+  "main'e push et", "PR oluştur", "birleştir ve push et" veya "dağıtıma al" isteklerinde kullanın.
+  Kullanıcı kodun hazır olduğunu söylediğinde, dağıtım hakkında sorduğunda, kodu push etmek istediğinde
+  veya PR oluşturmak istediğinde bu yeteneği proaktif olarak çağırın (doğrudan push/PR yapmayın). (gstack)
 allowed-tools:
   - Bash
   - Read
@@ -19,10 +19,10 @@ allowed-tools:
   - AskUserQuestion
   - WebSearch
 triggers:
-  - ship it
-  - create a pr
-  - push to main
-  - deploy this
+  - gönder
+  - PR oluştur
+  - main'e push et
+  - dağıt
 ---
 <!-- AUTO-GENERATED from SKILL.md.tmpl — do not edit directly -->
 <!-- Regenerate: bun run gen:skill-docs -->

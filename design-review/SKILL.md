@@ -3,13 +3,14 @@ name: design-review
 preamble-tier: 4
 version: 2.0.0
 description: |
-  Designer's eye QA: finds visual inconsistency, spacing issues, hierarchy problems,
-  AI slop patterns, and slow interactions — then fixes them. Iteratively fixes issues
-  in source code, committing each fix atomically and re-verifying with before/after
-  screenshots. For plan-mode design review (before implementation), use /plan-design-review.
-  Use when asked to "audit the design", "visual QA", "check if it looks good", or "design polish".
-  Proactively suggest when the user mentions visual inconsistencies or
-  wants to polish the look of a live site. (gstack)
+  Tasarımcı gözüyle QA: görsel tutarsızlık, aralık sorunları, hiyerarşi problemleri,
+  AI çöp kalıpları ve yavaş etkileşimler bulur — sonra düzeltir. Kaynak kodda sorunları
+  yinelemeli olarak düzeltir, her düzeltmeyi atomik olarak commit eder ve önce/sonra
+  ekran görüntüleriyle yeniden doğrular. Plan modu tasarım incelemesi (uygulama öncesi)
+  için /plan-design-review kullanın. "tasarımı denetle", "görsel QA", "iyi görünüyor mu kontrol et"
+  veya "tasarım parlat" isteklerinde kullanın.
+  Kullanıcı görsel tutarsızlıklardan bahsettiğinde veya canlı bir sitenin
+  görünümünü parlatmak istediğinde proaktif olarak öner. (gstack)
 allowed-tools:
   - Bash
   - Read

@@ -1,84 +1,76 @@
-# Design: slop-scan integration in /review and /ship
+# Tasarım: /review ve /ship içinde slop-scan entegrasyonu
 
-Status: deferred
-Created: 2026-04-09
-Depends on: slop-diff script (scripts/slop-diff.ts, already landed)
+Durum: ertelendi
+Oluşturulma: 2026-04-09
+Bağımlılıklar: slop-diff betiği (scripts/slop-diff.ts, zaten yerleşmiş)
 
-## Problem
+## Sorun
 
-slop-scan findings are only visible if you run `bun run slop:diff` manually. They
-should surface automatically during code review and shipping, the same way SQL safety
-and trust boundary checks do.
+slop-scan bulguları sadece `bun run slop:diff` komutunu manuel olarak çalıştırırsanız görünür. Kod incelemesi ve gönderim sırasında otomatik olarak yüzeye çıkmalıdır, SQL güvenliği ve güven sınırı kontrollerinin yaptığı gibi.
 
-## Integration points
+## Entegrasyon noktaları
 
-### /review (Step 4, after checklist pass)
+### /review (Adım 4, kontrol listesi geçişinden sonra)
 
-Run `bun run slop:diff` after the critical/informational checklist pass. Show new
-findings inline with other review output:
+Kritik/bilgilendirici kontrol listesi geçişinden sonra `bun run slop:diff` çalıştırın. Yeni bulguları diğer inceleme çıktısıyla birlikte gösterin:
 
 ```
-Pre-Landing Review: 3 issues (1 critical, 2 informational)
+Gönderim Öncesi İnceleme: 3 sorun (1 kritik, 2 bilgilendirici)
 
-AI Slop: +2 new findings, -0 removed
+AI Slop: +2 yeni bulgu, -0 kaldırılan
   browse/src/new-feature.ts
-    defensive.empty-catch: 2 locations
-      line 42: empty catch, boundary=filesystem
-      line 87: empty catch, boundary=process
+    defensive.empty-catch: 2 konum
+      satır 42: boş catch, boundary=filesystem
+      satır 87: boş catch, boundary=process
 ```
 
-Classification: INFORMATIONAL (never blocks merge, just surfaces the pattern).
+Sınıflandırma: BİLGİLENDİRİCİ (asla birleştirmeyi engellemez, sadece kalıbı gösterir).
 
-Fix-First heuristic applies: if the finding is an empty catch around a file op,
-auto-fix with `safeUnlink()`. If it's a catch-and-log in extension code, skip
-(that's the correct pattern per CLAUDE.md guidelines).
+Fix-First buluşsal kuralı geçerlidir: bulgu bir dosya işlemi etrafındaki boş bir catchesa, `safeUnlink()` ile otomatik düzelt. Uzantı kodundaki bir catch-and-log ise, atla (CLAUDE.md yönergelerine göre bu doğru kalıptır).
 
-### /ship (Step 3.5, pre-landing review + PR body)
+### /ship (Adım 3.5, gönderim öncesi inceleme + PR gövdesi)
 
-Same integration as /review. Additionally, show a one-line summary in the PR body:
+/review ile aynı entegrasyon. Ek olarak, PR gövdesinde tek satırlık bir özet göster:
 
 ```markdown
-## Pre-Landing Review
-- 2 issues auto-fixed, 0 needs input
-- AI Slop: +0 new / -3 removed ✓
+## Gönderim Öncesi İnceleme
+- 2 sorun otomatik düzeltildi, 0 giriş gerektiriyor
+- AI Slop: +0 yeni / -3 kaldırılan ✓
 ```
 
-### Review Readiness Dashboard
+### İnceleme Hazırlık Panosu
 
-Do NOT add a row. Slop is a diagnostic on the diff, not a review that gets "run"
-independently. It shows up inside Eng Review output, not as its own dashboard entry.
+Satır EKLEMEYİN. Slop, incelemeden bağımsız olarak "çalıştırılan" bir inceleme değil, diff üzerindeki bir tanıdır. Eng Review çıktısının içinde görünür, kendi pano girişi olarak değil.
 
-## What to auto-fix vs what to skip
+## Ne otomatik düzeltilmeli vs ne atlanmalı
 
-Follow CLAUDE.md "Slop-scan" section. Summary:
+CLAUDE.md "Slop-scan" bölümünü takip et. Özet:
 
-**Auto-fix (genuine quality improvements):**
-- Empty catch around `fs.unlinkSync` → replace with `safeUnlink()`
-- Empty catch around `process.kill` → replace with `safeKill()`
-- `return await` with no enclosing try → remove `await`
-- Untyped catch around URL parsing → add `instanceof TypeError` check
+**Otomatik düzelt (gerçek kalite iyileştirmeleri):**
+- `fs.unlinkSync` etrafındaki boş catch → `safeUnlink()` ile değiştir
+- `process.kill` etrafındaki boş catch → `safeKill()` ile değiştir
+- Kapsayan try olmadan `return await` → `await` kaldır
+- URL ayrıştırma etrafındaki türlenmemiş catch → `instanceof TypeError` kontrolü ekle
 
-**Skip (correct patterns that slop-scan flags):**
-- `.catch(() => {})` on fire-and-forget browser ops (page.close, bringToFront)
-- Catch-and-log in Chrome extension code (uncaught errors crash extensions)
-- `safeUnlinkQuiet` in shutdown/emergency paths (swallowing all errors is correct)
-- Pass-through wrappers that delegate to active session (API stability layer)
+**Atla (slop-scan'ın bayrakladığı doğru kalıplar):**
+- Fire-and-forget browser işlemlerinde `.catch(() => {})` (page.close, bringToFront)
+- Chrome uzantı kodunda catch-and-log (yakalanmayan hatalar uzantıları çökertir)
+- Kapatma/acil durum yollarında `safeUnlinkQuiet` (tüm hataları yutmak doğrudur)
+- Aktif oturuma devreden geçiş sarmalayıcıları (API kararlılık katmanı)
 
-## Implementation notes
+## Uygulama notları
 
-- `scripts/slop-diff.ts` already handles the heavy lifting (worktree-based base
-  comparison, line-number-insensitive fingerprinting, graceful fallback)
-- The review/ship skills run bash blocks. Integration is: run the script, parse
-  the output, include in the review findings
-- If slop-scan is not installed (`npx slop-scan` fails), skip silently
-- The script exits 0 always (diagnostic, never gates)
+- `scripts/slop-diff.ts` zaten ağır işi halleder (worktree tabanlı temel karşılaştırma, satır numarası duyarsız parmak izi, zarif geri dönüş)
+- review/ship yetenekleri bash blokları çalıştırır. Entegrasyon şudur: betiği çalıştır, çıktıyı ayrıştır, inceleme bulgularına dahil et
+- slop-scan kurulu değilse (`npx slop-scan` başarısız olursa), sessizce atla
+- Betik her zaman 0 çıkar (tanısal, asla geçit yapmaz)
 
-## Effort estimate
+## Efor tahmini
 
-| Task | Human | CC+gstack |
+| Görev | İnsan | CC+gstack |
 |------|-------|-----------|
-| Add to review/SKILL.md.tmpl | 2 hours | 10 min |
-| Add to ship/SKILL.md.tmpl | 2 hours | 10 min |
-| Add to review/checklist.md | 1 hour | 5 min |
-| Test with actual PRs | 2 hours | 15 min |
-| Regenerate SKILL.md files | — | 1 min |
+| review/SKILL.md.tmpl'e ekle | 2 saat | 10 dk |
+| ship/SKILL.md.tmpl'e ekle | 2 saat | 10 dk |
+| review/checklist.md'e ekle | 1 saat | 5 dk |
+| Gerçek PR'lerle test et | 2 saat | 15 dk |
+| SKILL.md dosyalarını yeniden oluştur | — | 1 dk |

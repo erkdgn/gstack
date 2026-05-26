@@ -4,14 +4,14 @@ preamble-tier: 3
 interactive: true
 version: 1.0.0
 description: |
-  CEO/founder-mode plan review. Rethink the problem, find the 10-star product,
-  challenge premises, expand scope when it creates a better product. Four modes:
-  SCOPE EXPANSION (dream big), SELECTIVE EXPANSION (hold scope + cherry-pick
-  expansions), HOLD SCOPE (maximum rigor), SCOPE REDUCTION (strip to essentials).
-  Use when asked to "think bigger", "expand scope", "strategy review", "rethink this",
-  or "is this ambitious enough".
-  Proactively suggest when the user is questioning scope or ambition of a plan,
-  or when the plan feels like it could be thinking bigger. (gstack)
+  CEO/kurucu modu plan incelemesi. Sorunu yeniden düşün, 10 yıldızlı ürünü bul,
+  ön kabulleri sorgula, daha iyi ürün yarattığında kapsamı genişlet. Dört mod:
+  KAPSAM GENİŞLETME (büyük düşün), SEÇİCİ GENİŞLETME (kapsamı tut + genişletmeleri seç),
+  KAPSAMI TUT (maksimum titizlik), KAPSAM DARALTMA (özgü indir).
+  "daha büyük düşün", "kapsamı genişlet", "strateji incelemesi", "bunu yeniden düşün"
+  veya "bu yeterince iddialı mı" isteklerinde kullanın.
+  Kullanıcı bir planın kapsamını veya hırsını sorguladığında veya plan daha büyük
+  düşünebileceğinde proaktif olarak öner. (gstack)
 benefits-from: [office-hours]
 allowed-tools:
   - Read
@@ -21,8 +21,8 @@ allowed-tools:
   - AskUserQuestion
   - WebSearch
 triggers:
-  - think bigger
-  - expand scope
+  - daha büyük düşün
+  - kapsamı genişlet
   - strategy review
   - rethink this plan
 gbrain:

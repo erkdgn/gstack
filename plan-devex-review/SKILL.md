@@ -4,15 +4,15 @@ preamble-tier: 3
 interactive: true
 version: 2.0.0
 description: |
-  Interactive developer experience plan review. Explores developer personas,
-  benchmarks against competitors, designs magical moments, and traces friction
-  points before scoring. Three modes: DX EXPANSION (competitive advantage),
-  DX POLISH (bulletproof every touchpoint), DX TRIAGE (critical gaps only).
-  Use when asked to "DX review", "developer experience audit", "devex review",
-  or "API design review".
-  Proactively suggest when the user has a plan for developer-facing products
-  (APIs, CLIs, SDKs, libraries, platforms, docs). (gstack)
-  Voice triggers (speech-to-text aliases): "dx review", "developer experience review", "devex review", "devex audit", "API design review", "onboarding review".
+  Etkileşimli geliştirici deneyimi plan incelemesi. Geliştirici kişiliklerini keşfeder,
+  rakiplere göre kıyaslar, büyülü anlar tasarlar ve puanlamadan önce sürtünme
+  noktalarını izler. Üç mod: DX GENİŞLETME (rekabet avantajı),
+  DX PARLATMA (her temas noktasını sağlamlaştır), DX TRIYAJ (sadece kritik boşluklar).
+  "DX incelemesi", "geliştirici deneyimi denetimi", "devex incelemesi"
+  veya "API tasarım incelemesi" isteklerinde kullanın.
+  Kullanıcının geliştiriciye yönelik ürünler (API'ler, CLI'lar, SDK'lar, kütüphaneler,
+  platformlar, dokümanlar) için planı olduğunda proaktif olarak öner. (gstack)
+  Ses tetikleyicileri (konuşmadan metne takma adlar): "dx incelemesi", "geliştirici deneyimi incelemesi", "devex incelemesi", "devex denetimi", "API tasarım incelemesi", "onboarding incelemesi".
 benefits-from: [office-hours]
 allowed-tools:
   - Read
